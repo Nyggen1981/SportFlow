@@ -25,6 +25,7 @@ interface Resource {
   color: string | null
   isActive: boolean
   category: {
+    id: string
     name: string
     color: string
   } | null
@@ -32,10 +33,18 @@ interface Resource {
   _count: { bookings: number }
 }
 
+interface Category {
+  id: string
+  name: string
+  color: string
+}
+
 export default function AdminResourcesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [resources, setResources] = useState<Resource[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<string>("")
   const [isLoading, setIsLoading] = useState(true)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
 
@@ -49,16 +58,27 @@ export default function AdminResourcesPage() {
 
   useEffect(() => {
     if (session?.user?.role === "admin") {
-      fetchResources()
+      fetchData()
     }
   }, [session])
 
-  const fetchResources = async () => {
-    const response = await fetch("/api/admin/resources")
-    const data = await response.json()
-    setResources(data)
+  const fetchData = async () => {
+    const [resourcesRes, categoriesRes] = await Promise.all([
+      fetch("/api/admin/resources"),
+      fetch("/api/admin/categories")
+    ])
+    const [resourcesData, categoriesData] = await Promise.all([
+      resourcesRes.json(),
+      categoriesRes.json()
+    ])
+    setResources(resourcesData)
+    setCategories(categoriesData)
     setIsLoading(false)
   }
+
+  const filteredResources = selectedCategory
+    ? resources.filter(r => r.category?.id === selectedCategory)
+    : resources
 
   const toggleActive = async (resourceId: string, isActive: boolean) => {
     await fetch(`/api/admin/resources/${resourceId}`, {
@@ -66,7 +86,7 @@ export default function AdminResourcesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isActive: !isActive })
     })
-    fetchResources()
+    fetchData()
     setOpenMenu(null)
   }
 
@@ -75,7 +95,7 @@ export default function AdminResourcesPage() {
       return
     }
     await fetch(`/api/admin/resources/${resourceId}`, { method: "DELETE" })
-    fetchResources()
+    fetchData()
     setOpenMenu(null)
   }
 
@@ -111,8 +131,46 @@ export default function AdminResourcesPage() {
           </Link>
         </div>
 
+        {/* Category filter */}
+        {categories.length > 0 && (
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-500">Filtrer:</span>
+            <button
+              onClick={() => setSelectedCategory("")}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                selectedCategory === ""
+                  ? "bg-gray-900 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              Alle ({resources.length})
+            </button>
+            {categories.map((category) => {
+              const count = resources.filter(r => r.category?.id === category.id).length
+              return (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${
+                    selectedCategory === category.id
+                      ? "text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                  style={selectedCategory === category.id ? { backgroundColor: category.color } : {}}
+                >
+                  <span 
+                    className="w-2 h-2 rounded-full" 
+                    style={{ backgroundColor: category.color }}
+                  />
+                  {category.name} ({count})
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         <div className="space-y-4">
-          {resources.map((resource) => (
+          {filteredResources.map((resource) => (
             <div 
               key={resource.id} 
               className={`card p-5 ${!resource.isActive ? 'opacity-60' : ''}`}
@@ -211,13 +269,27 @@ export default function AdminResourcesPage() {
           ))}
         </div>
 
-        {resources.length === 0 && (
+        {filteredResources.length === 0 && (
           <div className="card p-12 text-center">
-            <p className="text-gray-500 mb-4">Ingen fasiliteter enda</p>
-            <Link href="/admin/resources/new" className="btn btn-primary">
-              <Plus className="w-5 h-5" />
-              Legg til første fasilitet
-            </Link>
+            {resources.length === 0 ? (
+              <>
+                <p className="text-gray-500 mb-4">Ingen fasiliteter enda</p>
+                <Link href="/admin/resources/new" className="btn btn-primary">
+                  <Plus className="w-5 h-5" />
+                  Legg til første fasilitet
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="text-gray-500 mb-4">Ingen fasiliteter i denne kategorien</p>
+                <button 
+                  onClick={() => setSelectedCategory("")}
+                  className="btn btn-secondary"
+                >
+                  Vis alle fasiliteter
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
