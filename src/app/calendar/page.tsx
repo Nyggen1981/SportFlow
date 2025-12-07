@@ -8,7 +8,6 @@ export const dynamic = 'force-dynamic'
 async function getResources() {
   return prisma.resource.findMany({
     where: { isActive: true },
-    include: { category: true },
     orderBy: { name: "asc" },
     select: {
       id: true,
