@@ -259,30 +259,13 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
-              {organization?.logo ? (
-                <div className="w-8 h-8 rounded-lg overflow-hidden">
-                  <Image
-                    src={organization.logo}
-                    alt={organization.name || "Logo"}
-                    width={32}
-                    height={32}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-              ) : (
-                <div 
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
-                >
-                  <Calendar className="w-4 h-4 text-white" />
-                </div>
-              )}
-              <span className="font-semibold text-gray-900">
-                {organization?.name || "Arena Booking"}
-              </span>
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center">
+                <Calendar className="w-4 h-4 text-white" />
+              </div>
+              <span className="font-semibold text-gray-900">Arena Booking</span>
             </div>
             <p className="text-sm text-gray-500">
-              © {new Date().getFullYear()} {organization?.name || "Arena Booking"}
+              © {new Date().getFullYear()} Arena Booking – Enkel booking for idrettslag
             </p>
           </div>
         </div>
