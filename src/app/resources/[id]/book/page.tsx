@@ -13,7 +13,8 @@ import {
   Phone,
   Loader2,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Repeat
 } from "lucide-react"
 
 interface Resource {
@@ -39,6 +40,7 @@ export default function BookResourcePage({ params }: Props) {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [bookingCount, setBookingCount] = useState(1)
   const [error, setError] = useState("")
 
   // Form state
@@ -51,6 +53,11 @@ export default function BookResourcePage({ params }: Props) {
   const [contactName, setContactName] = useState("")
   const [contactEmail, setContactEmail] = useState("")
   const [contactPhone, setContactPhone] = useState("")
+  
+  // Recurring booking state
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [recurringType, setRecurringType] = useState<"weekly" | "biweekly" | "monthly">("weekly")
+  const [recurringEndDate, setRecurringEndDate] = useState("")
 
   useEffect(() => {
     fetch(`/api/resources/${id}`)
@@ -100,15 +107,20 @@ export default function BookResourcePage({ params }: Props) {
           endTime: endDateTime.toISOString(),
           contactName,
           contactEmail,
-          contactPhone
+          contactPhone,
+          isRecurring,
+          recurringType: isRecurring ? recurringType : undefined,
+          recurringEndDate: isRecurring ? recurringEndDate : undefined
         })
       })
 
+      const data = await response.json()
+      
       if (!response.ok) {
-        const data = await response.json()
         throw new Error(data.error || "Kunne ikke opprette booking")
       }
 
+      setBookingCount(data.count || 1)
       setSuccess(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Noe gikk galt")
@@ -146,11 +158,17 @@ export default function BookResourcePage({ params }: Props) {
           <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-8 h-8 text-green-600" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Booking sendt!</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            {bookingCount > 1 ? `${bookingCount} bookinger sendt!` : "Booking sendt!"}
+          </h1>
           <p className="text-gray-600 mb-6">
             {resource.requiresApproval 
-              ? "Din booking venter nå på godkjenning. Du vil få beskjed når den er behandlet."
-              : "Din booking er nå bekreftet."
+              ? bookingCount > 1
+                ? "Dine bookinger venter nå på godkjenning. Du vil få beskjed når de er behandlet."
+                : "Din booking venter nå på godkjenning. Du vil få beskjed når den er behandlet."
+              : bookingCount > 1
+                ? "Dine bookinger er nå bekreftet."
+                : "Din booking er nå bekreftet."
             }
           </p>
           <div className="flex flex-col gap-3">
@@ -293,6 +311,60 @@ export default function BookResourcePage({ params }: Props) {
             <p className="text-sm text-gray-500">
               Varighet må være mellom {resource.minBookingMinutes} og {resource.maxBookingMinutes} minutter
             </p>
+
+            {/* Recurring booking */}
+            <div className="p-4 bg-gray-50 rounded-xl space-y-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="isRecurring"
+                  checked={isRecurring}
+                  onChange={(e) => setIsRecurring(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="isRecurring" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Repeat className="w-4 h-4" />
+                  Gjentakende arrangement
+                </label>
+              </div>
+
+              {isRecurring && (
+                <div className="ml-8 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Gjentas
+                    </label>
+                    <select
+                      value={recurringType}
+                      onChange={(e) => setRecurringType(e.target.value as "weekly" | "biweekly" | "monthly")}
+                      className="input max-w-[200px]"
+                    >
+                      <option value="weekly">Hver uke</option>
+                      <option value="biweekly">Annenhver uke</option>
+                      <option value="monthly">Hver måned</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Gjentas til og med
+                    </label>
+                    <input
+                      type="date"
+                      value={recurringEndDate}
+                      onChange={(e) => setRecurringEndDate(e.target.value)}
+                      className="input max-w-[200px]"
+                      min={date || new Date().toISOString().split("T")[0]}
+                      required={isRecurring}
+                    />
+                  </div>
+                  {date && recurringEndDate && (
+                    <p className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+                      Dette vil opprette flere bookinger fra {new Date(date).toLocaleDateString("nb-NO")} til {new Date(recurringEndDate).toLocaleDateString("nb-NO")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Contact info */}
             <div className="pt-6 border-t border-gray-200">
