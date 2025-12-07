@@ -14,6 +14,9 @@ import {
 } from "lucide-react"
 import { ResourceCalendar } from "@/components/ResourceCalendar"
 
+// Disable caching to always show fresh data
+export const dynamic = 'force-dynamic'
+
 interface Props {
   params: Promise<{ id: string }>
 }

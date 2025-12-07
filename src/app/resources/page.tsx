@@ -4,6 +4,9 @@ import Link from "next/link"
 import Image from "next/image"
 import { MapPin, Clock, ArrowRight, Filter } from "lucide-react"
 
+// Disable caching to always show fresh data
+export const dynamic = 'force-dynamic'
+
 async function getResources() {
   return prisma.resource.findMany({
     where: { isActive: true },
