@@ -44,6 +44,8 @@ export async function POST(request: Request) {
     maxBookingMinutes,
     requiresApproval,
     advanceBookingDays,
+    blockPartsWhenWholeBooked,
+    blockWholeWhenPartBooked,
     openingHours,
     parts
   } = body
@@ -56,6 +58,8 @@ export async function POST(request: Request) {
       image,
       color,
       categoryId,
+      blockPartsWhenWholeBooked: blockPartsWhenWholeBooked ?? true,
+      blockWholeWhenPartBooked: blockWholeWhenPartBooked ?? true,
       minBookingMinutes: minBookingMinutes || 60,
       maxBookingMinutes: maxBookingMinutes || 240,
       requiresApproval: requiresApproval ?? true,

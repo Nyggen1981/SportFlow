@@ -65,6 +65,10 @@ model Resource {
   image       String?
   color       String?  // Custom color for this facility
   isActive    Boolean @default(true)
+  
+  // Part booking settings
+  blockPartsWhenWholeBooked Boolean @default(true)  // When whole facility is booked, block all parts
+  blockWholeWhenPartBooked  Boolean @default(true)  // When a part is booked, block "whole facility" option
 
   // Booking settings
   minBookingMinutes  Int     @default(60)

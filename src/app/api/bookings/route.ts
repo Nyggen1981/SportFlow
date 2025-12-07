@@ -129,33 +129,46 @@ export async function POST(request: Request) {
       let conflictingBookings
       
       if (!resourcePartId) {
-        // Booking whole facility - check if ANY booking exists (whole or parts)
-        conflictingBookings = await prisma.booking.findMany({
-          where: {
-            resourceId,
-            status: { in: ["approved", "pending"] },
-            OR: getTimeOverlapConditions(bookingStart, bookingEnd)
-          },
-          include: { resourcePart: true }
-        })
+        // Booking whole facility
+        if (resource.blockPartsWhenWholeBooked) {
+          // Check if ANY booking exists (whole or parts)
+          conflictingBookings = await prisma.booking.findMany({
+            where: {
+              resourceId,
+              status: { in: ["approved", "pending"] },
+              OR: getTimeOverlapConditions(bookingStart, bookingEnd)
+            },
+            include: { resourcePart: true }
+          })
+        } else {
+          // Only check for whole facility bookings
+          conflictingBookings = await prisma.booking.findMany({
+            where: {
+              resourceId,
+              resourcePartId: null,
+              status: { in: ["approved", "pending"] },
+              OR: getTimeOverlapConditions(bookingStart, bookingEnd)
+            },
+            include: { resourcePart: true }
+          })
+        }
       } else {
-        // Booking a specific part - check for:
-        // 1. Whole facility bookings (resourcePartId = null)
-        // 2. Same part bookings
+        // Booking a specific part
+        const partConditions: { resourcePartId: string | null }[] = [
+          { resourcePartId: resourcePartId } // Same part is always checked
+        ]
+        
+        if (resource.blockWholeWhenPartBooked) {
+          partConditions.push({ resourcePartId: null }) // Also check whole facility bookings
+        }
+
         conflictingBookings = await prisma.booking.findMany({
           where: {
             AND: [
               { resourceId },
               { status: { in: ["approved", "pending"] } },
-              {
-                OR: [
-                  { resourcePartId: null }, // Whole facility is booked
-                  { resourcePartId: resourcePartId } // Same part is booked
-                ]
-              },
-              {
-                OR: getTimeOverlapConditions(bookingStart, bookingEnd)
-              }
+              { OR: partConditions },
+              { OR: getTimeOverlapConditions(bookingStart, bookingEnd) }
             ]
           },
           include: { resourcePart: true }

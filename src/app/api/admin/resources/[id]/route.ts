@@ -103,7 +103,9 @@ export async function PUT(
       minBookingMinutes: body.minBookingMinutes,
       maxBookingMinutes: body.maxBookingMinutes,
       requiresApproval: body.requiresApproval,
-      advanceBookingDays: body.advanceBookingDays
+      advanceBookingDays: body.advanceBookingDays,
+      blockPartsWhenWholeBooked: body.blockPartsWhenWholeBooked ?? true,
+      blockWholeWhenPartBooked: body.blockWholeWhenPartBooked ?? true
     }
   })
 

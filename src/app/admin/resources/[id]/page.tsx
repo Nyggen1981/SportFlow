@@ -59,6 +59,8 @@ export default function EditResourcePage({ params }: Props) {
   const [requiresApproval, setRequiresApproval] = useState(true)
   const [limitAdvanceBooking, setLimitAdvanceBooking] = useState(true)
   const [advanceBookingDays, setAdvanceBookingDays] = useState("30")
+  const [blockPartsWhenWholeBooked, setBlockPartsWhenWholeBooked] = useState(true)
+  const [blockWholeWhenPartBooked, setBlockWholeWhenPartBooked] = useState(true)
   const [parts, setParts] = useState<Part[]>([])
 
   useEffect(() => {
@@ -87,6 +89,8 @@ export default function EditResourcePage({ params }: Props) {
       setRequiresApproval(resource.requiresApproval ?? true)
       setLimitAdvanceBooking(resource.advanceBookingDays !== null)
       setAdvanceBookingDays(String(resource.advanceBookingDays || 30))
+      setBlockPartsWhenWholeBooked(resource.blockPartsWhenWholeBooked ?? true)
+      setBlockWholeWhenPartBooked(resource.blockWholeWhenPartBooked ?? true)
       setParts(resource.parts?.map((p: { id: string; name: string; description?: string; capacity?: number }) => ({
         id: p.id,
         name: p.name,
@@ -164,6 +168,8 @@ export default function EditResourcePage({ params }: Props) {
           maxBookingMinutes: parseInt(maxBookingMinutes),
           requiresApproval,
           advanceBookingDays: limitAdvanceBooking ? parseInt(advanceBookingDays) : null,
+          blockPartsWhenWholeBooked,
+          blockWholeWhenPartBooked,
           parts: parts.filter(p => p.name.trim()).map(p => ({
             id: p.id,
             name: p.name,
@@ -471,47 +477,82 @@ export default function EditResourcePage({ params }: Props) {
                   Ingen deler lagt til. Hele fasiliteten vil bli booket som én enhet.
                 </p>
               ) : (
-                <div className="space-y-3">
-                  {parts.map((part, index) => (
-                    <div key={part.id || index} className="p-4 bg-gray-50 rounded-xl space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">
-                          {part.isNew ? "Ny del" : `Del ${index + 1}`}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => removePart(index)}
-                          className="text-red-500 hover:text-red-600 p-1"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                <>
+                  <div className="space-y-3">
+                    {parts.map((part, index) => (
+                      <div key={part.id || index} className="p-4 bg-gray-50 rounded-xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">
+                            {part.isNew ? "Ny del" : `Del ${index + 1}`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removePart(index)}
+                            className="text-red-500 hover:text-red-600 p-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="grid md:grid-cols-3 gap-3">
+                          <input
+                            type="text"
+                            value={part.name}
+                            onChange={(e) => updatePart(index, "name", e.target.value)}
+                            className="input"
+                            placeholder="Navn (f.eks. Bane 1)"
+                          />
+                          <input
+                            type="text"
+                            value={part.description}
+                            onChange={(e) => updatePart(index, "description", e.target.value)}
+                            className="input"
+                            placeholder="Beskrivelse"
+                          />
+                          <input
+                            type="number"
+                            value={part.capacity}
+                            onChange={(e) => updatePart(index, "capacity", e.target.value)}
+                            className="input"
+                            placeholder="Kapasitet"
+                          />
+                        </div>
                       </div>
-                      <div className="grid md:grid-cols-3 gap-3">
-                        <input
-                          type="text"
-                          value={part.name}
-                          onChange={(e) => updatePart(index, "name", e.target.value)}
-                          className="input"
-                          placeholder="Navn (f.eks. Bane 1)"
-                        />
-                        <input
-                          type="text"
-                          value={part.description}
-                          onChange={(e) => updatePart(index, "description", e.target.value)}
-                          className="input"
-                          placeholder="Beskrivelse"
-                        />
-                        <input
-                          type="number"
-                          value={part.capacity}
-                          onChange={(e) => updatePart(index, "capacity", e.target.value)}
-                          className="input"
-                          placeholder="Kapasitet"
-                        />
-                      </div>
+                    ))}
+                  </div>
+
+                  {/* Part booking settings */}
+                  <div className="mt-4 p-4 bg-blue-50 rounded-xl space-y-3">
+                    <h3 className="text-sm font-medium text-blue-900">Blokkering ved booking</h3>
+                    
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id="blockPartsWhenWholeBooked"
+                        checked={blockPartsWhenWholeBooked}
+                        onChange={(e) => setBlockPartsWhenWholeBooked(e.target.checked)}
+                        className="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label htmlFor="blockPartsWhenWholeBooked" className="text-sm text-blue-800">
+                        <span className="font-medium">Når hele fasiliteten bookes:</span> Blokker alle deler
+                        <p className="text-blue-600 text-xs mt-0.5">Eks: Booker man hele hallen, kan ingen booke enkeltbaner</p>
+                      </label>
                     </div>
-                  ))}
-                </div>
+
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id="blockWholeWhenPartBooked"
+                        checked={blockWholeWhenPartBooked}
+                        onChange={(e) => setBlockWholeWhenPartBooked(e.target.checked)}
+                        className="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label htmlFor="blockWholeWhenPartBooked" className="text-sm text-blue-800">
+                        <span className="font-medium">Når en del bookes:</span> Blokker &quot;hele fasiliteten&quot;
+                        <p className="text-blue-600 text-xs mt-0.5">Eks: Booker man Bane 1, kan ingen booke hele hallen</p>
+                      </label>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
 
