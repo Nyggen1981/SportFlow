@@ -22,6 +22,7 @@ interface Resource {
   name: string
   description: string | null
   location: string | null
+  color: string | null
   isActive: boolean
   category: {
     name: string
@@ -120,11 +121,11 @@ export default function AdminResourcesPage() {
                 <div className="flex items-start gap-4 flex-1">
                   <div 
                     className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: `${resource.category?.color || '#3b82f6'}20` }}
+                    style={{ backgroundColor: `${resource.color || resource.category?.color || '#3b82f6'}20` }}
                   >
                     <div 
                       className="w-6 h-6 rounded-full"
-                      style={{ backgroundColor: resource.category?.color || '#3b82f6' }}
+                      style={{ backgroundColor: resource.color || resource.category?.color || '#3b82f6' }}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
