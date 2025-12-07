@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/Navbar"
 import { prisma } from "@/lib/prisma"
 import Link from "next/link"
+import Image from "next/image"
 import { 
   Calendar, 
   Clock, 
@@ -8,9 +9,12 @@ import {
   ArrowRight, 
   CheckCircle2,
   Users,
-  Building2,
-  Sparkles
+  Building2
 } from "lucide-react"
+
+async function getOrganization() {
+  return prisma.organization.findFirst()
+}
 
 async function getResources() {
   return prisma.resource.findMany({
@@ -42,10 +46,14 @@ async function getUpcomingBookings() {
 }
 
 export default async function HomePage() {
-  const [resources, upcomingBookings] = await Promise.all([
+  const [organization, resources, upcomingBookings] = await Promise.all([
+    getOrganization(),
     getResources(),
     getUpcomingBookings()
   ])
+  
+  const primaryColor = organization?.primaryColor || "#2563eb"
+  const secondaryColor = organization?.secondaryColor || "#1e40af"
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
@@ -53,25 +61,47 @@ export default async function HomePage() {
       
       {/* Hero Section */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-700" />
+        <div 
+          className="absolute inset-0" 
+          style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+        />
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
         
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
           <div className="text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm text-white/90 text-sm mb-6">
-              <Sparkles className="w-4 h-4" />
-              Enkel booking for idrettslag
+            {/* Club Logo & Name */}
+            <div className="flex flex-col items-center mb-8">
+              {organization?.logo && (
+                <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl bg-white/10 backdrop-blur-sm p-3 mb-4 shadow-xl">
+                  <Image
+                    src={organization.logo}
+                    alt={organization.name || "Klubblogo"}
+                    width={128}
+                    height={128}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              )}
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-2">
+                {organization?.name || "Velkommen"}
+              </h1>
+              <p className="text-white/70 text-sm uppercase tracking-widest">
+                Booking av fasiliteter
+              </p>
             </div>
-            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
-              Book treninger og
-              <br />
-              <span className="text-blue-200">fasiliteter enkelt</span>
-            </h1>
-            <p className="text-xl text-blue-100 max-w-2xl mx-auto mb-10">
+
+            {/* Subtitle */}
+            <p className="text-xl text-white/90 max-w-2xl mx-auto mb-10">
               Se ledige tider, book treningsøkter og hold oversikt over alle klubbens fasiliteter på ett sted.
             </p>
+            
+            {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/resources" className="btn btn-primary bg-white text-blue-600 hover:bg-blue-50 px-8 py-4 text-lg">
+              <Link 
+                href="/resources" 
+                className="btn bg-white hover:bg-white/90 px-8 py-4 text-lg font-semibold shadow-lg"
+                style={{ color: primaryColor }}
+              >
                 Se fasiliteter
                 <ArrowRight className="w-5 h-5" />
               </Link>
@@ -229,13 +259,30 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center">
-                <Calendar className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-semibold text-gray-900">Arena Booking</span>
+              {organization?.logo ? (
+                <div className="w-8 h-8 rounded-lg overflow-hidden">
+                  <Image
+                    src={organization.logo}
+                    alt={organization.name || "Logo"}
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div 
+                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+                >
+                  <Calendar className="w-4 h-4 text-white" />
+                </div>
+              )}
+              <span className="font-semibold text-gray-900">
+                {organization?.name || "Arena Booking"}
+              </span>
             </div>
             <p className="text-sm text-gray-500">
-              © {new Date().getFullYear()} Arena Booking. Enkel booking for idrettslag.
+              © {new Date().getFullYear()} {organization?.name || "Arena Booking"}
             </p>
           </div>
         </div>

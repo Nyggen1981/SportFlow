@@ -8,6 +8,8 @@ declare module "next-auth" {
       organizationId: string
       organizationName: string
       organizationSlug: string
+      organizationLogo: string | null
+      organizationColor: string
     } & DefaultSession["user"]
   }
 
@@ -17,6 +19,8 @@ declare module "next-auth" {
     organizationId: string
     organizationName: string
     organizationSlug: string
+    organizationLogo: string | null
+    organizationColor: string
   }
 }
 
@@ -27,6 +31,8 @@ declare module "next-auth/jwt" {
     organizationId: string
     organizationName: string
     organizationSlug: string
+    organizationLogo: string | null
+    organizationColor: string
   }
 }
 
