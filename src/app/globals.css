@@ -82,8 +82,9 @@ body {
 }
 
 .booking-pending {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: white;
+  background: rgba(245, 158, 11, 0.15);
+  color: #92400e;
+  border: 2px dashed #f59e0b;
 }
 
 .booking-rejected {

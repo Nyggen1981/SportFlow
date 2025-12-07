@@ -305,19 +305,23 @@ export function ResourceCalendar({ bookings, parts }: Props) {
                     {format(day, "d")}
                   </p>
                   <div className="space-y-1">
-                    {dayBookings.slice(0, 3).map((booking) => (
-                      <div
-                        key={booking.id}
-                        className={`px-1.5 py-0.5 rounded text-xs truncate ${
-                          booking.status === "approved" 
-                            ? "bg-green-100 text-green-800" 
-                            : "bg-amber-100 text-amber-800"
-                        }`}
-                        title={`${booking.title} - ${format(parseISO(booking.startTime), "HH:mm")}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}`}
-                      >
-                        {format(parseISO(booking.startTime), "HH:mm")} {booking.title}
-                      </div>
-                    ))}
+                    {dayBookings.slice(0, 3).map((booking) => {
+                      const isPending = booking.status === "pending"
+                      
+                      return (
+                        <div
+                          key={booking.id}
+                          className={`px-1.5 py-0.5 rounded text-xs truncate ${
+                            isPending 
+                              ? "bg-green-50 text-green-700 border border-dashed border-green-400" 
+                              : "bg-green-500 text-white"
+                          }`}
+                          title={`${booking.title} - ${format(parseISO(booking.startTime), "HH:mm")}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter)' : ''}`}
+                        >
+                          {format(parseISO(booking.startTime), "HH:mm")} {booking.title}
+                        </div>
+                      )
+                    })}
                     {dayBookings.length > 3 && (
                       <p className="text-xs text-gray-500 pl-1">
                         +{dayBookings.length - 3} til

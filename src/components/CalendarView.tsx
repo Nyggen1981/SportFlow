@@ -210,23 +210,29 @@ export function CalendarView({ resources, bookings }: Props) {
                         const end = parseISO(booking.endTime)
                         const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
                         const top = (start.getMinutes() / 60) * 100
+                        const isPending = booking.status === "pending"
+                        const resourceColor = getResourceColor(booking.resourceId)
 
                         return (
                           <div
                             key={booking.id}
-                            className={`absolute left-1 right-1 rounded-md px-2 py-1 text-xs text-white overflow-hidden cursor-pointer transition-transform hover:scale-[1.02] hover:z-10`}
+                            className={`absolute left-1 right-1 rounded-md px-2 py-1 text-xs overflow-hidden cursor-pointer transition-transform hover:scale-[1.02] hover:z-10 ${
+                              isPending ? 'border-2 border-dashed' : ''
+                            }`}
                             style={{
                               top: `${top}%`,
                               height: `${Math.max(duration * 100, 100)}%`,
                               minHeight: '40px',
-                              backgroundColor: booking.status === "approved" 
-                                ? getResourceColor(booking.resourceId)
-                                : '#f59e0b'
+                              backgroundColor: isPending 
+                                ? `${resourceColor}20`
+                                : resourceColor,
+                              borderColor: isPending ? resourceColor : 'transparent',
+                              color: isPending ? resourceColor : 'white'
                             }}
-                            title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resourceName}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}`}
+                            title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resourceName}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''}`}
                           >
                             <p className="font-medium truncate">{booking.title}</p>
-                            <p className="opacity-80 truncate text-[10px]">{booking.resourceName}</p>
+                            <p className={`truncate text-[10px] ${isPending ? 'opacity-70' : 'opacity-80'}`}>{booking.resourceName}</p>
                           </div>
                         )
                       })}
@@ -273,20 +279,29 @@ export function CalendarView({ resources, bookings }: Props) {
                     {format(day, "d")}
                   </p>
                   <div className="space-y-1">
-                    {dayBookings.slice(0, 3).map((booking) => (
-                      <div
-                        key={booking.id}
-                        className="text-xs px-1.5 py-0.5 rounded truncate text-white"
-                        style={{
-                          backgroundColor: booking.status === "approved"
-                            ? getResourceColor(booking.resourceId)
-                            : '#f59e0b'
-                        }}
-                        title={`${format(parseISO(booking.startTime), "HH:mm")} ${booking.title}`}
-                      >
-                        {format(parseISO(booking.startTime), "HH:mm")} {booking.title}
-                      </div>
-                    ))}
+                    {dayBookings.slice(0, 3).map((booking) => {
+                      const isPending = booking.status === "pending"
+                      const resourceColor = getResourceColor(booking.resourceId)
+                      
+                      return (
+                        <div
+                          key={booking.id}
+                          className={`text-xs px-1.5 py-0.5 rounded truncate ${
+                            isPending ? 'border border-dashed' : ''
+                          }`}
+                          style={{
+                            backgroundColor: isPending 
+                              ? `${resourceColor}20`
+                              : resourceColor,
+                            borderColor: isPending ? resourceColor : 'transparent',
+                            color: isPending ? resourceColor : 'white'
+                          }}
+                          title={`${format(parseISO(booking.startTime), "HH:mm")} ${booking.title}${isPending ? ' (venter)' : ''}`}
+                        >
+                          {format(parseISO(booking.startTime), "HH:mm")} {booking.title}
+                        </div>
+                      )
+                    })}
                     {dayBookings.length > 3 && (
                       <p className="text-xs text-gray-500 px-1">
                         +{dayBookings.length - 3} til
@@ -306,14 +321,14 @@ export function CalendarView({ resources, bookings }: Props) {
         {resources.map((resource) => (
           <div key={resource.id} className="flex items-center gap-2">
             <div 
-              className="w-3 h-3 rounded-full" 
+              className="w-3 h-3 rounded" 
               style={{ backgroundColor: resource.color }}
             />
             <span className="text-gray-600">{resource.name}</span>
           </div>
         ))}
-        <div className="flex items-center gap-2 ml-4">
-          <div className="w-3 h-3 rounded-full bg-amber-500" />
+        <div className="flex items-center gap-2 ml-4 pl-4 border-l border-gray-200">
+          <div className="w-4 h-3 rounded border-2 border-dashed border-gray-400 bg-gray-100" />
           <span className="text-gray-600">Venter på godkjenning</span>
         </div>
       </div>
