@@ -136,22 +136,6 @@ function LoginForm() {
           </div>
         </div>
 
-        {/* Demo credentials */}
-        <div className="mt-6 p-4 rounded-xl bg-white/10 backdrop-blur-sm">
-          <p className="text-sm text-white/80 text-center mb-2">Demo-innlogging:</p>
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="p-2 rounded-lg bg-white/10 text-white/90">
-              <p className="font-medium">Admin</p>
-              <p className="text-white/70">admin@lyn.no</p>
-              <p className="text-white/70">admin123</p>
-            </div>
-            <div className="p-2 rounded-lg bg-white/10 text-white/90">
-              <p className="font-medium">Bruker</p>
-              <p className="text-white/70">bruker@lyn.no</p>
-              <p className="text-white/70">bruker123</p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )
