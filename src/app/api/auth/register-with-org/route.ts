@@ -57,15 +57,18 @@ export async function POST(request: Request) {
         }
       })
 
-      // Create default categories
-      await tx.resourceCategory.createMany({
-        data: [
-          { name: "Utendørs", description: "Utendørs fasiliteter", icon: "Sun", color: "#22c55e" },
-          { name: "Innendørs", description: "Innendørs fasiliteter", icon: "Home", color: "#3b82f6" },
-          { name: "Møterom", description: "Møterom og sosiale rom", icon: "Users", color: "#f59e0b" },
-          { name: "Utstyr", description: "Utstyr som kan lånes", icon: "Package", color: "#8b5cf6" }
-        ]
-      })
+      // Create default categories only if none exist
+      const existingCategories = await tx.resourceCategory.count()
+      if (existingCategories === 0) {
+        await tx.resourceCategory.createMany({
+          data: [
+            { name: "Utendørs", description: "Utendørs fasiliteter", icon: "Sun", color: "#22c55e" },
+            { name: "Innendørs", description: "Innendørs fasiliteter", icon: "Home", color: "#3b82f6" },
+            { name: "Møterom", description: "Møterom og sosiale rom", icon: "Users", color: "#f59e0b" },
+            { name: "Utstyr", description: "Utstyr som kan lånes", icon: "Package", color: "#8b5cf6" }
+          ]
+        })
+      }
 
       // Create admin user
       const user = await tx.user.create({
