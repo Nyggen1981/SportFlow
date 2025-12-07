@@ -228,6 +228,7 @@ function RegisterForm() {
                   className="input"
                   placeholder="Ola Nordmann"
                   required
+                  autoComplete="name"
                 />
               </div>
 
@@ -243,6 +244,7 @@ function RegisterForm() {
                   className="input"
                   placeholder="ola@example.com"
                   required
+                  autoComplete="email"
                 />
               </div>
 
@@ -257,6 +259,7 @@ function RegisterForm() {
                   onChange={(e) => setPhone(e.target.value)}
                   className="input"
                   placeholder="99 88 77 66"
+                  autoComplete="tel"
                 />
               </div>
 
@@ -274,6 +277,7 @@ function RegisterForm() {
                     placeholder="Minst 6 tegn"
                     required
                     minLength={6}
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"
@@ -297,6 +301,7 @@ function RegisterForm() {
                   className="input"
                   placeholder="Skriv passordet på nytt"
                   required
+                  autoComplete="new-password"
                 />
               </div>
 
@@ -410,6 +415,7 @@ function RegisterForm() {
                     className="input"
                     placeholder="Ola Nordmann"
                     required
+                    autoComplete="name"
                   />
                 </div>
 
@@ -425,6 +431,7 @@ function RegisterForm() {
                     className="input"
                     placeholder="ola@example.com"
                     required
+                    autoComplete="email"
                   />
                 </div>
 
@@ -439,6 +446,7 @@ function RegisterForm() {
                     onChange={(e) => setPhone(e.target.value)}
                     className="input"
                     placeholder="99 88 77 66"
+                    autoComplete="tel"
                   />
                 </div>
 
@@ -456,6 +464,7 @@ function RegisterForm() {
                       placeholder="Minst 6 tegn"
                       required
                       minLength={6}
+                      autoComplete="new-password"
                     />
                     <button
                       type="button"
@@ -479,6 +488,7 @@ function RegisterForm() {
                     className="input"
                     placeholder="Skriv passordet på nytt"
                     required
+                    autoComplete="new-password"
                   />
                 </div>
               </div>
