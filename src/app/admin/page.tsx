@@ -156,6 +156,21 @@ export default async function AdminPage() {
                 <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
               </Link>
               <Link 
+                href="/admin/categories" 
+                className="card p-4 flex items-center justify-between hover:shadow-md transition-shadow group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                    <Building2 className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Kategorier</p>
+                    <p className="text-sm text-gray-500">Organiser fasiliteter</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+              </Link>
+              <Link 
                 href="/admin/users" 
                 className="card p-4 flex items-center justify-between hover:shadow-md transition-shadow group"
               >

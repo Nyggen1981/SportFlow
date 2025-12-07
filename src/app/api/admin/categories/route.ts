@@ -11,6 +11,11 @@ export async function GET() {
   }
 
   const categories = await prisma.resourceCategory.findMany({
+    include: {
+      _count: {
+        select: { resources: true }
+      }
+    },
     orderBy: { name: "asc" }
   })
 
