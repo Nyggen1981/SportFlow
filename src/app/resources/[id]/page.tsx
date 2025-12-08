@@ -14,18 +14,16 @@ import {
 } from "lucide-react"
 import { ResourceCalendar } from "@/components/ResourceCalendar"
 import { MapViewer } from "@/components/MapViewer"
-import { unstable_cache } from "next/cache"
 
-// Revalidate every 30 seconds for fresh booking data
+// Revalidate every 30 seconds for fresh data
 export const revalidate = 30
 
 interface Props {
   params: Promise<{ id: string }>
 }
 
-// Cache resource data per ID for 30 seconds
-const getResource = unstable_cache(
-  async (id: string) => prisma.resource.findUnique({
+async function getResource(id: string) {
+  return prisma.resource.findUnique({
     where: { id },
     include: {
       category: true,
@@ -41,10 +39,8 @@ const getResource = unstable_cache(
         orderBy: { startTime: "asc" }
       }
     }
-  }),
-  ["resource-detail"],
-  { revalidate: 30 }
-)
+  })
+}
 
 export default async function ResourcePage({ params }: Props) {
   const { id } = await params
