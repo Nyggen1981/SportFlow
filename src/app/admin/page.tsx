@@ -11,9 +11,9 @@ import {
   ClipboardList,
   ArrowRight,
   CheckCircle2,
-  Clock,
-  AlertTriangle
+  Clock
 } from "lucide-react"
+import { PendingBookingsList } from "@/components/PendingBookingsList"
 
 async function getStats(organizationId: string) {
   const [
@@ -214,50 +214,17 @@ export default async function AdminPage() {
               )}
             </div>
             
-            {pendingBookings.length === 0 ? (
-              <div className="card p-8 text-center">
-                <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                <p className="text-gray-600">Ingen ventende bookinger 🎉</p>
-              </div>
-            ) : (
-              <div className="card overflow-hidden">
-                <div className="divide-y divide-gray-100">
-                  {pendingBookings.map((booking) => (
-                    <div key={booking.id} className="p-4 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <AlertTriangle className="w-4 h-4 text-amber-500" />
-                            <h3 className="font-medium text-gray-900">{booking.title}</h3>
-                          </div>
-                          <p className="text-sm text-gray-600">
-                            {booking.resource.name}
-                            {booking.resourcePart && ` → ${booking.resourcePart.name}`}
-                          </p>
-                          <p className="text-sm text-gray-500 mt-1">
-                            Av {booking.user.name || booking.user.email}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900">
-                            {booking.startTime.toLocaleDateString("nb-NO", { 
-                              day: "numeric", 
-                              month: "short" 
-                            })}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {booking.startTime.toLocaleTimeString("nb-NO", { 
-                              hour: "2-digit", 
-                              minute: "2-digit" 
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <PendingBookingsList 
+              bookings={pendingBookings.map(b => ({
+                id: b.id,
+                title: b.title,
+                resourceName: b.resource.name,
+                resourcePartName: b.resourcePart?.name || null,
+                userName: b.user.name || b.user.email,
+                startTime: b.startTime.toISOString(),
+                endTime: b.endTime.toISOString()
+              }))}
+            />
           </div>
         </div>
       </div>
