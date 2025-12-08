@@ -6,8 +6,8 @@ import {
   LogIn,
   UserPlus,
   Building2,
-  Info,
-  AlertCircle
+  AlertCircle,
+  ExternalLink
 } from "lucide-react"
 import { PublicCalendar } from "@/components/PublicCalendar"
 import { getServerSession } from "next-auth"
@@ -93,7 +93,7 @@ export default async function PublicHomePage() {
   const hasData = resources.length > 0
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -120,7 +120,7 @@ export default async function PublicHomePage() {
                 <h1 className="font-bold text-gray-900">
                   {organization?.name || "Arena Booking"}
                 </h1>
-                <p className="text-xs text-gray-500">Booking av fasiliteter</p>
+                <p className="text-xs text-gray-500">Kalender</p>
               </div>
             </div>
 
@@ -173,49 +173,8 @@ export default async function PublicHomePage() {
         </div>
       </header>
 
-      {/* Hero section with quick info */}
-      <div 
-        className="relative py-8"
-        style={{ background: `linear-gradient(135deg, ${primaryColor}15, ${primaryColor}05)` }}
-      >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <Calendar className="w-6 h-6" style={{ color: primaryColor }} />
-                Bookingkalender
-              </h2>
-              <p className="text-gray-600 mt-1">
-                Se ledige tider og planlagte aktiviteter for alle våre fasiliteter
-              </p>
-            </div>
-            
-            {/* Quick stats */}
-            <div className="flex items-center gap-6">
-              <div className="text-center">
-                <p className="text-2xl font-bold" style={{ color: primaryColor }}>{resources.length}</p>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Fasiliteter</p>
-              </div>
-              {session && (
-                <>
-                  <div className="h-10 w-px bg-gray-200" />
-                  <Link 
-                    href="/resources"
-                    className="flex items-center gap-2 text-sm font-medium hover:underline"
-                    style={{ color: primaryColor }}
-                  >
-                    <Building2 className="w-4 h-4" />
-                    Se alle fasiliteter
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main Calendar */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
         {hasData ? (
           <PublicCalendar 
             resources={resources.map(r => ({
@@ -243,63 +202,56 @@ export default async function PublicHomePage() {
             </p>
           </div>
         )}
-
-        {/* Info box for non-logged in users */}
-        {!session && (
-          <div className="mt-8 p-6 bg-blue-50 border border-blue-100 rounded-xl">
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <Info className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Vil du booke en fasilitet?</h3>
-                <p className="text-gray-600 mt-1">
-                  For å booke fasiliteter må du være registrert medlem av {organization?.name || "klubben"}. 
-                  Registrer deg så vil en administrator godkjenne tilgangen din.
-                </p>
-                <div className="flex items-center gap-3 mt-4">
-                  <Link href="/register" className="btn btn-primary">
-                    <UserPlus className="w-4 h-4" />
-                    Søk om tilgang
-                  </Link>
-                  <Link href="/login" className="text-sm text-blue-600 hover:underline">
-                    Allerede godkjent? Logg inn
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-3">
-              {organization?.logo ? (
-                <Image
-                  src={organization.logo}
-                  alt={organization.name || "Logo"}
-                  width={32}
-                  height={32}
-                  className="rounded-lg"
-                />
-              ) : (
-                <div 
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  <Calendar className="w-4 h-4 text-white" />
-                </div>
-              )}
-              <span className="font-semibold text-gray-900">
-                {organization?.name || "Arena Booking"}
+      {/* Footer - Arena Booking Product Promotion */}
+      <footer className="bg-gradient-to-r from-slate-900 to-slate-800 text-white mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            {/* Arena Booking Brand */}
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+                <Calendar className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-xl">Arena Booking</h3>
+                <p className="text-slate-400 text-sm">Profesjonell booking for idrettslag</p>
+              </div>
+            </div>
+
+            {/* Features */}
+            <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-400">
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                Enkel kalendervisning
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                Godkjenningsflyt
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                Tilpasset design
               </span>
             </div>
-            <p className="text-sm text-gray-500">
-              © {new Date().getFullYear()} Arena Booking – Enkel booking for idrettslag
-            </p>
+
+            {/* CTA */}
+            <div className="text-center md:text-right">
+              <p className="text-slate-400 text-sm mb-2">Trenger din klubb et bookingsystem?</p>
+              <a 
+                href="mailto:kontakt@arenabooking.no"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm font-medium transition-colors"
+              >
+                Ta kontakt
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="mt-8 pt-6 border-t border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500">
+            <p>© {new Date().getFullYear()} Arena Booking. Alle rettigheter reservert.</p>
+            <p>Laget med ❤️ for norsk idrett</p>
           </div>
         </div>
       </footer>
