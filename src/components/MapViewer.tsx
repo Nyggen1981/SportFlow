@@ -108,7 +108,7 @@ export function MapViewer({ mapImage, parts, onPartClick, selectedPartId }: Prop
           })}
         </svg>
 
-        {/* Labels */}
+        {/* Labels - centered in polygons */}
         {partsWithCoords.map((part) => {
           const centerX = part.points.reduce((sum, p) => sum + p.x, 0) / part.points.length
           const centerY = part.points.reduce((sum, p) => sum + p.y, 0) / part.points.length
@@ -118,14 +118,15 @@ export function MapViewer({ mapImage, parts, onPartClick, selectedPartId }: Prop
           return (
             <div
               key={`label-${part.id}`}
-              className={`absolute px-2 py-1 rounded text-xs font-medium text-white whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2 transition-all pointer-events-none ${
-                isSelected || isHovered ? "scale-110 shadow-lg" : ""
+              className={`absolute px-2 py-1 rounded text-xs font-bold text-white whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2 transition-all pointer-events-none ${
+                isSelected || isHovered ? "scale-110 shadow-lg z-10" : ""
               }`}
               style={{ 
                 left: `${centerX}%`, 
                 top: `${centerY}%`,
                 backgroundColor: part.color,
-                opacity: isSelected || isHovered ? 1 : 0.9
+                opacity: isSelected || isHovered ? 1 : 0.95,
+                textShadow: '0 1px 2px rgba(0,0,0,0.3)'
               }}
             >
               {part.name}

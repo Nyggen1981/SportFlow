@@ -407,25 +407,26 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
               {/* Marker labels and controls */}
               {markers.map((marker, index) => {
                 const centerX = marker.points.reduce((sum, p) => sum + p.x, 0) / marker.points.length
-                const minY = Math.min(...marker.points.map(p => p.y))
+                const centerY = marker.points.reduce((sum, p) => sum + p.y, 0) / marker.points.length
                 
                 return (
                   <div key={`label-${index}`}>
-                    {/* Label */}
+                    {/* Label - centered in polygon */}
                     <div 
-                      className={`absolute px-2 py-0.5 rounded text-xs font-medium text-white whitespace-nowrap transform -translate-x-1/2 pointer-events-none ${
-                        selectedMarkerIndex === index ? "ring-2 ring-white" : ""
+                      className={`absolute px-2 py-1 rounded text-xs font-bold text-white whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2 pointer-events-none shadow-sm ${
+                        selectedMarkerIndex === index ? "ring-2 ring-white ring-offset-1" : ""
                       }`}
                       style={{ 
                         left: `${centerX}%`, 
-                        top: `${minY - 3}%`,
-                        backgroundColor: marker.color 
+                        top: `${centerY}%`,
+                        backgroundColor: marker.color,
+                        textShadow: '0 1px 2px rgba(0,0,0,0.3)'
                       }}
                     >
                       {marker.partName}
                     </div>
 
-                    {/* Delete button when selected */}
+                    {/* Delete button when selected - top right of center */}
                     {selectedMarkerIndex === index && (
                       <button
                         type="button"
@@ -433,10 +434,10 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
                           e.stopPropagation()
                           deleteMarker(index)
                         }}
-                        className="absolute w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transform -translate-x-1/2"
+                        className="absolute w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transform -translate-x-1/2 -translate-y-1/2 shadow-lg"
                         style={{ 
-                          left: `${centerX}%`, 
-                          top: `${minY - 7}%`
+                          left: `${centerX + 5}%`, 
+                          top: `${centerY - 5}%`
                         }}
                       >
                         <X className="w-4 h-4" />
