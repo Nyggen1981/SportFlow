@@ -155,7 +155,7 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
           }`}
         >
           {/* Header row */}
-          <div className="flex items-center gap-2 group">
+          <div className="flex items-center gap-2">
             {/* Expand/collapse button */}
             <button
               type="button"
@@ -198,11 +198,11 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
             )}
 
             {/* Action buttons */}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => addPart(id)}
-                className="p-1.5 rounded hover:bg-blue-100 text-blue-600"
+                className="p-1.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"
                 title="Legg til underdel"
               >
                 <Plus className="w-4 h-4" />
@@ -210,7 +210,7 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
               <button
                 type="button"
                 onClick={() => deletePart(id)}
-                className="p-1.5 rounded hover:bg-red-100 text-red-600"
+                className="p-1.5 rounded hover:bg-red-100 text-red-500 opacity-50 hover:opacity-100 transition-opacity"
                 title="Slett"
               >
                 <Trash2 className="w-4 h-4" />
