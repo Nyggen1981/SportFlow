@@ -74,7 +74,14 @@ const getPublicBookings = unstable_cache(
 )
 
 export default async function PublicHomePage() {
-  const session = await getServerSession(authOptions)
+  // Try to get session, but don't fail if auth is not configured
+  let session = null
+  try {
+    session = await getServerSession(authOptions)
+  } catch {
+    // Auth not configured or error - continue without session
+  }
+  
   const organization = await getOrganization()
   
   const [resources, bookings] = await Promise.all([
