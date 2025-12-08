@@ -67,6 +67,7 @@ model Resource {
   description String?
   location    String?
   image       String?
+  mapImage    String?  // Overview map/floorplan image
   color       String?  // Custom color for this facility
   isActive    Boolean @default(true)
   showOnPublicCalendar Boolean @default(true)  // Show on public calendar
@@ -109,6 +110,9 @@ model ResourcePart {
   description String?
   capacity    Int?
   isActive    Boolean @default(true)
+  
+  // Map marker coordinates (JSON: {x, y, width, height} for rect or {points: [{x,y}]} for polygon)
+  mapCoordinates String?
 
   resourceId String
   resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)

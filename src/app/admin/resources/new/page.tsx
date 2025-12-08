@@ -15,8 +15,10 @@ import {
   Building2,
   Upload,
   X,
-  ImageIcon
+  ImageIcon,
+  Map
 } from "lucide-react"
+import { MapEditor } from "@/components/MapEditor"
 
 interface Category {
   id: string
@@ -28,6 +30,7 @@ interface Part {
   name: string
   description: string
   capacity: string
+  mapCoordinates?: string | null
 }
 
 export default function NewResourcePage() {
@@ -55,6 +58,7 @@ export default function NewResourcePage() {
   const [blockPartsWhenWholeBooked, setBlockPartsWhenWholeBooked] = useState(true)
   const [blockWholeWhenPartBooked, setBlockWholeWhenPartBooked] = useState(true)
   const [showOnPublicCalendar, setShowOnPublicCalendar] = useState(true)
+  const [mapImage, setMapImage] = useState<string | null>(null)
   const [parts, setParts] = useState<Part[]>([])
 
   useEffect(() => {
@@ -132,6 +136,7 @@ export default function NewResourcePage() {
           description,
           location,
           image,
+          mapImage,
           color: color || null,
           categoryId: categoryId || null,
           minBookingMinutes: parseInt(minBookingMinutes),
@@ -144,7 +149,8 @@ export default function NewResourcePage() {
           parts: parts.filter(p => p.name.trim()).map(p => ({
             name: p.name,
             description: p.description || null,
-            capacity: p.capacity ? parseInt(p.capacity) : null
+            capacity: p.capacity ? parseInt(p.capacity) : null,
+            mapCoordinates: p.mapCoordinates || null
           }))
         })
       })
@@ -536,6 +542,25 @@ export default function NewResourcePage() {
                 </>
               )}
             </div>
+
+            {/* Map Editor */}
+            {parts.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2">
+                  <Map className="w-5 h-5 text-blue-600" />
+                  <h2 className="font-semibold text-gray-900">Oversiktskart</h2>
+                </div>
+                <p className="text-sm text-gray-500">
+                  Last opp et bilde av fasiliteten og marker hvor de ulike delene befinner seg.
+                </p>
+                <MapEditor
+                  mapImage={mapImage}
+                  parts={parts}
+                  onMapImageChange={setMapImage}
+                  onPartsUpdate={setParts}
+                />
+              </div>
+            )}
 
             {/* Submit */}
             <div className="flex gap-3 pt-4 border-t">

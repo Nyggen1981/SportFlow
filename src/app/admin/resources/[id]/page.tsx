@@ -15,8 +15,10 @@ import {
   Building2,
   Upload,
   X,
-  ImageIcon
+  ImageIcon,
+  Map
 } from "lucide-react"
+import { MapEditor } from "@/components/MapEditor"
 
 interface Category {
   id: string
@@ -29,6 +31,7 @@ interface Part {
   name: string
   description: string
   capacity: string
+  mapCoordinates?: string | null
   isNew?: boolean
 }
 
@@ -62,6 +65,7 @@ export default function EditResourcePage({ params }: Props) {
   const [blockPartsWhenWholeBooked, setBlockPartsWhenWholeBooked] = useState(true)
   const [blockWholeWhenPartBooked, setBlockWholeWhenPartBooked] = useState(true)
   const [showOnPublicCalendar, setShowOnPublicCalendar] = useState(true)
+  const [mapImage, setMapImage] = useState<string | null>(null)
   const [parts, setParts] = useState<Part[]>([])
 
   useEffect(() => {
@@ -93,11 +97,13 @@ export default function EditResourcePage({ params }: Props) {
       setBlockPartsWhenWholeBooked(resource.blockPartsWhenWholeBooked ?? true)
       setBlockWholeWhenPartBooked(resource.blockWholeWhenPartBooked ?? true)
       setShowOnPublicCalendar(resource.showOnPublicCalendar ?? true)
-      setParts(resource.parts?.map((p: { id: string; name: string; description?: string; capacity?: number }) => ({
+      setMapImage(resource.mapImage || null)
+      setParts(resource.parts?.map((p: { id: string; name: string; description?: string; capacity?: number; mapCoordinates?: string }) => ({
         id: p.id,
         name: p.name,
         description: p.description || "",
-        capacity: p.capacity ? String(p.capacity) : ""
+        capacity: p.capacity ? String(p.capacity) : "",
+        mapCoordinates: p.mapCoordinates || null
       })) || [])
       
       setIsLoading(false)
@@ -164,6 +170,7 @@ export default function EditResourcePage({ params }: Props) {
           description,
           location,
           image,
+          mapImage,
           color: color || null,
           categoryId: categoryId || null,
           minBookingMinutes: parseInt(minBookingMinutes),
@@ -177,7 +184,8 @@ export default function EditResourcePage({ params }: Props) {
             id: p.id,
             name: p.name,
             description: p.description || null,
-            capacity: p.capacity ? parseInt(p.capacity) : null
+            capacity: p.capacity ? parseInt(p.capacity) : null,
+            mapCoordinates: p.mapCoordinates || null
           }))
         })
       })
@@ -571,6 +579,25 @@ export default function EditResourcePage({ params }: Props) {
                 </>
               )}
             </div>
+
+            {/* Map Editor */}
+            {parts.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2">
+                  <Map className="w-5 h-5 text-blue-600" />
+                  <h2 className="font-semibold text-gray-900">Oversiktskart</h2>
+                </div>
+                <p className="text-sm text-gray-500">
+                  Last opp et bilde av fasiliteten og marker hvor de ulike delene befinner seg.
+                </p>
+                <MapEditor
+                  mapImage={mapImage}
+                  parts={parts}
+                  onMapImageChange={setMapImage}
+                  onPartsUpdate={setParts}
+                />
+              </div>
+            )}
 
             {/* Submit */}
             <div className="flex gap-3 pt-4 border-t">

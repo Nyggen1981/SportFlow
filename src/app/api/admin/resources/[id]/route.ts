@@ -98,6 +98,7 @@ export async function PUT(
       description: body.description,
       location: body.location,
       image: body.image,
+      mapImage: body.mapImage,
       color: body.color,
       categoryId: body.categoryId,
       minBookingMinutes: body.minBookingMinutes,
@@ -131,7 +132,8 @@ export async function PUT(
           data: {
             name: part.name,
             description: part.description,
-            capacity: part.capacity
+            capacity: part.capacity,
+            mapCoordinates: part.mapCoordinates
           }
         })
       } else {
@@ -140,6 +142,7 @@ export async function PUT(
             name: part.name,
             description: part.description,
             capacity: part.capacity,
+            mapCoordinates: part.mapCoordinates,
             resourceId: id
           }
         })

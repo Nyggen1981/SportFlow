@@ -13,6 +13,7 @@ import {
   Users
 } from "lucide-react"
 import { ResourceCalendar } from "@/components/ResourceCalendar"
+import { MapViewer } from "@/components/MapViewer"
 import { unstable_cache } from "next/cache"
 
 // Revalidate every 30 seconds for fresh booking data
@@ -131,6 +132,27 @@ export default async function ResourcePage({ params }: Props) {
               <div className="card p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-3">Om fasiliteten</h2>
                 <p className="text-gray-600">{resource.description}</p>
+              </div>
+            )}
+
+            {/* Map Overview */}
+            {resource.mapImage && resource.parts.length > 0 && (
+              <div className="card p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-blue-600" />
+                  Oversiktskart
+                </h2>
+                <MapViewer
+                  mapImage={resource.mapImage}
+                  parts={resource.parts.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    description: p.description,
+                    capacity: p.capacity,
+                    mapCoordinates: p.mapCoordinates
+                  }))}
+                  resourceColor={resource.color || resource.category?.color}
+                />
               </div>
             )}
 
