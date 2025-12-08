@@ -62,7 +62,6 @@ export default function BookResourcePage({ params }: Props) {
   const [startTime, setStartTime] = useState("")
   const [endTime, setEndTime] = useState("")
   const [selectedPart, setSelectedPart] = useState("")
-  const [hoveredPart, setHoveredPart] = useState<string | null>(null)
   const [contactName, setContactName] = useState("")
   const [contactEmail, setContactEmail] = useState("")
   const [contactPhone, setContactPhone] = useState("")
@@ -266,36 +265,58 @@ export default function BookResourcePage({ params }: Props) {
                 </label>
                 
                 {/* Map view if available */}
-                {resource.mapImage && resource.parts.some(p => p.mapCoordinates) && (
-                  <div className="rounded-xl overflow-hidden border border-gray-200">
-                    <MapViewer
-                      mapImage={resource.mapImage}
-                      parts={resource.parts}
-                      selectedPartId={selectedPart || hoveredPart}
-                      onPartClick={(partId) => setSelectedPart(partId === selectedPart ? "" : partId)}
-                    />
+                {resource.mapImage && resource.parts.some(p => p.mapCoordinates) ? (
+                  <div className="space-y-3">
+                    <div className="rounded-xl overflow-hidden border border-gray-200">
+                      <MapViewer
+                        mapImage={resource.mapImage}
+                        parts={resource.parts}
+                        selectedPartId={selectedPart}
+                        onPartClick={(partId) => setSelectedPart(partId === selectedPart ? "" : partId)}
+                      />
+                    </div>
+                    
+                    {/* Selected part display */}
+                    <div className={`p-4 rounded-xl border-2 transition-all ${
+                      selectedPart 
+                        ? "border-blue-500 bg-blue-50" 
+                        : "border-gray-200 bg-gray-50"
+                    }`}>
+                      <p className="text-sm text-gray-500 mb-1">Valgt område:</p>
+                      <p className="font-semibold text-gray-900">
+                        {selectedPart 
+                          ? resource.parts.find(p => p.id === selectedPart)?.name 
+                          : `Hele ${resource.name}`
+                        }
+                      </p>
+                      {selectedPart && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPart("")}
+                          className="text-sm text-blue-600 hover:text-blue-700 mt-2"
+                        >
+                          Velg hele fasiliteten i stedet
+                        </button>
+                      )}
+                    </div>
+                    
+                    <p className="text-xs text-gray-500">
+                      Klikk på et område i kartet for å velge det. Klikk igjen for å velge hele fasiliteten.
+                    </p>
                   </div>
+                ) : (
+                  /* Fallback dropdown if no map */
+                  <select
+                    value={selectedPart}
+                    onChange={(e) => setSelectedPart(e.target.value)}
+                    className="input"
+                  >
+                    <option value="">Hele fasiliteten</option>
+                    {resource.parts.map(part => (
+                      <option key={part.id} value={part.id}>{part.name}</option>
+                    ))}
+                  </select>
                 )}
-
-                {/* Dropdown select */}
-                <select
-                  value={selectedPart}
-                  onChange={(e) => setSelectedPart(e.target.value)}
-                  className="input"
-                >
-                  <option value="">Hele fasiliteten</option>
-                  {resource.parts.filter(p => !p.parentId).map(part => {
-                    const children = resource.parts.filter(c => c.parentId === part.id)
-                    return (
-                      <optgroup key={part.id} label={part.name}>
-                        <option value={part.id}>📍 {part.name} (hele)</option>
-                        {children.map(child => (
-                          <option key={child.id} value={child.id}>↳ {child.name}</option>
-                        ))}
-                      </optgroup>
-                    )
-                  })}
-                </select>
               </div>
             )}
 
