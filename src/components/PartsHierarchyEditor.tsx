@@ -150,110 +150,98 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
     return (
       <div key={id} className="select-none">
         <div 
-          className={`flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 group ${
-            level > 0 ? 'ml-6' : ''
+          className={`p-3 rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-colors ${
+            level > 0 ? 'ml-6 mt-2' : 'mt-2'
           }`}
         >
-          {/* Expand/collapse button */}
-          <button
-            type="button"
-            onClick={() => toggleExpand(id)}
-            className={`p-1 rounded hover:bg-gray-200 ${hasChildren ? '' : 'invisible'}`}
-          >
-            {isExpanded ? (
-              <ChevronDown className="w-4 h-4 text-gray-500" />
+          {/* Header row */}
+          <div className="flex items-center gap-2 group">
+            {/* Expand/collapse button */}
+            <button
+              type="button"
+              onClick={() => toggleExpand(id)}
+              className={`p-1 rounded hover:bg-gray-100 ${hasChildren ? '' : 'invisible'}`}
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-gray-500" />
+              )}
+            </button>
+
+            {/* Folder icon */}
+            {hasChildren ? (
+              <FolderOpen className="w-4 h-4 text-amber-500 flex-shrink-0" />
             ) : (
-              <ChevronRight className="w-4 h-4 text-gray-500" />
+              <div className="w-4 h-4 rounded bg-blue-100 border border-blue-300 flex-shrink-0" />
             )}
-          </button>
 
-          {/* Folder icon */}
-          {hasChildren ? (
-            isExpanded ? (
-              <FolderOpen className="w-4 h-4 text-amber-500" />
+            {/* Name input */}
+            {isEditing || !part.name ? (
+              <input
+                type="text"
+                value={part.name}
+                onChange={(e) => updatePart(id, "name", e.target.value)}
+                onBlur={() => setEditingId(null)}
+                onKeyDown={(e) => e.key === "Enter" && setEditingId(null)}
+                placeholder="Navn på del..."
+                className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                autoFocus
+              />
             ) : (
-              <Folder className="w-4 h-4 text-amber-500" />
-            )
-          ) : (
-            <div className="w-4 h-4 rounded bg-blue-100 border border-blue-300" />
-          )}
+              <span
+                onClick={() => setEditingId(id)}
+                className="flex-1 text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600"
+              >
+                {part.name}
+              </span>
+            )}
 
-          {/* Name input */}
-          {isEditing || !part.name ? (
-            <input
-              type="text"
-              value={part.name}
-              onChange={(e) => updatePart(id, "name", e.target.value)}
-              onBlur={() => setEditingId(null)}
-              onKeyDown={(e) => e.key === "Enter" && setEditingId(null)}
-              placeholder="Navn på del..."
-              className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-              autoFocus
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setEditingId(id)}
-              className="flex-1 text-left text-sm font-medium text-gray-900 hover:text-blue-600"
-            >
-              {part.name}
-            </button>
-          )}
-
-          {/* Action buttons */}
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              type="button"
-              onClick={() => addPart(id)}
-              className="p-1 rounded hover:bg-blue-100 text-blue-600"
-              title="Legg til underdel"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => deletePart(id)}
-              className="p-1 rounded hover:bg-red-100 text-red-600"
-              title="Slett"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Expanded details */}
-        {isExpanded && part.name && (
-          <div className={`ml-${level > 0 ? '12' : '6'} pl-6 border-l-2 border-gray-200 mb-2`}>
-            <div className="p-3 bg-gray-50 rounded-lg space-y-2 mt-1">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-gray-500">Beskrivelse</label>
-                  <input
-                    type="text"
-                    value={part.description}
-                    onChange={(e) => updatePart(id, "description", e.target.value)}
-                    placeholder="Valgfri beskrivelse"
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">Kapasitet</label>
-                  <input
-                    type="number"
-                    value={part.capacity}
-                    onChange={(e) => updatePart(id, "capacity", e.target.value)}
-                    placeholder="Antall personer"
-                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
-                  />
-                </div>
-              </div>
+            {/* Action buttons */}
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                type="button"
+                onClick={() => addPart(id)}
+                className="p-1.5 rounded hover:bg-blue-100 text-blue-600"
+                title="Legg til underdel"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => deletePart(id)}
+                className="p-1.5 rounded hover:bg-red-100 text-red-600"
+                title="Slett"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
           </div>
-        )}
+
+          {/* Details row - always visible when name exists */}
+          {part.name && (
+            <div className="grid grid-cols-2 gap-2 mt-2 ml-7">
+              <input
+                type="text"
+                value={part.description}
+                onChange={(e) => updatePart(id, "description", e.target.value)}
+                placeholder="Beskrivelse (valgfri)"
+                className="px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 focus:bg-white focus:border-blue-300"
+              />
+              <input
+                type="number"
+                value={part.capacity}
+                onChange={(e) => updatePart(id, "capacity", e.target.value)}
+                placeholder="Kapasitet"
+                className="px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 focus:bg-white focus:border-blue-300"
+              />
+            </div>
+          )}
+        </div>
 
         {/* Children */}
-        {isExpanded && hasChildren && (
-          <div className={level > 0 ? 'ml-6' : ''}>
+        {hasChildren && isExpanded && (
+          <div className="border-l-2 border-gray-200 ml-4">
             {part.children!.map(child => renderPart(child, level + 1))}
           </div>
         )}
