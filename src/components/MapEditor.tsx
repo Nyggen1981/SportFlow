@@ -6,12 +6,12 @@ import {
   Upload, 
   Trash2, 
   MousePointer2, 
-  Square, 
+  PenTool, 
   X,
   Check,
-  Move,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  RotateCcw
 } from "lucide-react"
 
 interface Part {
@@ -23,13 +23,15 @@ interface Part {
   isNew?: boolean
 }
 
+interface Point {
+  x: number  // percentage 0-100
+  y: number  // percentage 0-100
+}
+
 interface MapMarker {
   partId: string | null
   partName: string
-  x: number      // percentage 0-100
-  y: number      // percentage 0-100
-  width: number  // percentage 0-100
-  height: number // percentage 0-100
+  points: Point[]
   color: string
 }
 
@@ -45,12 +47,12 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   const [markers, setMarkers] = useState<MapMarker[]>([])
-  const [isDrawing, setIsDrawing] = useState(false)
-  const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null)
-  const [currentRect, setCurrentRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+  const [currentPoints, setCurrentPoints] = useState<Point[]>([])
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null)
   const [tool, setTool] = useState<"select" | "draw">("select")
   const [selectedMarkerIndex, setSelectedMarkerIndex] = useState<number | null>(null)
+  const [draggingPoint, setDraggingPoint] = useState<{ markerIndex: number; pointIndex: number } | null>(null)
+  const [editingMarkerIndex, setEditingMarkerIndex] = useState<number | null>(null)
   const [zoom, setZoom] = useState(1)
 
   // Color palette for markers
@@ -63,13 +65,25 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
       if (part.mapCoordinates) {
         try {
           const coords = JSON.parse(part.mapCoordinates)
+          // Support both old rect format and new polygon format
+          let points: Point[]
+          if (coords.points) {
+            points = coords.points
+          } else if (coords.x !== undefined) {
+            // Convert old rect format to polygon
+            points = [
+              { x: coords.x, y: coords.y },
+              { x: coords.x + coords.width, y: coords.y },
+              { x: coords.x + coords.width, y: coords.y + coords.height },
+              { x: coords.x, y: coords.y + coords.height }
+            ]
+          } else {
+            return
+          }
           existingMarkers.push({
             partId: part.id || `temp-${index}`,
             partName: part.name,
-            x: coords.x,
-            y: coords.y,
-            width: coords.width,
-            height: coords.height,
+            points,
             color: colors[index % colors.length]
           })
         } catch {
@@ -100,53 +114,78 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
     if (!containerRef.current) return { x: 0, y: 0 }
     
     const rect = containerRef.current.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100 / zoom
-    const y = ((e.clientY - rect.top) / rect.height) * 100 / zoom
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
     
     return { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) }
-  }, [zoom])
+  }, [])
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMapClick = (e: React.MouseEvent) => {
     if (tool !== "draw" || !mapImage) return
     
+    // Don't add point if clicking on existing point
+    if ((e.target as HTMLElement).classList.contains('marker-point')) return
+    
     const pos = getRelativePosition(e)
-    setDrawStart(pos)
-    setIsDrawing(true)
-    setCurrentRect({ x: pos.x, y: pos.y, width: 0, height: 0 })
+    setCurrentPoints([...currentPoints, pos])
+  }
+
+  const handlePointDragStart = (e: React.MouseEvent, markerIndex: number, pointIndex: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDraggingPoint({ markerIndex, pointIndex })
   }
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDrawing || !drawStart) return
+    if (!draggingPoint) return
     
     const pos = getRelativePosition(e)
-    const x = Math.min(drawStart.x, pos.x)
-    const y = Math.min(drawStart.y, pos.y)
-    const width = Math.abs(pos.x - drawStart.x)
-    const height = Math.abs(pos.y - drawStart.y)
     
-    setCurrentRect({ x, y, width, height })
+    if (draggingPoint.markerIndex === -1) {
+      // Dragging point in current drawing
+      const newPoints = [...currentPoints]
+      newPoints[draggingPoint.pointIndex] = pos
+      setCurrentPoints(newPoints)
+    } else {
+      // Dragging point in existing marker
+      const newMarkers = [...markers]
+      newMarkers[draggingPoint.markerIndex].points[draggingPoint.pointIndex] = pos
+      setMarkers(newMarkers)
+    }
   }
 
   const handleMouseUp = () => {
-    if (!isDrawing || !currentRect) {
-      setIsDrawing(false)
-      return
+    if (draggingPoint && draggingPoint.markerIndex !== -1) {
+      // Update parts after dragging existing marker point
+      updatePartsWithMarkers(markers)
     }
+    setDraggingPoint(null)
+  }
+
+  const handlePointRightClick = (e: React.MouseEvent, markerIndex: number, pointIndex: number) => {
+    e.preventDefault()
+    e.stopPropagation()
     
-    // Only create marker if it has some size
-    if (currentRect.width > 2 && currentRect.height > 2) {
-      // Show part selection for this marker
-      setSelectedPartId(null)
+    if (markerIndex === -1) {
+      // Delete point from current drawing
+      if (currentPoints.length > 1) {
+        const newPoints = currentPoints.filter((_, i) => i !== pointIndex)
+        setCurrentPoints(newPoints)
+      }
     } else {
-      setCurrentRect(null)
+      // Delete point from existing marker (minimum 3 points for polygon)
+      const marker = markers[markerIndex]
+      if (marker.points.length > 3) {
+        const newMarkers = [...markers]
+        newMarkers[markerIndex].points = marker.points.filter((_, i) => i !== pointIndex)
+        setMarkers(newMarkers)
+        updatePartsWithMarkers(newMarkers)
+      }
     }
-    
-    setIsDrawing(false)
-    setDrawStart(null)
   }
 
   const assignPartToMarker = (partId: string) => {
-    if (!currentRect) return
+    if (currentPoints.length < 3) return
     
     const part = parts.find(p => (p.id || `temp-${parts.indexOf(p)}`) === partId)
     if (!part) return
@@ -159,19 +198,15 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
     const newMarker: MapMarker = {
       partId,
       partName: part.name,
-      x: currentRect.x,
-      y: currentRect.y,
-      width: currentRect.width,
-      height: currentRect.height,
+      points: currentPoints,
       color: colors[partIndex % colors.length]
     }
     
     const updatedMarkers = [...filteredMarkers, newMarker]
     setMarkers(updatedMarkers)
-    setCurrentRect(null)
+    setCurrentPoints([])
     setTool("select")
     
-    // Update parts with coordinates
     updatePartsWithMarkers(updatedMarkers)
   }
 
@@ -183,12 +218,7 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
       if (marker) {
         return {
           ...part,
-          mapCoordinates: JSON.stringify({
-            x: marker.x,
-            y: marker.y,
-            width: marker.width,
-            height: marker.height
-          })
+          mapCoordinates: JSON.stringify({ points: marker.points })
         }
       } else {
         return { ...part, mapCoordinates: null }
@@ -202,21 +232,20 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
     const updatedMarkers = markers.filter((_, i) => i !== index)
     setMarkers(updatedMarkers)
     setSelectedMarkerIndex(null)
+    setEditingMarkerIndex(null)
     updatePartsWithMarkers(updatedMarkers)
   }
 
   const cancelDrawing = () => {
-    setCurrentRect(null)
-    setIsDrawing(false)
-    setDrawStart(null)
+    setCurrentPoints([])
     setTool("select")
   }
 
-  // Parts without markers
-  const unassignedParts = parts.filter((part, index) => {
-    const partId = part.id || `temp-${index}`
-    return !markers.some(m => m.partId === partId)
-  })
+  // Generate SVG path from points
+  const getPolygonPath = (points: Point[]) => {
+    if (points.length < 2) return ""
+    return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z'
+  }
 
   return (
     <div className="space-y-4">
@@ -260,7 +289,7 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
           <div className="flex items-center gap-2 p-2 bg-gray-100 rounded-lg">
             <button
               type="button"
-              onClick={() => setTool("select")}
+              onClick={() => { setTool("select"); setCurrentPoints([]) }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 tool === "select" ? "bg-white shadow text-gray-900" : "text-gray-600 hover:text-gray-900"
               }`}
@@ -275,11 +304,21 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
                 tool === "draw" ? "bg-white shadow text-gray-900" : "text-gray-600 hover:text-gray-900"
               }`}
               disabled={parts.length === 0}
-              title={parts.length === 0 ? "Legg til deler først" : "Tegn markering"}
+              title={parts.length === 0 ? "Legg til deler først" : "Tegn polygon"}
             >
-              <Square className="w-4 h-4" />
+              <PenTool className="w-4 h-4" />
               Tegn område
             </button>
+            {currentPoints.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setCurrentPoints([])}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-amber-600 hover:bg-amber-50"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Nullstill
+              </button>
+            )}
             <div className="flex-1" />
             <button
               type="button"
@@ -293,6 +332,7 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
               onClick={() => {
                 onMapImageChange(null)
                 setMarkers([])
+                setCurrentPoints([])
                 updatePartsWithMarkers([])
               }}
               className="text-sm text-red-600 hover:text-red-700 font-medium"
@@ -302,7 +342,13 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
           </div>
 
           {/* Map container */}
-          <div className="relative overflow-auto border border-gray-200 rounded-xl bg-gray-100" style={{ maxHeight: '500px' }}>
+          <div 
+            className="relative overflow-auto border border-gray-200 rounded-xl bg-gray-100" 
+            style={{ maxHeight: '500px' }}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
             <div
               ref={containerRef}
               className="relative"
@@ -310,10 +356,7 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
                 width: `${100 * zoom}%`,
                 cursor: tool === "draw" ? "crosshair" : "default"
               }}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={() => isDrawing && handleMouseUp()}
+              onClick={handleMapClick}
             >
               <Image
                 src={mapImage}
@@ -324,69 +367,121 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
                 draggable={false}
               />
               
-              {/* Existing markers */}
-              {markers.map((marker, index) => (
-                <div
-                  key={index}
-                  className={`absolute border-2 rounded-sm transition-all ${
-                    selectedMarkerIndex === index ? "ring-2 ring-white ring-offset-1" : ""
-                  }`}
-                  style={{
-                    left: `${marker.x}%`,
-                    top: `${marker.y}%`,
-                    width: `${marker.width}%`,
-                    height: `${marker.height}%`,
-                    borderColor: marker.color,
-                    backgroundColor: `${marker.color}33`,
-                    cursor: tool === "select" ? "pointer" : "crosshair"
-                  }}
-                  onClick={(e) => {
-                    if (tool === "select") {
-                      e.stopPropagation()
-                      setSelectedMarkerIndex(selectedMarkerIndex === index ? null : index)
-                    }
-                  }}
-                >
-                  <div 
-                    className="absolute -top-6 left-0 px-2 py-0.5 rounded text-xs font-medium text-white whitespace-nowrap"
-                    style={{ backgroundColor: marker.color }}
-                  >
-                    {marker.partName}
-                  </div>
-                  {selectedMarkerIndex === index && (
-                    <button
-                      type="button"
+              {/* SVG overlay for polygons */}
+              <svg 
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+              >
+                {/* Existing markers */}
+                {markers.map((marker, index) => (
+                  <g key={index}>
+                    <path
+                      d={getPolygonPath(marker.points)}
+                      fill={`${marker.color}33`}
+                      stroke={marker.color}
+                      strokeWidth={selectedMarkerIndex === index || editingMarkerIndex === index ? "0.4" : "0.2"}
+                      className="pointer-events-auto cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation()
-                        deleteMarker(index)
+                        if (tool === "select") {
+                          setSelectedMarkerIndex(selectedMarkerIndex === index ? null : index)
+                        }
                       }}
-                      className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              ))}
+                    />
+                  </g>
+                ))}
 
-              {/* Current drawing rectangle */}
-              {currentRect && (
+                {/* Current drawing polygon */}
+                {currentPoints.length >= 2 && (
+                  <path
+                    d={getPolygonPath(currentPoints)}
+                    fill="#3b82f633"
+                    stroke="#3b82f6"
+                    strokeWidth="0.3"
+                    strokeDasharray="0.5"
+                  />
+                )}
+              </svg>
+
+              {/* Marker labels and controls */}
+              {markers.map((marker, index) => {
+                const centerX = marker.points.reduce((sum, p) => sum + p.x, 0) / marker.points.length
+                const minY = Math.min(...marker.points.map(p => p.y))
+                
+                return (
+                  <div key={`label-${index}`}>
+                    {/* Label */}
+                    <div 
+                      className={`absolute px-2 py-0.5 rounded text-xs font-medium text-white whitespace-nowrap transform -translate-x-1/2 pointer-events-none ${
+                        selectedMarkerIndex === index ? "ring-2 ring-white" : ""
+                      }`}
+                      style={{ 
+                        left: `${centerX}%`, 
+                        top: `${minY - 3}%`,
+                        backgroundColor: marker.color 
+                      }}
+                    >
+                      {marker.partName}
+                    </div>
+
+                    {/* Delete button when selected */}
+                    {selectedMarkerIndex === index && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteMarker(index)
+                        }}
+                        className="absolute w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transform -translate-x-1/2"
+                        style={{ 
+                          left: `${centerX}%`, 
+                          top: `${minY - 7}%`
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+
+                    {/* Edit points for selected marker */}
+                    {(selectedMarkerIndex === index || editingMarkerIndex === index) && marker.points.map((point, pointIndex) => (
+                      <div
+                        key={`point-${index}-${pointIndex}`}
+                        className="marker-point absolute w-3 h-3 rounded-full border-2 border-white cursor-move transform -translate-x-1/2 -translate-y-1/2 hover:scale-125 transition-transform"
+                        style={{ 
+                          left: `${point.x}%`, 
+                          top: `${point.y}%`,
+                          backgroundColor: marker.color
+                        }}
+                        onMouseDown={(e) => handlePointDragStart(e, index, pointIndex)}
+                        onContextMenu={(e) => handlePointRightClick(e, index, pointIndex)}
+                        title="Dra for å flytte, høyreklikk for å slette"
+                      />
+                    ))}
+                  </div>
+                )
+              })}
+
+              {/* Current drawing points */}
+              {currentPoints.map((point, index) => (
                 <div
-                  className="absolute border-2 border-dashed border-blue-500 bg-blue-500/20 rounded-sm pointer-events-none"
-                  style={{
-                    left: `${currentRect.x}%`,
-                    top: `${currentRect.y}%`,
-                    width: `${currentRect.width}%`,
-                    height: `${currentRect.height}%`
-                  }}
+                  key={`current-${index}`}
+                  className="marker-point absolute w-3 h-3 bg-blue-500 rounded-full border-2 border-white cursor-move transform -translate-x-1/2 -translate-y-1/2 hover:scale-125 transition-transform"
+                  style={{ left: `${point.x}%`, top: `${point.y}%` }}
+                  onMouseDown={(e) => handlePointDragStart(e, -1, index)}
+                  onContextMenu={(e) => handlePointRightClick(e, -1, index)}
+                  title="Dra for å flytte, høyreklikk for å slette"
                 />
-              )}
+              ))}
             </div>
           </div>
 
           {/* Part assignment dialog */}
-          {currentRect && !isDrawing && currentRect.width > 2 && (
+          {currentPoints.length >= 3 && (
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-              <p className="text-sm font-medium text-blue-900 mb-3">Knytt området til en del:</p>
+              <p className="text-sm font-medium text-blue-900 mb-3">
+                {currentPoints.length} punkter tegnet. Knytt området til en del:
+              </p>
               <div className="flex flex-wrap gap-2">
                 {parts.map((part, index) => {
                   const partId = part.id || `temp-${index}`
@@ -429,22 +524,38 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
             <div className="flex flex-wrap gap-3 text-sm">
               <span className="text-gray-500">Markerte deler:</span>
               {markers.map((marker, index) => (
-                <span key={index} className="flex items-center gap-1.5">
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => setSelectedMarkerIndex(selectedMarkerIndex === index ? null : index)}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors ${
+                    selectedMarkerIndex === index ? "bg-gray-200" : "hover:bg-gray-100"
+                  }`}
+                >
                   <span 
                     className="w-3 h-3 rounded-sm border"
                     style={{ backgroundColor: `${marker.color}33`, borderColor: marker.color }}
                   />
                   {marker.partName}
-                </span>
+                </button>
               ))}
             </div>
           )}
 
           {/* Help text */}
           {tool === "draw" && (
-            <p className="text-sm text-gray-500">
-              Klikk og dra for å tegne et rektangel rundt en del av fasiliteten
-            </p>
+            <div className="text-sm text-gray-500 space-y-1">
+              <p><strong>Klikk</strong> på kartet for å legge til punkt</p>
+              <p><strong>Dra</strong> punkt for å flytte</p>
+              <p><strong>Høyreklikk</strong> på punkt for å slette</p>
+              <p>Minst 3 punkter for å lage et område</p>
+            </div>
+          )}
+
+          {tool === "select" && selectedMarkerIndex !== null && (
+            <div className="text-sm text-gray-500">
+              <p>Dra i punktene for å justere formen. Høyreklikk på punkt for å slette.</p>
+            </div>
           )}
           
           {parts.length === 0 && (
@@ -465,4 +576,3 @@ export function MapEditor({ mapImage, parts, onMapImageChange, onPartsUpdate }: 
     </div>
   )
 }
-

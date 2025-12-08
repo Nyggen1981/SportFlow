@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { MapPin, X } from "lucide-react"
 
 interface Part {
   id: string
@@ -10,6 +9,11 @@ interface Part {
   description?: string | null
   capacity?: number | null
   mapCoordinates?: string | null
+}
+
+interface Point {
+  x: number
+  y: number
 }
 
 interface Props {
@@ -20,9 +24,8 @@ interface Props {
   selectedPartId?: string | null
 }
 
-export function MapViewer({ mapImage, parts, resourceColor = "#3b82f6", onPartClick, selectedPartId }: Props) {
+export function MapViewer({ mapImage, parts, onPartClick, selectedPartId }: Props) {
   const [hoveredPartId, setHoveredPartId] = useState<string | null>(null)
-  const [showTooltip, setShowTooltip] = useState<{ partId: string; x: number; y: number } | null>(null)
 
   // Color palette
   const colors = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899"]
@@ -30,18 +33,41 @@ export function MapViewer({ mapImage, parts, resourceColor = "#3b82f6", onPartCl
   const partsWithCoords = parts.filter(p => p.mapCoordinates).map((part, index) => {
     try {
       const coords = JSON.parse(part.mapCoordinates!)
+      let points: Point[]
+      
+      // Support both polygon format and old rect format
+      if (coords.points) {
+        points = coords.points
+      } else if (coords.x !== undefined) {
+        // Convert old rect format to polygon
+        points = [
+          { x: coords.x, y: coords.y },
+          { x: coords.x + coords.width, y: coords.y },
+          { x: coords.x + coords.width, y: coords.y + coords.height },
+          { x: coords.x, y: coords.y + coords.height }
+        ]
+      } else {
+        return null
+      }
+      
       return {
         ...part,
-        coords,
+        points,
         color: colors[index % colors.length]
       }
     } catch {
       return null
     }
-  }).filter(Boolean) as (Part & { coords: { x: number; y: number; width: number; height: number }; color: string })[]
+  }).filter(Boolean) as (Part & { points: Point[]; color: string })[]
 
   if (partsWithCoords.length === 0) {
     return null
+  }
+
+  // Generate SVG path from points
+  const getPolygonPath = (points: Point[]) => {
+    if (points.length < 2) return ""
+    return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z'
   }
 
   return (
@@ -56,94 +82,93 @@ export function MapViewer({ mapImage, parts, resourceColor = "#3b82f6", onPartCl
           className="w-full h-auto"
         />
         
-        {/* Markers */}
+        {/* SVG overlay for polygons */}
+        <svg 
+          className="absolute inset-0 w-full h-full"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+        >
+          {partsWithCoords.map((part) => {
+            const isSelected = selectedPartId === part.id
+            const isHovered = hoveredPartId === part.id
+            
+            return (
+              <path
+                key={part.id}
+                d={getPolygonPath(part.points)}
+                fill={isSelected || isHovered ? `${part.color}55` : `${part.color}33`}
+                stroke={part.color}
+                strokeWidth={isSelected ? "0.4" : "0.2"}
+                className={`transition-all duration-200 ${onPartClick ? "cursor-pointer" : ""}`}
+                onClick={() => onPartClick?.(part.id)}
+                onMouseEnter={() => setHoveredPartId(part.id)}
+                onMouseLeave={() => setHoveredPartId(null)}
+              />
+            )
+          })}
+        </svg>
+
+        {/* Labels */}
         {partsWithCoords.map((part) => {
+          const centerX = part.points.reduce((sum, p) => sum + p.x, 0) / part.points.length
+          const centerY = part.points.reduce((sum, p) => sum + p.y, 0) / part.points.length
           const isSelected = selectedPartId === part.id
           const isHovered = hoveredPartId === part.id
           
           return (
-            <button
-              key={part.id}
-              type="button"
-              className={`absolute border-2 rounded-sm transition-all duration-200 ${
-                isSelected ? "ring-2 ring-white ring-offset-2 z-20" : ""
-              } ${isHovered ? "z-10" : ""}`}
-              style={{
-                left: `${part.coords.x}%`,
-                top: `${part.coords.y}%`,
-                width: `${part.coords.width}%`,
-                height: `${part.coords.height}%`,
-                borderColor: part.color,
-                backgroundColor: isSelected || isHovered ? `${part.color}55` : `${part.color}33`,
-                transform: isHovered && !isSelected ? "scale(1.02)" : "scale(1)",
-                cursor: onPartClick ? "pointer" : "default"
-              }}
-              onClick={() => onPartClick?.(part.id)}
-              onMouseEnter={(e) => {
-                setHoveredPartId(part.id)
-                const rect = e.currentTarget.getBoundingClientRect()
-                const parentRect = e.currentTarget.parentElement?.getBoundingClientRect()
-                if (parentRect) {
-                  setShowTooltip({
-                    partId: part.id,
-                    x: ((rect.left + rect.width / 2 - parentRect.left) / parentRect.width) * 100,
-                    y: ((rect.top - parentRect.top) / parentRect.height) * 100
-                  })
-                }
-              }}
-              onMouseLeave={() => {
-                setHoveredPartId(null)
-                setShowTooltip(null)
+            <div
+              key={`label-${part.id}`}
+              className={`absolute px-2 py-1 rounded text-xs font-medium text-white whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2 transition-all pointer-events-none ${
+                isSelected || isHovered ? "scale-110 shadow-lg" : ""
+              }`}
+              style={{ 
+                left: `${centerX}%`, 
+                top: `${centerY}%`,
+                backgroundColor: part.color,
+                opacity: isSelected || isHovered ? 1 : 0.9
               }}
             >
-              {/* Label */}
-              <div 
-                className={`absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded text-xs font-medium text-white whitespace-nowrap transition-opacity ${
-                  isHovered || isSelected ? "opacity-100" : "opacity-70"
-                }`}
-                style={{ backgroundColor: part.color }}
-              >
-                {part.name}
-              </div>
-            </button>
+              {part.name}
+            </div>
           )
         })}
 
-        {/* Tooltip */}
-        {showTooltip && (
-          <div 
-            className="absolute z-30 pointer-events-none"
-            style={{
-              left: `${showTooltip.x}%`,
-              top: `${Math.max(showTooltip.y - 2, 8)}%`,
-              transform: "translate(-50%, -100%)"
-            }}
-          >
-            {(() => {
-              const part = partsWithCoords.find(p => p.id === showTooltip.partId)
-              if (!part) return null
-              
-              return (
-                <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-3 min-w-[150px]">
-                  <p className="font-semibold text-gray-900 text-sm">{part.name}</p>
-                  {part.description && (
-                    <p className="text-xs text-gray-500 mt-1">{part.description}</p>
-                  )}
-                  {part.capacity && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      Kapasitet: {part.capacity} personer
-                    </p>
-                  )}
-                  {onPartClick && (
-                    <p className="text-xs text-blue-600 mt-2 font-medium">
-                      Klikk for å velge
-                    </p>
-                  )}
-                </div>
-              )
-            })()}
-          </div>
-        )}
+        {/* Tooltip on hover */}
+        {hoveredPartId && (() => {
+          const part = partsWithCoords.find(p => p.id === hoveredPartId)
+          if (!part || (!part.description && !part.capacity)) return null
+          
+          const centerX = part.points.reduce((sum, p) => sum + p.x, 0) / part.points.length
+          const minY = Math.min(...part.points.map(p => p.y))
+          
+          return (
+            <div 
+              className="absolute z-30 pointer-events-none transform -translate-x-1/2"
+              style={{
+                left: `${centerX}%`,
+                top: `${Math.max(minY - 2, 5)}%`,
+                transform: "translate(-50%, -100%)"
+              }}
+            >
+              <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-3 min-w-[150px]">
+                <p className="font-semibold text-gray-900 text-sm">{part.name}</p>
+                {part.description && (
+                  <p className="text-xs text-gray-500 mt-1">{part.description}</p>
+                )}
+                {part.capacity && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Kapasitet: {part.capacity} personer
+                  </p>
+                )}
+                {onPartClick && (
+                  <p className="text-xs text-blue-600 mt-2 font-medium">
+                    Klikk for å velge
+                  </p>
+                )}
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Legend */}
@@ -158,6 +183,8 @@ export function MapViewer({ mapImage, parts, resourceColor = "#3b82f6", onPartCl
                 ? "bg-blue-50 ring-1 ring-blue-200" 
                 : "hover:bg-gray-100"
             } ${onPartClick ? "cursor-pointer" : "cursor-default"}`}
+            onMouseEnter={() => setHoveredPartId(part.id)}
+            onMouseLeave={() => setHoveredPartId(null)}
           >
             <span 
               className="w-3 h-3 rounded-sm border-2"
@@ -175,4 +202,3 @@ export function MapViewer({ mapImage, parts, resourceColor = "#3b82f6", onPartCl
     </div>
   )
 }
-
