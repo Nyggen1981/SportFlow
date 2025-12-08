@@ -104,6 +104,7 @@ model Resource {
 }
 
 // Part of a resource (e.g., "Bane 1", "Bane 2", "Halv hall")
+// Supports hierarchy: parent parts block all children when booked
 model ResourcePart {
   id          String  @id @default(cuid())
   name        String
@@ -111,13 +112,21 @@ model ResourcePart {
   capacity    Int?
   isActive    Boolean @default(true)
   
-  // Map marker coordinates (JSON: {x, y, width, height} for rect or {points: [{x,y}]} for polygon)
+  // Map marker coordinates (JSON: {points: [{x,y}]} for polygon)
   mapCoordinates String?
+
+  // Hierarchy - parent part (null = top level)
+  parentId    String?
+  parent      ResourcePart?  @relation("PartHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    ResourcePart[] @relation("PartHierarchy")
 
   resourceId String
   resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
 
   bookings Booking[]
+  
+  @@index([parentId])
+  @@index([resourceId])
 }
 
 // Booking request

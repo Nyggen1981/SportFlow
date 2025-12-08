@@ -124,7 +124,10 @@ export async function PUT(
       })
     }
 
-    // Update or create parts
+    // Create a map of tempId -> actual id for parent references
+    const tempIdToActualId = new Map<string, string>()
+
+    // First pass: create/update parts without parent references
     for (const part of body.parts) {
       if (part.id) {
         await prisma.resourcePart.update({
@@ -136,8 +139,11 @@ export async function PUT(
             mapCoordinates: part.mapCoordinates
           }
         })
+        if (part.tempId) {
+          tempIdToActualId.set(part.tempId, part.id)
+        }
       } else {
-        await prisma.resourcePart.create({
+        const created = await prisma.resourcePart.create({
           data: {
             name: part.name,
             description: part.description,
@@ -146,6 +152,24 @@ export async function PUT(
             resourceId: id
           }
         })
+        if (part.tempId) {
+          tempIdToActualId.set(part.tempId, created.id)
+        }
+      }
+    }
+
+    // Second pass: update parent references
+    for (const part of body.parts) {
+      if (part.parentId) {
+        const actualPartId = part.id || tempIdToActualId.get(part.tempId)
+        const actualParentId = tempIdToActualId.get(part.parentId) || part.parentId
+        
+        if (actualPartId) {
+          await prisma.resourcePart.update({
+            where: { id: actualPartId },
+            data: { parentId: actualParentId }
+          })
+        }
       }
     }
   }

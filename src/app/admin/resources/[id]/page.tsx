@@ -8,8 +8,6 @@ import Link from "next/link"
 import Image from "next/image"
 import { 
   ArrowLeft,
-  Plus,
-  Trash2,
   Loader2,
   Save,
   Building2,
@@ -19,6 +17,7 @@ import {
   Map
 } from "lucide-react"
 import { MapEditor } from "@/components/MapEditor"
+import { PartsHierarchyEditor, HierarchicalPart } from "@/components/PartsHierarchyEditor"
 
 interface Category {
   id: string
@@ -28,10 +27,12 @@ interface Category {
 
 interface Part {
   id?: string
+  tempId?: string
   name: string
   description: string
   capacity: string
   mapCoordinates?: string | null
+  parentId?: string | null
   isNew?: boolean
 }
 
@@ -62,8 +63,6 @@ export default function EditResourcePage({ params }: Props) {
   const [requiresApproval, setRequiresApproval] = useState(true)
   const [limitAdvanceBooking, setLimitAdvanceBooking] = useState(true)
   const [advanceBookingDays, setAdvanceBookingDays] = useState("30")
-  const [blockPartsWhenWholeBooked, setBlockPartsWhenWholeBooked] = useState(true)
-  const [blockWholeWhenPartBooked, setBlockWholeWhenPartBooked] = useState(true)
   const [showOnPublicCalendar, setShowOnPublicCalendar] = useState(true)
   const [mapImage, setMapImage] = useState<string | null>(null)
   const [parts, setParts] = useState<Part[]>([])
@@ -94,16 +93,15 @@ export default function EditResourcePage({ params }: Props) {
       setRequiresApproval(resource.requiresApproval ?? true)
       setLimitAdvanceBooking(resource.advanceBookingDays !== null)
       setAdvanceBookingDays(String(resource.advanceBookingDays || 30))
-      setBlockPartsWhenWholeBooked(resource.blockPartsWhenWholeBooked ?? true)
-      setBlockWholeWhenPartBooked(resource.blockWholeWhenPartBooked ?? true)
       setShowOnPublicCalendar(resource.showOnPublicCalendar ?? true)
       setMapImage(resource.mapImage || null)
-      setParts(resource.parts?.map((p: { id: string; name: string; description?: string; capacity?: number; mapCoordinates?: string }) => ({
+      setParts(resource.parts?.map((p: { id: string; name: string; description?: string; capacity?: number; mapCoordinates?: string; parentId?: string }) => ({
         id: p.id,
         name: p.name,
         description: p.description || "",
         capacity: p.capacity ? String(p.capacity) : "",
-        mapCoordinates: p.mapCoordinates || null
+        mapCoordinates: p.mapCoordinates || null,
+        parentId: p.parentId || null
       })) || [])
       
       setIsLoading(false)
@@ -142,20 +140,6 @@ export default function EditResourcePage({ params }: Props) {
     }
   }
 
-  const addPart = () => {
-    setParts([...parts, { name: "", description: "", capacity: "", isNew: true }])
-  }
-
-  const removePart = (index: number) => {
-    setParts(parts.filter((_, i) => i !== index))
-  }
-
-  const updatePart = (index: number, field: keyof Part, value: string) => {
-    const newParts = [...parts]
-    newParts[index] = { ...newParts[index], [field]: value }
-    setParts(newParts)
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -177,15 +161,15 @@ export default function EditResourcePage({ params }: Props) {
           maxBookingMinutes: parseInt(maxBookingMinutes),
           requiresApproval,
           advanceBookingDays: limitAdvanceBooking ? parseInt(advanceBookingDays) : null,
-          blockPartsWhenWholeBooked,
-          blockWholeWhenPartBooked,
           showOnPublicCalendar,
           parts: parts.filter(p => p.name.trim()).map(p => ({
             id: p.id,
+            tempId: p.tempId,
             name: p.name,
             description: p.description || null,
             capacity: p.capacity ? parseInt(p.capacity) : null,
-            mapCoordinates: p.mapCoordinates || null
+            mapCoordinates: p.mapCoordinates || null,
+            parentId: p.parentId || null
           }))
         })
       })
@@ -482,102 +466,14 @@ export default function EditResourcePage({ params }: Props) {
               </div>
             </div>
 
-            {/* Parts */}
+            {/* Parts - Hierarchical */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between border-b pb-2">
-                <h2 className="font-semibold text-gray-900">Deler som kan bookes separat</h2>
-                <button
-                  type="button"
-                  onClick={addPart}
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
-                >
-                  <Plus className="w-4 h-4" />
-                  Legg til del
-                </button>
-              </div>
-
-              {parts.length === 0 ? (
-                <p className="text-sm text-gray-500 italic">
-                  Ingen deler lagt til. Hele fasiliteten vil bli booket som én enhet.
-                </p>
-              ) : (
-                <>
-                  <div className="space-y-3">
-                    {parts.map((part, index) => (
-                      <div key={part.id || index} className="p-4 bg-gray-50 rounded-xl space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-700">
-                            {part.isNew ? "Ny del" : `Del ${index + 1}`}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => removePart(index)}
-                            className="text-red-500 hover:text-red-600 p-1"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <div className="grid md:grid-cols-3 gap-3">
-                          <input
-                            type="text"
-                            value={part.name}
-                            onChange={(e) => updatePart(index, "name", e.target.value)}
-                            className="input"
-                            placeholder="Navn (f.eks. Bane 1)"
-                          />
-                          <input
-                            type="text"
-                            value={part.description}
-                            onChange={(e) => updatePart(index, "description", e.target.value)}
-                            className="input"
-                            placeholder="Beskrivelse"
-                          />
-                          <input
-                            type="number"
-                            value={part.capacity}
-                            onChange={(e) => updatePart(index, "capacity", e.target.value)}
-                            className="input"
-                            placeholder="Kapasitet"
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Part booking settings */}
-                  <div className="mt-4 p-4 bg-blue-50 rounded-xl space-y-3">
-                    <h3 className="text-sm font-medium text-blue-900">Blokkering ved booking</h3>
-                    
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        id="blockPartsWhenWholeBooked"
-                        checked={blockPartsWhenWholeBooked}
-                        onChange={(e) => setBlockPartsWhenWholeBooked(e.target.checked)}
-                        className="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <label htmlFor="blockPartsWhenWholeBooked" className="text-sm text-blue-800">
-                        <span className="font-medium">Når hele fasiliteten bookes:</span> Blokker alle deler
-                        <p className="text-blue-600 text-xs mt-0.5">Eks: Booker man hele hallen, kan ingen booke enkeltbaner</p>
-                      </label>
-                    </div>
-
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        id="blockWholeWhenPartBooked"
-                        checked={blockWholeWhenPartBooked}
-                        onChange={(e) => setBlockWholeWhenPartBooked(e.target.checked)}
-                        className="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <label htmlFor="blockWholeWhenPartBooked" className="text-sm text-blue-800">
-                        <span className="font-medium">Når en del bookes:</span> Blokker &quot;hele fasiliteten&quot;
-                        <p className="text-blue-600 text-xs mt-0.5">Eks: Booker man Bane 1, kan ingen booke hele hallen</p>
-                      </label>
-                    </div>
-                  </div>
-                </>
-              )}
+              <h2 className="font-semibold text-gray-900 border-b pb-2">Deler som kan bookes</h2>
+              
+              <PartsHierarchyEditor
+                parts={parts}
+                onPartsChange={setParts}
+              />
             </div>
 
             {/* Map Editor */}
