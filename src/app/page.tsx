@@ -26,8 +26,7 @@ async function getResources() {
   try {
     return await prisma.resource.findMany({
       where: { 
-        isActive: true,
-        showOnPublicCalendar: true
+        isActive: true
       },
       select: {
         id: true,
