@@ -17,8 +17,8 @@ import {
 interface Part {
   id?: string
   name: string
-  description?: string
-  capacity?: string
+  description: string
+  capacity: string
   mapCoordinates?: string | null
   isNew?: boolean
 }
