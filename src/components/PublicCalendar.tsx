@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { ChevronLeft, ChevronRight, List, Grid3X3, Calendar, Clock, MapPin } from "lucide-react"
+import { ChevronLeft, ChevronRight, List, Grid3X3, Calendar, Clock, MapPin, Filter, Check, X, ChevronDown } from "lucide-react"
 import { 
   format, 
   startOfWeek, 
@@ -47,13 +47,14 @@ type ViewMode = "week" | "month"
 export function PublicCalendar({ resources, bookings, isLoggedIn }: Props) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>("week")
-  const [selectedResource, setSelectedResource] = useState<string | null>(null)
+  const [selectedResources, setSelectedResources] = useState<Set<string>>(new Set(resources.map(r => r.id)))
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
 
   const filteredBookings = useMemo(() => {
-    if (!selectedResource) return bookings
-    return bookings.filter(b => b.resourceId === selectedResource)
-  }, [bookings, selectedResource])
+    if (selectedResources.size === resources.length) return bookings
+    return bookings.filter(b => selectedResources.has(b.resourceId))
+  }, [bookings, selectedResources, resources.length])
 
   // Week view data
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
@@ -62,7 +63,6 @@ export function PublicCalendar({ resources, bookings, isLoggedIn }: Props) {
 
   // Month view data
   const monthStart = startOfMonth(currentDate)
-  const monthEnd = endOfMonth(currentDate)
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 })
   const calendarDays = Array.from({ length: 42 }, (_, i) => addDays(calendarStart, i))
 
@@ -84,75 +84,188 @@ export function PublicCalendar({ resources, bookings, isLoggedIn }: Props) {
     }
   }
 
+  const toggleResource = (resourceId: string) => {
+    const newSelected = new Set(selectedResources)
+    if (newSelected.has(resourceId)) {
+      newSelected.delete(resourceId)
+    } else {
+      newSelected.add(resourceId)
+    }
+    setSelectedResources(newSelected)
+  }
+
+  const selectAll = () => setSelectedResources(new Set(resources.map(r => r.id)))
+  const selectNone = () => setSelectedResources(new Set())
+
+  const activeFilterCount = resources.length - selectedResources.size
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate("prev")}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-            aria-label="Forrige"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <h2 className="font-semibold text-gray-900 min-w-[220px] text-center text-lg">
-            {viewMode === "week" 
-              ? `${format(weekStart, "d. MMM", { locale: nb })} - ${format(addDays(weekStart, 6), "d. MMM yyyy", { locale: nb })}`
-              : format(currentDate, "MMMM yyyy", { locale: nb })
-            }
-          </h2>
-          <button
-            onClick={() => navigate("next")}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-            aria-label="Neste"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => setCurrentDate(new Date())}
-            className="ml-2 px-4 py-2 text-sm font-medium rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-          >
-            I dag
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Resource filter */}
-          <select
-            value={selectedResource || ""}
-            onChange={(e) => setSelectedResource(e.target.value || null)}
-            className="input max-w-[200px]"
-          >
-            <option value="">Alle fasiliteter</option>
-            {resources.map(resource => (
-              <option key={resource.id} value={resource.id}>{resource.name}</option>
-            ))}
-          </select>
-
-          {/* View mode toggle */}
-          <div className="flex bg-gray-100 rounded-lg p-1">
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {/* Top bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
+          {/* Navigation */}
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setViewMode("week")}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
-                viewMode === "week" ? "bg-white shadow text-gray-900" : "text-gray-600"
-              }`}
+              onClick={() => navigate("prev")}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label="Forrige"
             >
-              <List className="w-4 h-4" />
-              Uke
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <h2 className="font-semibold text-gray-900 min-w-[200px] text-center">
+              {viewMode === "week" 
+                ? `${format(weekStart, "d. MMM", { locale: nb })} - ${format(addDays(weekStart, 6), "d. MMM yyyy", { locale: nb })}`
+                : format(currentDate, "MMMM yyyy", { locale: nb })
+              }
+            </h2>
+            <button
+              onClick={() => navigate("next")}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label="Neste"
+            >
+              <ChevronRight className="w-5 h-5" />
             </button>
             <button
-              onClick={() => setViewMode("month")}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
-                viewMode === "month" ? "bg-white shadow text-gray-900" : "text-gray-600"
-              }`}
+              onClick={() => setCurrentDate(new Date())}
+              className="ml-2 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
             >
-              <Grid3X3 className="w-4 h-4" />
-              Måned
+              I dag
             </button>
           </div>
+
+          {/* View controls */}
+          <div className="flex items-center gap-2">
+            {/* Filter button */}
+            <button
+              onClick={() => setShowFilterPanel(!showFilterPanel)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                showFilterPanel || activeFilterCount > 0
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              Filter
+              {activeFilterCount > 0 && (
+                <span className="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                  {activeFilterCount}
+                </span>
+              )}
+              <ChevronDown className={`w-4 h-4 transition-transform ${showFilterPanel ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* View mode toggle */}
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode("week")}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
+                  viewMode === "week" ? "bg-white shadow text-gray-900" : "text-gray-600"
+                }`}
+              >
+                <List className="w-4 h-4" />
+                Uke
+              </button>
+              <button
+                onClick={() => setViewMode("month")}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
+                  viewMode === "month" ? "bg-white shadow text-gray-900" : "text-gray-600"
+                }`}
+              >
+                <Grid3X3 className="w-4 h-4" />
+                Måned
+              </button>
+            </div>
+          </div>
         </div>
+
+        {/* Filter panel */}
+        {showFilterPanel && (
+          <div className="border-t border-gray-200 p-4 bg-gray-50">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-gray-700">Velg fasiliteter</span>
+              <div className="flex gap-2">
+                <button
+                  onClick={selectAll}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Velg alle
+                </button>
+                <span className="text-gray-300">|</span>
+                <button
+                  onClick={selectNone}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Fjern alle
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {resources.map((resource) => {
+                const isSelected = selectedResources.has(resource.id)
+                return (
+                  <button
+                    key={resource.id}
+                    onClick={() => toggleResource(resource.id)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      isSelected 
+                        ? 'bg-white shadow-sm border-2' 
+                        : 'bg-gray-200/50 text-gray-500 hover:bg-gray-200'
+                    }`}
+                    style={isSelected ? { 
+                      borderColor: resource.color,
+                      color: resource.color
+                    } : undefined}
+                  >
+                    <div 
+                      className={`w-4 h-4 rounded flex items-center justify-center ${isSelected ? '' : 'bg-gray-300'}`}
+                      style={isSelected ? { backgroundColor: resource.color } : undefined}
+                    >
+                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    {resource.name}
+                  </button>
+                )
+              })}
+            </div>
+            {selectedResources.size === 0 && (
+              <p className="text-sm text-amber-600 mt-3 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                Ingen fasiliteter valgt - kalenderen er tom
+              </p>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Active filters summary (when panel is closed) */}
+      {!showFilterPanel && activeFilterCount > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-gray-500">Viser:</span>
+          {resources.filter(r => selectedResources.has(r.id)).map((resource) => (
+            <span
+              key={resource.id}
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-white"
+              style={{ backgroundColor: resource.color }}
+            >
+              {resource.name}
+              <button
+                onClick={() => toggleResource(resource.id)}
+                className="hover:bg-white/20 rounded-full p-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+          <button
+            onClick={selectAll}
+            className="text-xs text-blue-600 hover:text-blue-700 font-medium ml-2"
+          >
+            Vis alle
+          </button>
+        </div>
+      )}
 
       {/* Week View */}
       {viewMode === "week" && (
@@ -180,7 +293,7 @@ export function PublicCalendar({ resources, bookings, isLoggedIn }: Props) {
           </div>
 
           {/* Time grid */}
-          <div className="max-h-[650px] overflow-y-auto">
+          <div className="max-h-[600px] overflow-y-auto">
             {hours.map((hour) => (
               <div key={hour} className="grid grid-cols-8 border-b border-gray-100 last:border-b-0">
                 <div className="p-2 text-right text-xs text-gray-400 pr-3 font-medium">
@@ -203,7 +316,7 @@ export function PublicCalendar({ resources, bookings, isLoggedIn }: Props) {
                   return (
                     <div 
                       key={`${day.toISOString()}-${hour}`} 
-                      className={`relative min-h-[52px] border-l border-gray-100 ${
+                      className={`relative min-h-[48px] border-l border-gray-100 ${
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
@@ -218,18 +331,18 @@ export function PublicCalendar({ resources, bookings, isLoggedIn }: Props) {
                           <button
                             key={booking.id}
                             onClick={() => setSelectedBooking(booking)}
-                            className="absolute left-1 right-1 rounded-lg px-2 py-1.5 text-xs overflow-hidden cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg hover:z-10 text-left"
+                            className="absolute left-0.5 right-0.5 rounded px-1.5 py-1 text-xs overflow-hidden cursor-pointer transition-all hover:scale-[1.02] hover:shadow-lg hover:z-10 text-left"
                             style={{
                               top: `${top}%`,
                               height: `${Math.max(duration * 100, 100)}%`,
-                              minHeight: '44px',
+                              minHeight: '40px',
                               backgroundColor: resourceColor,
                               color: 'white'
                             }}
                           >
-                            <p className="font-semibold truncate">{booking.title}</p>
-                            <p className="truncate text-[10px] opacity-90">
-                              {format(start, "HH:mm")} - {format(end, "HH:mm")}
+                            <p className="font-semibold truncate text-[11px]">{booking.title}</p>
+                            <p className="truncate text-[9px] opacity-80">
+                              {format(start, "HH:mm")}-{format(end, "HH:mm")}
                             </p>
                           </button>
                         )
@@ -249,7 +362,7 @@ export function PublicCalendar({ resources, bookings, isLoggedIn }: Props) {
           {/* Header */}
           <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
             {["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"].map((day) => (
-              <div key={day} className="p-3 text-center text-sm font-semibold text-gray-600">
+              <div key={day} className="p-2 text-center text-xs font-semibold text-gray-600 uppercase">
                 {day}
               </div>
             ))}
@@ -264,27 +377,27 @@ export function PublicCalendar({ resources, bookings, isLoggedIn }: Props) {
               return (
                 <div 
                   key={day.toISOString()}
-                  className={`min-h-[110px] p-2 border-b border-r border-gray-100 ${
+                  className={`min-h-[90px] p-1.5 border-b border-r border-gray-100 ${
                     !isCurrentMonth ? 'bg-gray-50/50' : ''
                   } ${isToday(day) ? 'bg-blue-50' : ''} ${
                     i % 7 === 0 ? 'border-l-0' : ''
                   }`}
                 >
-                  <p className={`text-sm font-semibold mb-2 ${
+                  <p className={`text-xs font-semibold mb-1 ${
                     !isCurrentMonth ? 'text-gray-400' : 
                     isToday(day) ? 'text-blue-600' : 'text-gray-900'
                   }`}>
                     {format(day, "d")}
                   </p>
-                  <div className="space-y-1">
-                    {dayBookings.slice(0, 3).map((booking) => {
+                  <div className="space-y-0.5">
+                    {dayBookings.slice(0, 2).map((booking) => {
                       const resourceColor = getResourceColor(booking.resourceId)
                       
                       return (
                         <button
                           key={booking.id}
                           onClick={() => setSelectedBooking(booking)}
-                          className="w-full text-xs px-2 py-1 rounded truncate text-left hover:opacity-80 transition-opacity"
+                          className="w-full text-[10px] px-1 py-0.5 rounded truncate text-left hover:opacity-80 transition-opacity"
                           style={{
                             backgroundColor: resourceColor,
                             color: 'white'
@@ -294,9 +407,9 @@ export function PublicCalendar({ resources, bookings, isLoggedIn }: Props) {
                         </button>
                       )
                     })}
-                    {dayBookings.length > 3 && (
-                      <p className="text-xs text-gray-500 px-1 font-medium">
-                        +{dayBookings.length - 3} til
+                    {dayBookings.length > 2 && (
+                      <p className="text-[10px] text-gray-500 px-1 font-medium">
+                        +{dayBookings.length - 2} til
                       </p>
                     )}
                   </div>
@@ -307,28 +420,17 @@ export function PublicCalendar({ resources, bookings, isLoggedIn }: Props) {
         </div>
       )}
 
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 text-sm bg-white p-4 rounded-xl border border-gray-200">
-        <span className="text-gray-500 font-medium">Fasiliteter:</span>
+      {/* Compact legend (always visible at bottom) */}
+      <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+        <span className="font-medium">Farger:</span>
         {resources.map((resource) => (
-          <button
-            key={resource.id}
-            onClick={() => setSelectedResource(selectedResource === resource.id ? null : resource.id)}
-            className={`flex items-center gap-2 px-2 py-1 rounded-lg transition-colors ${
-              selectedResource === resource.id 
-                ? 'bg-gray-100' 
-                : 'hover:bg-gray-50'
-            }`}
-            style={selectedResource === resource.id ? { 
-              boxShadow: `0 0 0 2px ${resource.color}`
-            } : undefined}
-          >
-            <div 
-              className="w-3 h-3 rounded-full" 
+          <span key={resource.id} className="flex items-center gap-1">
+            <span 
+              className="w-2.5 h-2.5 rounded-full" 
               style={{ backgroundColor: resource.color }}
             />
-            <span className="text-gray-700">{resource.name}</span>
-          </button>
+            {resource.name}
+          </span>
         ))}
       </div>
 
@@ -409,4 +511,3 @@ export function PublicCalendar({ resources, bookings, isLoggedIn }: Props) {
     </div>
   )
 }
-
