@@ -337,6 +337,7 @@ export default function BookResourcePage({ params }: Props) {
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
                   className="input"
+                  step="900"
                   required
                 />
               </div>
@@ -350,6 +351,7 @@ export default function BookResourcePage({ params }: Props) {
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                   className="input"
+                  step="900"
                   required
                 />
               </div>
