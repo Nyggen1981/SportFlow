@@ -277,72 +277,25 @@ export default function BookResourcePage({ params }: Props) {
                   </div>
                 )}
 
-                {/* Part list with hover sync */}
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPart("")}
-                    onMouseEnter={() => setHoveredPart(null)}
-                    onMouseLeave={() => setHoveredPart(null)}
-                    className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
-                      selectedPart === "" 
-                        ? "border-blue-500 bg-blue-50" 
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <span className="font-medium text-gray-900">Hele {resource.name}</span>
-                    <p className="text-sm text-gray-500">Book hele fasiliteten</p>
-                  </button>
-                  
-                  {resource.parts.filter(p => !p.parentId).map(part => (
-                    <div key={part.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPart(part.id === selectedPart ? "" : part.id)}
-                        onMouseEnter={() => setHoveredPart(part.id)}
-                        onMouseLeave={() => setHoveredPart(null)}
-                        className={`w-full p-3 rounded-lg border-2 text-left transition-all ${
-                          selectedPart === part.id 
-                            ? "border-blue-500 bg-blue-50" 
-                            : hoveredPart === part.id
-                              ? "border-blue-300 bg-blue-50/50"
-                              : "border-gray-200 hover:border-gray-300"
-                        }`}
-                      >
-                        <span className="font-medium text-gray-900">{part.name}</span>
-                        {part.description && (
-                          <p className="text-sm text-gray-500">{part.description}</p>
-                        )}
-                        {part.capacity && (
-                          <p className="text-xs text-gray-400">Kapasitet: {part.capacity} personer</p>
-                        )}
-                      </button>
-                      
-                      {/* Child parts */}
-                      {resource.parts.filter(child => child.parentId === part.id).map(child => (
-                        <button
-                          key={child.id}
-                          type="button"
-                          onClick={() => setSelectedPart(child.id === selectedPart ? "" : child.id)}
-                          onMouseEnter={() => setHoveredPart(child.id)}
-                          onMouseLeave={() => setHoveredPart(null)}
-                          className={`w-full p-3 pl-8 rounded-lg border-2 text-left transition-all ml-4 mt-2 ${
-                            selectedPart === child.id 
-                              ? "border-blue-500 bg-blue-50" 
-                              : hoveredPart === child.id
-                                ? "border-blue-300 bg-blue-50/50"
-                                : "border-gray-200 hover:border-gray-300"
-                          }`}
-                        >
-                          <span className="font-medium text-gray-900">{child.name}</span>
-                          {child.description && (
-                            <p className="text-sm text-gray-500">{child.description}</p>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  ))}
-                </div>
+                {/* Dropdown select */}
+                <select
+                  value={selectedPart}
+                  onChange={(e) => setSelectedPart(e.target.value)}
+                  className="input"
+                >
+                  <option value="">Hele fasiliteten</option>
+                  {resource.parts.filter(p => !p.parentId).map(part => {
+                    const children = resource.parts.filter(c => c.parentId === part.id)
+                    return (
+                      <optgroup key={part.id} label={part.name}>
+                        <option value={part.id}>📍 {part.name} (hele)</option>
+                        {children.map(child => (
+                          <option key={child.id} value={child.id}>↳ {child.name}</option>
+                        ))}
+                      </optgroup>
+                    )
+                  })}
+                </select>
               </div>
             )}
 
