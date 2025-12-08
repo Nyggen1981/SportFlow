@@ -32,6 +32,7 @@ interface Props {
 export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   // Build tree structure from flat list
   const buildTree = (flatParts: HierarchicalPart[]): HierarchicalPart[] => {
@@ -209,7 +210,7 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
               </button>
               <button
                 type="button"
-                onClick={() => deletePart(id)}
+                onClick={() => setDeleteConfirmId(id)}
                 className="p-1.5 rounded hover:bg-red-100 text-red-500"
                 title="Slett"
               >
@@ -247,8 +248,65 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
     )
   }
 
+  // Get part name for delete confirmation
+  const getPartName = (id: string): string => {
+    const part = parts.find(p => (p.id || p.tempId) === id)
+    return part?.name || 'denne delen'
+  }
+
+  // Count children for delete confirmation
+  const countChildren = (id: string): number => {
+    let count = 0
+    const findChildren = (parentId: string) => {
+      parts.forEach(p => {
+        if (p.parentId === parentId) {
+          count++
+          findChildren(p.id || p.tempId || '')
+        }
+      })
+    }
+    findChildren(id)
+    return count
+  }
+
   return (
     <div className="space-y-3">
+      {/* Delete confirmation dialog */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Slette del?</h3>
+            <p className="text-gray-600 mb-4">
+              Er du sikker på at du vil slette <strong>{getPartName(deleteConfirmId)}</strong>?
+              {countChildren(deleteConfirmId) > 0 && (
+                <span className="block mt-2 text-red-600">
+                  ⚠️ Dette vil også slette {countChildren(deleteConfirmId)} underdel{countChildren(deleteConfirmId) > 1 ? 'er' : ''}.
+                </span>
+              )}
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
+              >
+                Avbryt
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deletePart(deleteConfirmId)
+                  setDeleteConfirmId(null)
+                }}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
+              >
+                Ja, slett
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tree view */}
       <div className="border border-gray-200 rounded-xl p-3 min-h-[100px] bg-white">
         {tree.length === 0 ? (
