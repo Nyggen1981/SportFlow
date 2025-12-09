@@ -7,9 +7,7 @@ import {
   ChevronRight, 
   ChevronDown,
   GripVertical,
-  FolderOpen,
-  Folder,
-  CornerDownRight
+  FolderOpen
 } from "lucide-react"
 
 export interface HierarchicalPart {
@@ -33,6 +31,8 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
 
   // Build tree structure from flat list
   const buildTree = (flatParts: HierarchicalPart[]): HierarchicalPart[] => {
@@ -60,22 +60,6 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
     })
 
     return roots
-  }
-
-  // Flatten tree back to list
-  const flattenTree = (tree: HierarchicalPart[], parentId: string | null = null): HierarchicalPart[] => {
-    const result: HierarchicalPart[] = []
-    
-    tree.forEach(node => {
-      const { children, ...partData } = node
-      result.push({ ...partData, parentId })
-      
-      if (children && children.length > 0) {
-        result.push(...flattenTree(children, node.id || node.tempId))
-      }
-    })
-    
-    return result
   }
 
   const tree = buildTree(parts)
@@ -113,7 +97,6 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
     const updated = parts.map(p => {
       const partId = p.id || p.tempId || ''
       if (partId === id) {
-        // Create a new object to ensure React detects the change
         const updatedPart = { ...p, [field]: value }
         return updatedPart
       }
@@ -144,21 +127,96 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
     onPartsChange(updated)
   }
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedId(id)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault()
+    if (draggedId !== id) {
+      setDragOverId(id)
+    }
+  }
+
+  const handleDragLeave = () => {
+    setDragOverId(null)
+  }
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault()
+    if (!draggedId || draggedId === targetId) {
+      setDraggedId(null)
+      setDragOverId(null)
+      return
+    }
+
+    // Reorder parts - move dragged item before target
+    const draggedIndex = parts.findIndex(p => (p.id || p.tempId) === draggedId)
+    const targetIndex = parts.findIndex(p => (p.id || p.tempId) === targetId)
+    
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedId(null)
+      setDragOverId(null)
+      return
+    }
+
+    // Get the parts with same parent as target (for reordering within same level)
+    const draggedPart = parts[draggedIndex]
+    const targetPart = parts[targetIndex]
+
+    // Only reorder if they have the same parent
+    if (draggedPart.parentId === targetPart.parentId) {
+      const newParts = [...parts]
+      const [removed] = newParts.splice(draggedIndex, 1)
+      
+      // Recalculate target index after removal
+      const newTargetIndex = newParts.findIndex(p => (p.id || p.tempId) === targetId)
+      newParts.splice(newTargetIndex, 0, removed)
+      
+      onPartsChange(newParts)
+    }
+
+    setDraggedId(null)
+    setDragOverId(null)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedId(null)
+    setDragOverId(null)
+  }
+
   const renderPart = (part: HierarchicalPart, level: number = 0) => {
     const id = part.id || part.tempId || ''
     const hasChildren = part.children && part.children.length > 0
     const isExpanded = expandedIds.has(id)
     const isEditing = editingId === id
+    const isDragging = draggedId === id
+    const isDragOver = dragOverId === id
 
     return (
       <div key={id} className="select-none">
         <div 
-          className={`p-3 rounded-lg border border-gray-200 bg-white hover:border-gray-300 transition-colors ${
+          className={`p-3 rounded-lg border bg-white transition-all ${
             level > 0 ? 'ml-6 mt-2' : 'mt-2'
+          } ${isDragging ? 'opacity-50 border-blue-300' : 'border-gray-200 hover:border-gray-300'} ${
+            isDragOver ? 'border-blue-500 border-2 bg-blue-50' : ''
           }`}
+          draggable
+          onDragStart={(e) => handleDragStart(e, id)}
+          onDragOver={(e) => handleDragOver(e, id)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, id)}
+          onDragEnd={handleDragEnd}
         >
           {/* Header row */}
           <div className="flex items-center gap-2 group">
+            {/* Drag handle */}
+            <div className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+              <GripVertical className="w-4 h-4" />
+            </div>
+
             {/* Expand/collapse button */}
             <button
               type="button"
@@ -222,7 +280,7 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
           </div>
 
           {/* Details row - always visible */}
-          <div className="grid grid-cols-2 gap-2 mt-2 ml-7">
+          <div className="grid grid-cols-2 gap-2 mt-2 ml-9">
             <input
               type="text"
               value={part.description}
@@ -334,12 +392,11 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
 
       {/* Help text */}
       <div className="text-xs text-gray-500 space-y-1 bg-gray-50 p-3 rounded-lg">
-        <p><strong>Hvordan det fungerer:</strong></p>
-        <p>• <strong>Hoveddeler</strong> (øverste nivå) blokkerer alle sine underdeler når de bookes</p>
+        <p><strong>Tips:</strong></p>
+        <p>• Dra i <GripVertical className="w-3 h-3 inline" /> for å endre rekkefølgen</p>
         <p>• Klikk <Plus className="w-3 h-3 inline" /> på en del for å legge til underdel</p>
-        <p>• Eksempel: "Hele banen" → "Bane 1", "Bane 2" → "Bane 1A", "Bane 1B"</p>
+        <p>• <strong>Hoveddeler</strong> blokkerer alle sine underdeler når de bookes</p>
       </div>
     </div>
   )
 }
-

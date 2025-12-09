@@ -51,6 +51,7 @@ export default function NewResourcePage() {
   const [categoryId, setCategoryId] = useState("")
   const [color, setColor] = useState("")
   const [image, setImage] = useState<string | null>(null)
+  const [limitDuration, setLimitDuration] = useState(true)
   const [minBookingMinutes, setMinBookingMinutes] = useState("60")
   const [maxBookingMinutes, setMaxBookingMinutes] = useState("240")
   const [requiresApproval, setRequiresApproval] = useState(true)
@@ -140,8 +141,8 @@ export default function NewResourcePage() {
           mapImage,
           color: color || null,
           categoryId: categoryId || null,
-          minBookingMinutes: parseInt(minBookingMinutes),
-          maxBookingMinutes: parseInt(maxBookingMinutes),
+          minBookingMinutes: limitDuration ? parseInt(minBookingMinutes) : null,
+          maxBookingMinutes: limitDuration ? parseInt(maxBookingMinutes) : null,
           requiresApproval,
           advanceBookingDays: limitAdvanceBooking ? parseInt(advanceBookingDays) : null,
           blockPartsWhenWholeBooked,
@@ -362,33 +363,50 @@ export default function NewResourcePage() {
             <div className="space-y-4">
               <h2 className="font-semibold text-gray-900 border-b pb-2">Booking-innstillinger</h2>
               
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Min. varighet (minutter)
-                  </label>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
                   <input
-                    type="number"
-                    value={minBookingMinutes}
-                    onChange={(e) => setMinBookingMinutes(e.target.value)}
-                    className="input"
-                    min="15"
-                    step="15"
+                    type="checkbox"
+                    id="limitDuration"
+                    checked={limitDuration}
+                    onChange={(e) => setLimitDuration(e.target.checked)}
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Maks. varighet (minutter)
+                  <label htmlFor="limitDuration" className="text-sm font-medium text-gray-700">
+                    Begrens varighet på bookinger
                   </label>
-                  <input
-                    type="number"
-                    value={maxBookingMinutes}
-                    onChange={(e) => setMaxBookingMinutes(e.target.value)}
-                    className="input"
-                    min="15"
-                    step="15"
-                  />
                 </div>
+                
+                {limitDuration && (
+                  <div className="ml-8 grid md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Min. varighet (minutter)
+                      </label>
+                      <input
+                        type="number"
+                        value={minBookingMinutes}
+                        onChange={(e) => setMinBookingMinutes(e.target.value)}
+                        className="input"
+                        min="15"
+                        step="15"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Maks. varighet (minutter)
+                      </label>
+                      <input
+                        type="number"
+                        value={maxBookingMinutes}
+                        onChange={(e) => setMaxBookingMinutes(e.target.value)}
+                        className="input"
+                        min="15"
+                        step="15"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
