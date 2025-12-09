@@ -23,18 +23,31 @@ interface Organization {
   primaryColor: string
 }
 
+// Simple in-memory cache for organization data
+let orgCache: { data: Organization | null; timestamp: number } | null = null
+const ORG_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
 export function Navbar() {
   const { data: session } = useSession()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [org, setOrg] = useState<Organization | null>(null)
+  const [org, setOrg] = useState<Organization | null>(orgCache?.data || null)
   const [pendingCount, setPendingCount] = useState(0)
 
   const isAdmin = session?.user?.role === "admin"
 
   useEffect(() => {
+    // Use cache if valid
+    if (orgCache && Date.now() - orgCache.timestamp < ORG_CACHE_TTL) {
+      setOrg(orgCache.data)
+      return
+    }
+
     fetch("/api/organization")
       .then(res => res.json())
-      .then(data => setOrg(data))
+      .then(data => {
+        orgCache = { data, timestamp: Date.now() }
+        setOrg(data)
+      })
       .catch(() => {})
   }, [])
 

@@ -6,80 +6,85 @@ import { Navbar } from "@/components/Navbar"
 import { Footer } from "@/components/Footer"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { unstable_cache } from "next/cache"
 
 // Revalidate every 30 seconds for fresh booking data
 export const revalidate = 30
 
-
-async function getResources() {
-  try {
-    return await prisma.resource.findMany({
-      where: { 
-        isActive: true
-      },
-      select: {
-        id: true,
-        name: true,
-        color: true,
-        categoryId: true,
-        category: {
-          select: { 
-            id: true,
-            name: true,
-            color: true 
+// Cache resources for 60 seconds
+const getResources = unstable_cache(
+  async () => {
+    try {
+      return await prisma.resource.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          color: true,
+          categoryId: true,
+          category: {
+            select: { id: true, name: true, color: true }
           }
-        }
-      },
-      orderBy: [
-        { category: { name: "asc" } },
-        { name: "asc" }
-      ]
-    })
-  } catch {
-    return []
-  }
-}
-
-async function getCategories() {
-  try {
-    return await prisma.resourceCategory.findMany({
-      orderBy: { name: "asc" }
-    })
-  } catch {
-    return []
-  }
-}
-
-async function getPublicBookings() {
-  try {
-    const now = new Date()
-    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
-    const twoMonthsAhead = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
-
-    return await prisma.booking.findMany({
-      where: {
-        status: "approved",
-        startTime: { gte: twoWeeksAgo, lte: twoMonthsAhead }
-      },
-      select: {
-        id: true,
-        title: true,
-        startTime: true,
-        endTime: true,
-        resourceId: true,
-        resource: {
-          select: { name: true }
         },
-        resourcePart: {
-          select: { name: true }
-        }
-      },
-      orderBy: { startTime: "asc" }
-    })
-  } catch {
-    return []
-  }
-}
+        orderBy: [
+          { category: { name: "asc" } },
+          { name: "asc" }
+        ]
+      })
+    } catch {
+      return []
+    }
+  },
+  ["public-resources"],
+  { revalidate: 60 }
+)
+
+// Cache categories for 5 minutes
+const getCategories = unstable_cache(
+  async () => {
+    try {
+      return await prisma.resourceCategory.findMany({
+        orderBy: { name: "asc" }
+      })
+    } catch {
+      return []
+    }
+  },
+  ["public-categories"],
+  { revalidate: 300 }
+)
+
+// Cache bookings for 30 seconds (time-sensitive)
+const getPublicBookings = unstable_cache(
+  async () => {
+    try {
+      const now = new Date()
+      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+      const twoMonthsAhead = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
+
+      return await prisma.booking.findMany({
+        where: {
+          status: "approved",
+          startTime: { gte: twoWeeksAgo, lte: twoMonthsAhead }
+        },
+        select: {
+          id: true,
+          title: true,
+          startTime: true,
+          endTime: true,
+          resourceId: true,
+          resource: { select: { name: true } },
+          resourcePart: { select: { name: true } }
+        },
+        orderBy: { startTime: "asc" }
+      })
+    } catch {
+      return []
+    }
+  },
+  ["public-bookings"],
+  { revalidate: 30 }
+)
 
 export default async function PublicHomePage() {
   // Try to get session, but don't fail if auth is not configured

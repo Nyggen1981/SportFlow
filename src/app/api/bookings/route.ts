@@ -341,9 +341,25 @@ export async function GET() {
     where: {
       userId: session.user.id
     },
-    include: {
-      resource: true,
-      resourcePart: true
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      startTime: true,
+      endTime: true,
+      status: true,
+      statusNote: true,
+      resource: {
+        select: {
+          id: true,
+          name: true,
+          location: true,
+          color: true
+        }
+      },
+      resourcePart: {
+        select: { name: true }
+      }
     },
     orderBy: { startTime: "desc" }
   })
