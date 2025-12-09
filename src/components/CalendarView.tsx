@@ -37,6 +37,7 @@ interface Booking {
   resourcePartName?: string | null
   isRecurring?: boolean
   parentBookingId?: string | null
+  userId?: string
 }
 
 interface Props {
@@ -471,63 +472,93 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
               </div>
             </div>
 
-            {/* Actions - only for admin */}
-            {isAdmin ? (
-              <div className="p-4 border-t bg-gray-50 rounded-b-xl space-y-3">
-                {/* Recurring booking checkbox */}
-                {selectedBooking.isRecurring && selectedBooking.status === "pending" && (
-                  <label className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={applyToAll}
-                      onChange={(e) => setApplyToAll(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 rounded"
-                    />
-                    <span className="text-sm text-blue-800">
-                      Behandle alle gjentakende bookinger
-                    </span>
-                  </label>
-                )}
-                
-                {selectedBooking.status === "pending" && (
-                  <div className="flex gap-2">
+            {/* Actions */}
+            {(() => {
+              const isOwner = selectedBooking.userId === session?.user?.id
+              const canCancel = isOwner && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
+              const isPast = new Date(selectedBooking.startTime) < new Date()
+
+              if (isAdmin) {
+                return (
+                  <div className="p-4 border-t bg-gray-50 rounded-b-xl space-y-3">
+                    {/* Recurring booking checkbox */}
+                    {selectedBooking.isRecurring && selectedBooking.status === "pending" && (
+                      <label className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={applyToAll}
+                          onChange={(e) => setApplyToAll(e.target.checked)}
+                          className="w-4 h-4 text-blue-600 rounded"
+                        />
+                        <span className="text-sm text-blue-800">
+                          Behandle alle gjentakende bookinger
+                        </span>
+                      </label>
+                    )}
+                    
+                    {selectedBooking.status === "pending" && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleBookingAction(selectedBooking.id, "approve")}
+                          disabled={isProcessing}
+                          className="flex-1 btn btn-success disabled:opacity-50"
+                        >
+                          {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                          {selectedBooking.isRecurring && applyToAll ? "Godkjenn alle" : "Godkjenn"}
+                        </button>
+                        <button
+                          onClick={() => handleBookingAction(selectedBooking.id, "reject")}
+                          disabled={isProcessing}
+                          className="flex-1 btn btn-danger disabled:opacity-50"
+                        >
+                          {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                          {selectedBooking.isRecurring && applyToAll ? "Avslå alle" : "Avslå"}
+                        </button>
+                      </div>
+                    )}
                     <button
-                      onClick={() => handleBookingAction(selectedBooking.id, "approve")}
+                      onClick={() => handleBookingAction(selectedBooking.id, "cancel")}
                       disabled={isProcessing}
-                      className="flex-1 btn btn-success disabled:opacity-50"
+                      className="w-full btn btn-secondary text-red-600 hover:bg-red-50 disabled:opacity-50"
                     >
-                      {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                      {selectedBooking.isRecurring && applyToAll ? "Godkjenn alle" : "Godkjenn"}
-                    </button>
-                    <button
-                      onClick={() => handleBookingAction(selectedBooking.id, "reject")}
-                      disabled={isProcessing}
-                      className="flex-1 btn btn-danger disabled:opacity-50"
-                    >
-                      {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
-                      {selectedBooking.isRecurring && applyToAll ? "Avslå alle" : "Avslå"}
+                      {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      Kanseller booking
                     </button>
                   </div>
-                )}
-                <button
-                  onClick={() => handleBookingAction(selectedBooking.id, "cancel")}
-                  disabled={isProcessing}
-                  className="w-full btn btn-secondary text-red-600 hover:bg-red-50 disabled:opacity-50"
-                >
-                  {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                  Kanseller booking
-                </button>
-              </div>
-            ) : (
-              <div className="p-4 border-t bg-gray-50 rounded-b-xl">
-                <button
-                  onClick={() => setSelectedBooking(null)}
-                  className="w-full btn btn-secondary"
-                >
-                  Lukk
-                </button>
-              </div>
-            )}
+                )
+              } else if (canCancel && !isPast) {
+                return (
+                  <div className="p-4 border-t bg-gray-50 rounded-b-xl space-y-2">
+                    <p className="text-xs text-gray-500 text-center mb-2">Dette er din booking</p>
+                    <button
+                      onClick={() => handleBookingAction(selectedBooking.id, "cancel")}
+                      disabled={isProcessing}
+                      className="w-full btn btn-secondary text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      Kanseller booking
+                    </button>
+                    <button
+                      onClick={() => setSelectedBooking(null)}
+                      className="w-full btn btn-secondary"
+                    >
+                      Lukk
+                    </button>
+                  </div>
+                )
+              } else {
+                return (
+                  <div className="p-4 border-t bg-gray-50 rounded-b-xl">
+                    <button
+                      onClick={() => setSelectedBooking(null)}
+                      className="w-full btn btn-secondary"
+                    >
+                      Lukk
+                    </button>
+                  </div>
+                )
+              }
+            })()}
           </div>
         </div>
       )}
