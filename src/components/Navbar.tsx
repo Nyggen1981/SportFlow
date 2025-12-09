@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { useSession, signOut } from "next-auth/react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { 
   Calendar, 
   LogOut, 
@@ -14,13 +15,31 @@ import {
   ClipboardList
 } from "lucide-react"
 
+interface Organization {
+  id: string
+  name: string
+  logo: string | null
+  tagline: string
+  primaryColor: string
+}
+
 export function Navbar() {
   const { data: session } = useSession()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [org, setOrg] = useState<Organization | null>(null)
+
+  useEffect(() => {
+    fetch("/api/organization")
+      .then(res => res.json())
+      .then(data => setOrg(data))
+      .catch(() => {})
+  }, [])
 
   const isAdmin = session?.user?.role === "admin"
-  const orgName = session?.user?.organizationName || "Arena Booking"
-  const orgColor = session?.user?.organizationColor || "#2563eb"
+  const orgName = org?.name || session?.user?.organizationName || "Arena Booking"
+  const orgColor = org?.primaryColor || session?.user?.organizationColor || "#2563eb"
+  const orgLogo = org?.logo
+  const orgTagline = org?.tagline || "Kalender"
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -29,15 +48,30 @@ export function Navbar() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-3">
-              <div 
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
-                style={{ backgroundColor: orgColor }}
-              >
-                <Calendar className="w-6 h-6 text-white" />
+              {orgLogo ? (
+                <Image
+                  src={orgLogo}
+                  alt={orgName}
+                  width={40}
+                  height={40}
+                  className="rounded-lg"
+                />
+              ) : (
+                <div 
+                  className="w-10 h-10 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: orgColor }}
+                >
+                  <Calendar className="w-6 h-6 text-white" />
+                </div>
+              )}
+              <div>
+                <span className="font-bold text-gray-900 block">
+                  {orgName}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {orgTagline}
+                </span>
               </div>
-              <span className="font-bold text-xl text-gray-900">
-                {orgName}
-              </span>
             </Link>
           </div>
 
@@ -191,4 +225,3 @@ export function Navbar() {
     </nav>
   )
 }
-

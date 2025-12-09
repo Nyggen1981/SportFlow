@@ -1,4 +1,4 @@
-import { Navbar } from "@/components/Navbar"
+import { PageLayout } from "@/components/PageLayout"
 import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 import Image from "next/image"
@@ -54,10 +54,8 @@ export default async function ResourcesPage() {
   }, {} as Record<string, { category: typeof resources[0]["category"], resources: typeof resources }>)
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Navbar />
-
-      {/* Header */}
+    <PageLayout>
+      {/* Page Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <h1 className="text-3xl font-bold text-gray-900">Fasiliteter</h1>
@@ -197,7 +195,7 @@ export default async function ResourcesPage() {
           </section>
         ))}
       </div>
-    </div>
+    </PageLayout>
   )
 }
 

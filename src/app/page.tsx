@@ -1,27 +1,15 @@
 import { prisma } from "@/lib/prisma"
-import Link from "next/link"
-import Image from "next/image"
 import { redirect } from "next/navigation"
-import { 
-  Calendar, 
-  LogIn,
-  UserPlus,
-  AlertCircle
-} from "lucide-react"
+import { AlertCircle } from "lucide-react"
 import { PublicCalendar } from "@/components/PublicCalendar"
+import { Navbar } from "@/components/Navbar"
+import { Footer } from "@/components/Footer"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
 // Revalidate every 30 seconds for fresh booking data
 export const revalidate = 30
 
-async function getOrganization() {
-  try {
-    return await prisma.organization.findFirst()
-  } catch {
-    return null
-  }
-}
 
 async function getResources() {
   try {
@@ -107,68 +95,17 @@ export default async function PublicHomePage() {
     redirect("/resources")
   }
   
-  const [organization, resources, bookings, categories] = await Promise.all([
-    getOrganization(),
+  const [resources, bookings, categories] = await Promise.all([
     getResources(),
     getPublicBookings(),
     getCategories()
   ])
   
-  const primaryColor = organization?.primaryColor || "#2563eb"
   const hasData = resources.length > 0
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Organization branding */}
-            <div className="flex items-center gap-3">
-              {organization?.logo ? (
-                <Image
-                  src={organization.logo}
-                  alt={organization.name || "Logo"}
-                  width={40}
-                  height={40}
-                  className="rounded-lg"
-                />
-              ) : (
-                <div 
-                  className="w-10 h-10 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  <Calendar className="w-6 h-6 text-white" />
-                </div>
-              )}
-              <div>
-                <h1 className="font-bold text-gray-900">
-                  {organization?.name || "Arena Booking"}
-                </h1>
-                <p className="text-xs text-gray-500">{organization?.tagline || "Kalender"}</p>
-              </div>
-            </div>
-
-            {/* Auth buttons */}
-            <div className="flex items-center gap-2">
-              <Link 
-                href="/login"
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
-              >
-                <LogIn className="w-4 h-4" />
-                Logg inn
-              </Link>
-              <Link 
-                href="/register"
-                className="btn btn-primary"
-              >
-                <UserPlus className="w-4 h-4" />
-                Registrer deg
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       {/* Main Calendar */}
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
@@ -208,28 +145,7 @@ export default async function PublicHomePage() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-slate-900 text-white mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4">
-            {/* Arena Booking Brand */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h3 className="font-bold text-base">Arena Booking</h3>
-                <p className="text-slate-400 text-xs">Profesjonell booking for idrettslag</p>
-              </div>
-            </div>
-
-            {/* Copyright */}
-            <p className="text-xs text-slate-500">
-              © {new Date().getFullYear()} Arena Booking. Alle rettigheter reservert.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }
