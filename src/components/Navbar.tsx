@@ -5,7 +5,6 @@ import { useSession, signOut } from "next-auth/react"
 import { useState } from "react"
 import { 
   Calendar, 
-  Home, 
   LogOut, 
   Menu, 
   Settings, 
@@ -44,13 +43,6 @@ export function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
-            <Link 
-              href="/" 
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-            >
-              <Home className="w-4 h-4" />
-              Hjem
-            </Link>
             <Link 
               href="/resources" 
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
@@ -127,14 +119,6 @@ export function Navbar() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-200 bg-white animate-fadeIn">
           <div className="px-4 py-3 space-y-1">
-            <Link 
-              href="/" 
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <Home className="w-5 h-5" />
-              Hjem
-            </Link>
             <Link 
               href="/resources" 
               className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100"
