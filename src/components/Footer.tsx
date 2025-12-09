@@ -18,13 +18,13 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Copyright and Version */}
+          {/* Version and Copyright */}
           <div className="text-right">
-            <p className="text-xs text-slate-500">
-              © {new Date().getFullYear()} Arena Booking. Alle rettigheter reservert.
-            </p>
-            <p className="text-xs text-slate-600 mt-1">
+            <p className="text-xs text-slate-600">
               v{VERSION}
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              © {new Date().getFullYear()} Arena Booking. Alle rettigheter reservert.
             </p>
           </div>
         </div>
