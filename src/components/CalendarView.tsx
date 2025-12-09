@@ -279,8 +279,8 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                         const isPending = booking.status === "pending"
                         const resourceColor = getResourceColor(booking.resourceId)
 
-                        // Add 2px gap between bookings
-                        const gapPx = 2
+                        // Add gap between bookings for visual separation
+                        const gapPx = 3
                         const cellHeight = 48 // min-h-[48px]
                         const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
                         const heightPx = duration * cellHeight - (gapPx * 2)
