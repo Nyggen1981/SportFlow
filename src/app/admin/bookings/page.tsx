@@ -336,7 +336,11 @@ export default function AdminBookingsPage() {
                   const isExpanded = expandedGroups.has(booking._groupId)
                   const pendingInGroup = groupBookings?.filter(b => b.status === "pending").length || 0
 
-                  return (
+                  // Render main row + expanded child rows if applicable
+                  const rows = []
+                  
+                  // Main row
+                  rows.push(
                     <tr key={booking.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-4">
                         <div className="flex items-start gap-3">
@@ -450,6 +454,73 @@ export default function AdminBookingsPage() {
                       </td>
                     </tr>
                   )
+
+                  // Add expanded child rows for recurring bookings
+                  if (isExpanded && groupBookings && groupBookings.length > 1) {
+                    groupBookings.slice(1).forEach((childBooking) => {
+                      rows.push(
+                        <tr key={childBooking.id} className="bg-blue-50/30 hover:bg-blue-50/50 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="flex items-start gap-3 pl-8">
+                              <div className="w-2 h-2 rounded-full bg-blue-400 mt-2" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm text-gray-700">{childBooking.title}</span>
+                                  {childBooking.status === "pending" && (
+                                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>
+                                  )}
+                                  {childBooking.status === "approved" && (
+                                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Godkjent</span>
+                                  )}
+                                  {childBooking.status === "rejected" && (
+                                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Avslått</span>
+                                  )}
+                                  {childBooking.status === "cancelled" && (
+                                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Kansellert</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 hidden md:table-cell">
+                            <p className="text-sm text-gray-700">{formatDateLabel(childBooking.startTime)}</p>
+                            <p className="text-xs text-gray-500">
+                              {format(parseISO(childBooking.startTime), "HH:mm")} - {format(parseISO(childBooking.endTime), "HH:mm")}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 hidden lg:table-cell">
+                            <p className="text-xs text-gray-500">—</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-2">
+                              {childBooking.status === "pending" && (
+                                <>
+                                  <button
+                                    onClick={() => handleAction(childBooking.id, "approve", false)}
+                                    disabled={processingId === childBooking.id}
+                                    className="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
+                                    title="Godkjenn"
+                                  >
+                                    {processingId === childBooking.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                                  </button>
+                                  <button
+                                    onClick={() => handleAction(childBooking.id, "reject", false)}
+                                    disabled={processingId === childBooking.id}
+                                    className="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
+                                    title="Avslå"
+                                  >
+                                    {processingId === childBooking.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  }
+
+                  return rows
                 })}
               </tbody>
             </table>
