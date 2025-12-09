@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { prisma } from "@/lib/prisma"
 import { Navbar } from "@/components/Navbar"
+import { Footer } from "@/components/Footer"
 import Link from "next/link"
 import { 
   Building2, 
@@ -63,10 +64,11 @@ export default async function AdminPage() {
   ])
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
           <p className="text-gray-500">{session.user.organizationName}</p>
@@ -227,7 +229,9 @@ export default async function AdminPage() {
             />
           </div>
         </div>
-      </div>
+        </div>
+      </main>
+      <Footer />
     </div>
   )
 }

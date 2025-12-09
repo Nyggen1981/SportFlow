@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
+import { Footer } from "@/components/Footer"
 import Link from "next/link"
 import { 
   Calendar, 
@@ -68,11 +69,12 @@ export default function MyBookingsPage() {
 
   if (status === "loading" || isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-slate-50 flex flex-col">
         <Navbar />
-        <div className="flex items-center justify-center h-[60vh]">
+        <div className="flex-1 flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
         </div>
+        <Footer />
       </div>
     )
   }
@@ -81,10 +83,11 @@ export default function MyBookingsPage() {
   const pastBookings = bookings.filter(b => new Date(b.startTime) < new Date())
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       <Navbar />
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Mine bookinger</h1>
         <p className="text-gray-500 mb-8">Oversikt over alle dine bookinger</p>
 
@@ -190,7 +193,9 @@ export default function MyBookingsPage() {
             )}
           </div>
         )}
-      </div>
+        </div>
+      </main>
+      <Footer />
     </div>
   )
 }

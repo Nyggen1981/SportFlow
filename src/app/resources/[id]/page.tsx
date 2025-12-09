@@ -1,4 +1,5 @@
 import { Navbar } from "@/components/Navbar"
+import { Footer } from "@/components/Footer"
 import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import Link from "next/link"

@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
+import { Footer } from "@/components/Footer"
 import Link from "next/link"
 import { 
   ArrowLeft,
