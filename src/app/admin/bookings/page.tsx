@@ -19,7 +19,8 @@ import {
   Trash2,
   Search,
   Filter,
-  Building2
+  Building2,
+  Repeat
 } from "lucide-react"
 import { format } from "date-fns"
 import { nb } from "date-fns/locale"
@@ -34,6 +35,8 @@ interface Booking {
   contactName: string | null
   contactEmail: string | null
   contactPhone: string | null
+  isRecurring: boolean
+  parentBookingId: string | null
   resource: {
     name: string
   }
@@ -123,17 +126,38 @@ export default function AdminBookingsPage() {
     return true
   })
 
-  const handleAction = async (bookingId: string, action: "approve" | "reject") => {
+  const handleAction = async (bookingId: string, action: "approve" | "reject", applyToAll: boolean = false) => {
     setProcessingId(bookingId)
+    const booking = bookings.find(b => b.id === bookingId)
     
     const response = await fetch(`/api/admin/bookings/${bookingId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action })
+      body: JSON.stringify({ action, applyToAll: applyToAll && booking?.isRecurring })
     })
 
     if (response.ok) {
-      setBookings(bookings.filter(b => b.id !== bookingId))
+      if (applyToAll && booking?.isRecurring) {
+        // Remove all related recurring bookings
+        const parentId = booking.parentBookingId || booking.id
+        if (action === "approve") {
+          setBookings(bookings.map(b => 
+            (b.id === parentId || b.parentBookingId === parentId) && b.status === "pending"
+              ? { ...b, status: "approved" } 
+              : b
+          ))
+        } else {
+          setBookings(bookings.filter(b => 
+            !(b.id === parentId || b.parentBookingId === parentId)
+          ))
+        }
+      } else {
+        if (action === "approve") {
+          setBookings(bookings.map(b => b.id === bookingId ? { ...b, status: "approved" } : b))
+        } else {
+          setBookings(bookings.filter(b => b.id !== bookingId))
+        }
+      }
     }
     
     setProcessingId(null)
@@ -339,7 +363,7 @@ export default function AdminBookingsPage() {
               <div key={booking.id} className="card p-6 animate-fadeIn">
                 <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
+                    <div className="flex items-center gap-3 mb-3 flex-wrap">
                       <h3 className="text-lg font-semibold text-gray-900">{booking.title}</h3>
                       <span className={`status-badge ${
                         booking.status === "pending" ? "status-pending" :
@@ -351,6 +375,12 @@ export default function AdminBookingsPage() {
                          booking.status === "approved" ? "Godkjent" :
                          booking.status === "rejected" ? "Avslått" : "Kansellert"}
                       </span>
+                      {booking.isRecurring && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                          <Repeat className="w-3 h-3" />
+                          Gjentakende
+                        </span>
+                      )}
                     </div>
 
                     <p className="text-gray-600 mb-4">
@@ -393,30 +423,79 @@ export default function AdminBookingsPage() {
                   <div className="flex gap-3 lg:flex-col">
                     {booking.status === "pending" && (
                       <>
-                        <button
-                          onClick={() => handleAction(booking.id, "approve")}
-                          disabled={processingId === booking.id}
-                          className="btn btn-success flex-1 lg:flex-none disabled:opacity-50"
-                        >
-                          {processingId === booking.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="w-4 h-4" />
-                          )}
-                          Godkjenn
-                        </button>
-                        <button
-                          onClick={() => handleAction(booking.id, "reject")}
-                          disabled={processingId === booking.id}
-                          className="btn btn-danger flex-1 lg:flex-none disabled:opacity-50"
-                        >
-                          {processingId === booking.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <XCircle className="w-4 h-4" />
-                          )}
-                          Avslå
-                        </button>
+                        {booking.isRecurring ? (
+                          <>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleAction(booking.id, "approve", true)}
+                                disabled={processingId === booking.id}
+                                className="btn btn-success flex-1 disabled:opacity-50 text-xs px-3"
+                              >
+                                {processingId === booking.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="w-4 h-4" />
+                                )}
+                                Godkjenn alle
+                              </button>
+                              <button
+                                onClick={() => handleAction(booking.id, "approve", false)}
+                                disabled={processingId === booking.id}
+                                className="btn btn-secondary text-green-600 hover:bg-green-50 disabled:opacity-50 text-xs px-3"
+                              >
+                                Kun denne
+                              </button>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleAction(booking.id, "reject", true)}
+                                disabled={processingId === booking.id}
+                                className="btn btn-danger flex-1 disabled:opacity-50 text-xs px-3"
+                              >
+                                {processingId === booking.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <XCircle className="w-4 h-4" />
+                                )}
+                                Avslå alle
+                              </button>
+                              <button
+                                onClick={() => handleAction(booking.id, "reject", false)}
+                                disabled={processingId === booking.id}
+                                className="btn btn-secondary text-red-600 hover:bg-red-50 disabled:opacity-50 text-xs px-3"
+                              >
+                                Kun denne
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleAction(booking.id, "approve", false)}
+                              disabled={processingId === booking.id}
+                              className="btn btn-success flex-1 lg:flex-none disabled:opacity-50"
+                            >
+                              {processingId === booking.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-4 h-4" />
+                              )}
+                              Godkjenn
+                            </button>
+                            <button
+                              onClick={() => handleAction(booking.id, "reject", false)}
+                              disabled={processingId === booking.id}
+                              className="btn btn-danger flex-1 lg:flex-none disabled:opacity-50"
+                            >
+                              {processingId === booking.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <XCircle className="w-4 h-4" />
+                              )}
+                              Avslå
+                            </button>
+                          </>
+                        )}
                       </>
                     )}
                     {(booking.status === "approved" || booking.status === "pending") && (
