@@ -103,6 +103,42 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error("Registration error:", error)
+    
+    // Provide more specific error messages
+    if (error instanceof Error) {
+      // Check for Prisma unique constraint errors
+      if (error.message.includes("Unique constraint") || error.message.includes("P2002")) {
+        if (error.message.includes("email")) {
+          return NextResponse.json(
+            { error: "E-postadressen er allerede registrert" },
+            { status: 400 }
+          )
+        }
+        if (error.message.includes("slug")) {
+          return NextResponse.json(
+            { error: "Denne klubbkoden er allerede i bruk. Prøv en annen." },
+            { status: 400 }
+          )
+        }
+      }
+      
+      // Check for database connection errors
+      if (error.message.includes("connect") || error.message.includes("timeout")) {
+        return NextResponse.json(
+          { error: "Kunne ikke koble til database. Prøv igjen om litt." },
+          { status: 503 }
+        )
+      }
+      
+      // Return the actual error message if it's user-friendly
+      if (error.message && !error.message.includes("Prisma") && !error.message.includes("P")) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 500 }
+        )
+      }
+    }
+    
     return NextResponse.json(
       { error: "Kunne ikke opprette klubb. Prøv igjen." },
       { status: 500 }
