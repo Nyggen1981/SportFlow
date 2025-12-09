@@ -469,18 +469,29 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
         </div>
       )}
 
-      {/* Legend */}
+      {/* Legend - only show resources that have bookings in the filtered view */}
       <div className="flex flex-wrap items-center gap-4 text-sm">
         <span className="text-gray-500">Fasiliteter:</span>
-        {resources.map((resource) => (
-          <div key={resource.id} className="flex items-center gap-2">
-            <div 
-              className="w-3 h-3 rounded" 
-              style={{ backgroundColor: resource.color }}
-            />
-            <span className="text-gray-600">{resource.name}</span>
-          </div>
-        ))}
+        {(() => {
+          // Get unique resource IDs from filtered bookings
+          const visibleResourceIds = new Set(filteredBookings.map(b => b.resourceId))
+          
+          // If a specific resource is selected, only show that one
+          // Otherwise, show all resources that have bookings in the current view
+          const resourcesToShow = selectedResource
+            ? resources.filter(r => r.id === selectedResource)
+            : resources.filter(r => visibleResourceIds.has(r.id))
+          
+          return resourcesToShow.map((resource) => (
+            <div key={resource.id} className="flex items-center gap-2">
+              <div 
+                className="w-3 h-3 rounded" 
+                style={{ backgroundColor: resource.color }}
+              />
+              <span className="text-gray-600">{resource.name}</span>
+            </div>
+          ))
+        })()}
         <div className="flex items-center gap-2 ml-4 pl-4 border-l border-gray-200">
           <div className="w-4 h-3 rounded border-2 border-dashed border-gray-400 bg-gray-100" />
           <span className="text-gray-600">Venter på godkjenning</span>
