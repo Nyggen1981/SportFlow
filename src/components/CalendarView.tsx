@@ -257,10 +257,10 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                         return (
                           <div
                             key={booking.id}
-                            onClick={() => isAdmin && setSelectedBooking(booking)}
-                            className={`absolute left-1 right-1 rounded-md px-2 py-1 text-xs overflow-hidden transition-transform hover:scale-[1.02] hover:z-10 ${
+                            onClick={() => setSelectedBooking(booking)}
+                            className={`absolute left-1 right-1 rounded-md px-2 py-1 text-xs overflow-hidden transition-transform hover:scale-[1.02] hover:z-10 cursor-pointer ${
                               isPending ? 'border-2 border-dashed' : ''
-                            } ${isAdmin ? 'cursor-pointer' : 'cursor-default'}`}
+                            }`}
                             style={{
                               top: `${top}%`,
                               height: `${Math.max(duration * 100, 100)}%`,
@@ -271,7 +271,7 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                               borderColor: isPending ? resourceColor : 'transparent',
                               color: isPending ? resourceColor : 'white'
                             }}
-                            title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resourceName}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''}${isAdmin ? ' - Klikk for å behandle' : ''}`}
+                            title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resourceName}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''} - Klikk for mer info`}
                           >
                             <p className="font-medium truncate">{booking.title}</p>
                             <p className={`truncate text-[10px] ${isPending ? 'opacity-70' : 'opacity-80'}`}>{booking.resourceName}</p>
@@ -328,10 +328,10 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                       return (
                         <div
                           key={booking.id}
-                          onClick={() => isAdmin && setSelectedBooking(booking)}
-                          className={`text-xs px-1.5 py-0.5 rounded truncate ${
+                          onClick={() => setSelectedBooking(booking)}
+                          className={`text-xs px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-80 ${
                             isPending ? 'border border-dashed' : ''
-                          } ${isAdmin ? 'cursor-pointer hover:opacity-80' : ''}`}
+                          }`}
                           style={{
                             backgroundColor: isPending 
                               ? `${resourceColor}20`
@@ -339,7 +339,7 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                             borderColor: isPending ? resourceColor : 'transparent',
                             color: isPending ? resourceColor : 'white'
                           }}
-                          title={`${format(parseISO(booking.startTime), "HH:mm")} ${booking.title}${isPending ? ' (venter)' : ''}${isAdmin ? ' - Klikk for å behandle' : ''}`}
+                          title={`${format(parseISO(booking.startTime), "HH:mm")} ${booking.title}${isPending ? ' (venter)' : ''} - Klikk for mer info`}
                         >
                           {format(parseISO(booking.startTime), "HH:mm")} {booking.title}
                         </div>
@@ -381,13 +381,15 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
         )}
       </div>
 
-      {/* Admin Booking Modal */}
-      {selectedBooking && isAdmin && (
+      {/* Booking Info Modal */}
+      {selectedBooking && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-lg font-bold text-gray-900">Behandle booking</h3>
+              <h3 className="text-lg font-bold text-gray-900">
+                {isAdmin ? "Behandle booking" : "Booking-detaljer"}
+              </h3>
               <button
                 onClick={() => setSelectedBooking(null)}
                 className="p-1 rounded hover:bg-gray-100"
@@ -431,37 +433,48 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="p-4 border-t bg-gray-50 rounded-b-xl space-y-2">
-              {selectedBooking.status === "pending" && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleBookingAction(selectedBooking.id, "approve")}
-                    disabled={isProcessing}
-                    className="flex-1 btn btn-success disabled:opacity-50"
-                  >
-                    {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                    Godkjenn
-                  </button>
-                  <button
-                    onClick={() => handleBookingAction(selectedBooking.id, "reject")}
-                    disabled={isProcessing}
-                    className="flex-1 btn btn-danger disabled:opacity-50"
-                  >
-                    {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
-                    Avslå
-                  </button>
-                </div>
-              )}
-              <button
-                onClick={() => handleBookingAction(selectedBooking.id, "cancel")}
-                disabled={isProcessing}
-                className="w-full btn btn-secondary text-red-600 hover:bg-red-50 disabled:opacity-50"
-              >
-                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                Kanseller booking
-              </button>
-            </div>
+            {/* Actions - only for admin */}
+            {isAdmin ? (
+              <div className="p-4 border-t bg-gray-50 rounded-b-xl space-y-2">
+                {selectedBooking.status === "pending" && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleBookingAction(selectedBooking.id, "approve")}
+                      disabled={isProcessing}
+                      className="flex-1 btn btn-success disabled:opacity-50"
+                    >
+                      {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                      Godkjenn
+                    </button>
+                    <button
+                      onClick={() => handleBookingAction(selectedBooking.id, "reject")}
+                      disabled={isProcessing}
+                      className="flex-1 btn btn-danger disabled:opacity-50"
+                    >
+                      {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                      Avslå
+                    </button>
+                  </div>
+                )}
+                <button
+                  onClick={() => handleBookingAction(selectedBooking.id, "cancel")}
+                  disabled={isProcessing}
+                  className="w-full btn btn-secondary text-red-600 hover:bg-red-50 disabled:opacity-50"
+                >
+                  {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  Kanseller booking
+                </button>
+              </div>
+            ) : (
+              <div className="p-4 border-t bg-gray-50 rounded-b-xl">
+                <button
+                  onClick={() => setSelectedBooking(null)}
+                  className="w-full btn btn-secondary"
+                >
+                  Lukk
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
