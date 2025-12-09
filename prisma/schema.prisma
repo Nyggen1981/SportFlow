@@ -17,6 +17,7 @@ model Organization {
   name           String
   slug           String   @unique
   logo           String?
+  tagline        String   @default("Kalender")
   primaryColor   String   @default("#2563eb")
   secondaryColor String   @default("#1e40af")
   createdAt      DateTime @default(now())

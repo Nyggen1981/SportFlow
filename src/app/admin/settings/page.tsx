@@ -27,6 +27,7 @@ interface Organization {
   name: string
   slug: string
   logo: string | null
+  tagline: string
   primaryColor: string
   secondaryColor: string
 }
@@ -51,6 +52,7 @@ export default function AdminSettingsPage() {
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
   const [logo, setLogo] = useState<string | null>(null)
+  const [tagline, setTagline] = useState("Kalender")
   const [primaryColor, setPrimaryColor] = useState("#2563eb")
   const [secondaryColor, setSecondaryColor] = useState("#1e40af")
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -72,6 +74,7 @@ export default function AdminSettingsPage() {
           setName(data.name || "")
           setSlug(data.slug || "")
           setLogo(data.logo || null)
+          setTagline(data.tagline || "Kalender")
           setPrimaryColor(data.primaryColor || "#2563eb")
           setSecondaryColor(data.secondaryColor || "#1e40af")
           setIsLoading(false)
@@ -124,6 +127,7 @@ export default function AdminSettingsPage() {
           name,
           slug,
           logo,
+          tagline,
           primaryColor,
           secondaryColor
         })
@@ -285,6 +289,22 @@ export default function AdminSettingsPage() {
                   onChange={handleLogoUpload}
                   className="hidden"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Undertekst / Tagline
+                </label>
+                <input
+                  type="text"
+                  value={tagline}
+                  onChange={(e) => setTagline(e.target.value)}
+                  className="input"
+                  placeholder="F.eks. Kalender, Booking, Fasiliteter"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Vises under klubbnavnet i headeren (f.eks. &quot;Kalender&quot;)
+                </p>
               </div>
             </div>
 

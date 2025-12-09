@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { useSession, signOut } from "next-auth/react"
 import { useState } from "react"
 import { 
@@ -20,6 +21,9 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const isAdmin = session?.user?.role === "admin"
+  const orgName = session?.user?.organizationName || "Arena Booking"
+  const orgLogo = session?.user?.organizationLogo
+  const orgColor = session?.user?.organizationColor || "#2563eb"
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -28,11 +32,24 @@ export function Navbar() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-white" />
-              </div>
+              {orgLogo ? (
+                <Image
+                  src={orgLogo}
+                  alt={orgName}
+                  width={40}
+                  height={40}
+                  className="rounded-lg"
+                />
+              ) : (
+                <div 
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ backgroundColor: orgColor }}
+                >
+                  <Calendar className="w-6 h-6 text-white" />
+                </div>
+              )}
               <span className="font-bold text-xl text-gray-900">
-                Arena Booking
+                {orgName}
               </span>
             </Link>
           </div>

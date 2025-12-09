@@ -47,6 +47,8 @@ export const authOptions: NextAuthOptions = {
           organizationId: user.organizationId,
           organizationName: user.organization.name,
           organizationSlug: user.organization.slug,
+          organizationLogo: user.organization.logo,
+          organizationTagline: user.organization.tagline,
           organizationColor: user.organization.primaryColor,
         }
       }
@@ -60,6 +62,8 @@ export const authOptions: NextAuthOptions = {
         token.organizationId = user.organizationId
         token.organizationName = user.organizationName
         token.organizationSlug = user.organizationSlug
+        token.organizationLogo = user.organizationLogo
+        token.organizationTagline = user.organizationTagline
         token.organizationColor = user.organizationColor
       }
       return token
@@ -71,6 +75,8 @@ export const authOptions: NextAuthOptions = {
         session.user.organizationId = token.organizationId as string
         session.user.organizationName = token.organizationName as string
         session.user.organizationSlug = token.organizationSlug as string
+        session.user.organizationLogo = token.organizationLogo as string | null
+        session.user.organizationTagline = token.organizationTagline as string
         session.user.organizationColor = token.organizationColor as string
       }
       return session

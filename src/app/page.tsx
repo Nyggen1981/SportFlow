@@ -145,7 +145,7 @@ export default async function PublicHomePage() {
                 <h1 className="font-bold text-gray-900">
                   {organization?.name || "Arena Booking"}
                 </h1>
-                <p className="text-xs text-gray-500">Kalender</p>
+                <p className="text-xs text-gray-500">{organization?.tagline || "Kalender"}</p>
               </div>
             </div>
 
