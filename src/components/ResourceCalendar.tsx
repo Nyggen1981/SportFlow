@@ -102,25 +102,6 @@ export function ResourceCalendar({ bookings, parts }: Props) {
     })
   }
 
-  const getBookingStyle = (booking: Booking, hour: number) => {
-    const start = parseISO(booking.startTime)
-    const end = parseISO(booking.endTime)
-    const startHour = start.getHours()
-    const startMinute = start.getMinutes()
-    
-    const isFirstHour = hour === startHour
-    const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60)
-    const heightMultiplier = durationMinutes / 60
-
-    if (!isFirstHour) return null
-
-    return {
-      top: `${(startMinute / 60) * 100}%`,
-      height: `${heightMultiplier * 100}%`,
-      minHeight: '48px'
-    }
-  }
-
   return (
     <div>
       {/* Controls */}
@@ -235,24 +216,44 @@ export function ResourceCalendar({ bookings, parts }: Props) {
                   return (
                     <div 
                       key={`${day.toISOString()}-${hour}`} 
-                      className={`relative min-h-[48px] border-l border-gray-100 ${
+                      className={`relative min-h-[48px] border-l border-gray-100 pointer-events-none ${
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
                       {dayBookings.map((booking) => {
-                        const style = getBookingStyle(booking, hour)
-                        if (!style) return null
+                        const start = parseISO(booking.startTime)
+                        const end = parseISO(booking.endTime)
+                        const startHour = start.getHours()
+                        
+                        // Only render on first hour
+                        if (hour !== startHour) return null
+                        
+                        const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+                        const isPending = booking.status === "pending"
+                        
+                        // Add gap for visual separation
+                        const gapPx = 3
+                        const cellHeight = 48
+                        const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
+                        const heightPx = durationHours * cellHeight - (gapPx * 2)
 
                         return (
                           <div
                             key={booking.id}
-                            className={`booking-block ${
-                              booking.status === "approved" ? "booking-approved" : "booking-pending"
+                            className={`absolute left-1 right-1 rounded-md px-2 py-1 text-xs overflow-hidden pointer-events-auto cursor-default ${
+                              isPending ? 'border-2 border-dashed' : ''
                             }`}
-                            style={style}
-                            title={`${booking.title}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}`}
+                            style={{
+                              top: `${topPx}px`,
+                              height: `${Math.max(heightPx, 36)}px`,
+                              backgroundColor: isPending ? 'rgba(34, 197, 94, 0.2)' : '#22c55e',
+                              borderColor: isPending ? '#22c55e' : undefined,
+                              color: isPending ? '#15803d' : 'white',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                            }}
+                            title={`${booking.title}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''}`}
                           >
-                            <p className="font-medium truncate text-xs">{booking.title}</p>
+                            <p className="font-medium truncate">{booking.title}</p>
                             {booking.resourcePartName && (
                               <p className="text-[10px] opacity-80 truncate">{booking.resourcePartName}</p>
                             )}
