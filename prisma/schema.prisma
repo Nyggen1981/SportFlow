@@ -76,6 +76,7 @@ model Resource {
   // Part booking settings
   blockPartsWhenWholeBooked Boolean @default(true)  // When whole facility is booked, block all parts
   blockWholeWhenPartBooked  Boolean @default(true)  // When a part is booked, block "whole facility" option
+  allowWholeBooking         Boolean @default(true)  // Allow booking entire facility (false = must select a part)
 
   // Booking settings
   minBookingMinutes  Int?    // null = no limit

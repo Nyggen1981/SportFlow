@@ -67,6 +67,7 @@ export default function EditResourcePage({ params }: Props) {
   const [limitAdvanceBooking, setLimitAdvanceBooking] = useState(true)
   const [advanceBookingDays, setAdvanceBookingDays] = useState("30")
   const [showOnPublicCalendar, setShowOnPublicCalendar] = useState(true)
+  const [allowWholeBooking, setAllowWholeBooking] = useState(true)
   const [mapImage, setMapImage] = useState<string | null>(null)
   const [parts, setParts] = useState<Part[]>([])
 
@@ -103,6 +104,7 @@ export default function EditResourcePage({ params }: Props) {
       setLimitAdvanceBooking(resource.advanceBookingDays !== null)
       setAdvanceBookingDays(String(resource.advanceBookingDays || 30))
       setShowOnPublicCalendar(resource.showOnPublicCalendar ?? true)
+      setAllowWholeBooking(resource.allowWholeBooking ?? true)
       setMapImage(resource.mapImage || null)
       setParts(resource.parts?.map((p: { id: string; name: string; description?: string; capacity?: number; mapCoordinates?: string; parentId?: string }) => ({
         id: p.id,
@@ -171,6 +173,7 @@ export default function EditResourcePage({ params }: Props) {
           requiresApproval,
           advanceBookingDays: limitAdvanceBooking ? parseInt(advanceBookingDays) : null,
           showOnPublicCalendar,
+          allowWholeBooking,
           parts: parts.filter(p => p.name.trim()).map(p => ({
             id: p.id,
             tempId: p.tempId,
@@ -530,6 +533,21 @@ export default function EditResourcePage({ params }: Props) {
                 parts={parts}
                 onPartsChange={setParts}
               />
+
+              {parts.length > 0 && (
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+                  <input
+                    type="checkbox"
+                    id="allowWholeBooking"
+                    checked={allowWholeBooking}
+                    onChange={(e) => setAllowWholeBooking(e.target.checked)}
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="allowWholeBooking" className="text-sm text-gray-700">
+                    Tillat booking av hele fasiliteten (i tillegg til deler)
+                  </label>
+                </div>
+              )}
             </div>
 
             {/* Map Editor */}

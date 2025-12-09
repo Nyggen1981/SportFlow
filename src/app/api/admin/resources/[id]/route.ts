@@ -109,7 +109,8 @@ export async function PUT(
         advanceBookingDays: body.advanceBookingDays,
         blockPartsWhenWholeBooked: body.blockPartsWhenWholeBooked ?? true,
         blockWholeWhenPartBooked: body.blockWholeWhenPartBooked ?? true,
-        showOnPublicCalendar: body.showOnPublicCalendar ?? true
+        showOnPublicCalendar: body.showOnPublicCalendar ?? true,
+        allowWholeBooking: body.allowWholeBooking ?? true
       }
     })
 

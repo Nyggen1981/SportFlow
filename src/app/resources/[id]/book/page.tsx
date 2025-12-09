@@ -34,6 +34,7 @@ interface Resource {
   minBookingMinutes: number | null
   maxBookingMinutes: number | null
   requiresApproval: boolean
+  allowWholeBooking: boolean
   mapImage?: string | null
   parts: ResourcePart[]
   category: { color: string } | null
@@ -102,6 +103,13 @@ export default function BookResourcePage({ params }: Props) {
     e.preventDefault()
     setIsSubmitting(true)
     setError("")
+
+    // Validate part selection if whole booking is not allowed
+    if (resource && !resource.allowWholeBooking && resource.parts.length > 0 && !selectedPart) {
+      setError("Du må velge et område for denne fasiliteten")
+      setIsSubmitting(false)
+      return
+    }
 
     try {
       const startDateTime = new Date(`${date}T${startTime}`)
@@ -261,7 +269,7 @@ export default function BookResourcePage({ params }: Props) {
             {resource.parts.length > 0 && (
               <div className="space-y-4">
                 <label className="block text-sm font-medium text-gray-700">
-                  Velg del av {resource.name}
+                  Velg del av {resource.name} {!resource.allowWholeBooking && <span className="text-red-500">*</span>}
                 </label>
                 
                 {/* Map view if available */}
@@ -272,7 +280,16 @@ export default function BookResourcePage({ params }: Props) {
                         mapImage={resource.mapImage}
                         parts={resource.parts}
                         selectedPartId={selectedPart}
-                        onPartClick={(partId) => setSelectedPart(partId === selectedPart ? "" : partId)}
+                        onPartClick={(partId) => {
+                          // If clicking same part, deselect only if whole booking is allowed
+                          if (partId === selectedPart) {
+                            if (resource.allowWholeBooking) {
+                              setSelectedPart("")
+                            }
+                          } else {
+                            setSelectedPart(partId)
+                          }
+                        }}
                       />
                     </div>
                     
@@ -280,19 +297,26 @@ export default function BookResourcePage({ params }: Props) {
                     <div className={`p-4 rounded-xl border-2 transition-all ${
                       selectedPart 
                         ? "border-blue-500 bg-blue-50" 
-                        : "border-gray-200 bg-gray-50"
+                        : !resource.allowWholeBooking 
+                          ? "border-red-300 bg-red-50"
+                          : "border-gray-200 bg-gray-50"
                     }`}>
                       <p className="text-sm text-gray-500 mb-1">Valgt område:</p>
                       <p className="font-semibold text-gray-900">
                         {selectedPart 
                           ? resource.parts.find(p => p.id === selectedPart)?.name 
-                          : `Hele ${resource.name}`
+                          : resource.allowWholeBooking 
+                            ? `Hele ${resource.name}`
+                            : "Velg et område"
                         }
                       </p>
                     </div>
                     
                     <p className="text-xs text-gray-500">
-                      Klikk på et område i kartet for å velge det. Klikk igjen for å velge hele fasiliteten.
+                      {resource.allowWholeBooking 
+                        ? "Klikk på et område i kartet for å velge det. Klikk igjen for å velge hele fasiliteten."
+                        : "Klikk på et område i kartet for å velge det."
+                      }
                     </p>
                   </div>
                 ) : (
@@ -301,8 +325,10 @@ export default function BookResourcePage({ params }: Props) {
                     value={selectedPart}
                     onChange={(e) => setSelectedPart(e.target.value)}
                     className="input"
+                    required={!resource.allowWholeBooking}
                   >
-                    <option value="">Hele fasiliteten</option>
+                    {resource.allowWholeBooking && <option value="">Hele fasiliteten</option>}
+                    {!resource.allowWholeBooking && !selectedPart && <option value="">Velg et område...</option>}
                     {resource.parts.map(part => (
                       <option key={part.id} value={part.id}>{part.name}</option>
                     ))}
