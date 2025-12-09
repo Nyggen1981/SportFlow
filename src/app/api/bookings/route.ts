@@ -2,7 +2,9 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { addWeeks, addMonths } from "date-fns"
+import { addWeeks, addMonths, format } from "date-fns"
+import { nb } from "date-fns/locale"
+import { sendEmail, getNewBookingRequestEmail } from "@/lib/email"
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions)
@@ -214,6 +216,37 @@ export async function POST(request: Request) {
         })
       )
     )
+
+    // Send email notification to admins if booking requires approval
+    if (resource.requiresApproval && createdBookings.length > 0) {
+      const firstBooking = createdBookings[0]
+      const admins = await prisma.user.findMany({
+        where: {
+          organizationId: session.user.organizationId,
+          role: "admin"
+        }
+      })
+
+      const date = format(new Date(firstBooking.startTime), "EEEE d. MMMM yyyy", { locale: nb })
+      const time = `${format(new Date(firstBooking.startTime), "HH:mm")} - ${format(new Date(firstBooking.endTime), "HH:mm")}`
+      const resourceName = resourcePartId 
+        ? `${resource.name} → ${resource.parts?.find(p => p.id === resourcePartId)?.name || ''}`
+        : resource.name
+
+      // Send email to each admin
+      for (const admin of admins) {
+        const emailContent = getNewBookingRequestEmail(
+          title,
+          resourceName,
+          date,
+          time,
+          session.user.name || contactName || "Ukjent",
+          session.user.email || contactEmail || "",
+          description
+        )
+        await sendEmail({ to: admin.email, ...emailContent })
+      }
+    }
 
     return NextResponse.json(
       { 

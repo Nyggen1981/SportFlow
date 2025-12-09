@@ -2,6 +2,9 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { sendEmail, getBookingApprovedEmail, getBookingRejectedEmail } from "@/lib/email"
+import { format } from "date-fns"
+import { nb } from "date-fns/locale"
 
 export async function PATCH(
   request: Request,
@@ -17,7 +20,12 @@ export async function PATCH(
   const { action, statusNote } = await request.json()
 
   const booking = await prisma.booking.findUnique({
-    where: { id }
+    where: { id },
+    include: {
+      user: true,
+      resource: true,
+      resourcePart: true
+    }
   })
 
   if (!booking || booking.organizationId !== session.user.organizationId) {
@@ -34,6 +42,23 @@ export async function PATCH(
     }
   })
 
+  // Send email notification
+  const userEmail = booking.contactEmail || booking.user.email
+  if (userEmail) {
+    const date = format(new Date(booking.startTime), "EEEE d. MMMM yyyy", { locale: nb })
+    const time = `${format(new Date(booking.startTime), "HH:mm")} - ${format(new Date(booking.endTime), "HH:mm")}`
+    const resourceName = booking.resourcePart 
+      ? `${booking.resource.name} → ${booking.resourcePart.name}`
+      : booking.resource.name
+
+    if (action === "approve") {
+      const emailContent = getBookingApprovedEmail(booking.title, resourceName, date, time)
+      await sendEmail({ to: userEmail, ...emailContent })
+    } else {
+      const emailContent = getBookingRejectedEmail(booking.title, resourceName, date, time, statusNote)
+      await sendEmail({ to: userEmail, ...emailContent })
+    }
+  }
+
   return NextResponse.json(updatedBooking)
 }
-

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { 
   Calendar, 
   LogOut, 
@@ -13,14 +13,38 @@ import {
   Building2,
   ClipboardList,
   LogIn,
-  UserPlus
+  UserPlus,
+  Bell
 } from "lucide-react"
 
 export function NavLinks() {
   const { data: session } = useSession()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
 
   const isAdmin = session?.user?.role === "admin"
+
+  // Fetch pending bookings count for admin
+  useEffect(() => {
+    if (isAdmin) {
+      const fetchPendingCount = async () => {
+        try {
+          const response = await fetch("/api/admin/bookings/pending-count")
+          if (response.ok) {
+            const data = await response.json()
+            setPendingCount(data.count)
+          }
+        } catch (error) {
+          console.error("Failed to fetch pending count:", error)
+        }
+      }
+      
+      fetchPendingCount()
+      // Refresh every 30 seconds
+      const interval = setInterval(fetchPendingCount, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [isAdmin])
 
   return (
     <>
@@ -54,10 +78,15 @@ export function NavLinks() {
             {isAdmin && (
               <Link 
                 href="/admin" 
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                className="relative flex items-center gap-2 px-4 py-2 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
               >
                 <Settings className="w-4 h-4" />
                 Admin
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
+                    {pendingCount > 99 ? "99+" : pendingCount}
+                  </span>
+                )}
               </Link>
             )}
 
@@ -140,11 +169,16 @@ export function NavLinks() {
                 {isAdmin && (
                   <Link 
                     href="/admin" 
-                    className="flex items-center gap-3 px-4 py-3 rounded-lg text-blue-600 hover:bg-blue-50"
+                    className="relative flex items-center gap-3 px-4 py-3 rounded-lg text-blue-600 hover:bg-blue-50"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <Settings className="w-5 h-5" />
                     Admin
+                    {pendingCount > 0 && (
+                      <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-xs font-bold rounded-full">
+                        {pendingCount > 99 ? "99+" : pendingCount}
+                      </span>
+                    )}
                   </Link>
                 )}
 
