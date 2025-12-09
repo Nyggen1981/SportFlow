@@ -164,6 +164,7 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
+                step="900"
                 required
                 className="input"
               />
@@ -177,6 +178,7 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
+                step="900"
                 required
                 className="input"
               />
