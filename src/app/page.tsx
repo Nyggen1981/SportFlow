@@ -103,8 +103,14 @@ export default async function PublicHomePage() {
   
   const hasData = resources.length > 0
   
+  // If no resources and user is not logged in, redirect to registration
+  // (new customers should register their club first)
+  if (!hasData && !session) {
+    redirect("/register")
+  }
+  
   // Only redirect logged-in users to resources page if there are resources
-  // If no resources, keep them on public calendar
+  // If no resources but logged in, keep them on public calendar (they can set up facilities)
   if (session && hasData) {
     redirect("/resources")
   }
