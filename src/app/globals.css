@@ -76,14 +76,17 @@ body {
   z-index: 10;
 }
 
-/* Calendar event with glow effect */
+/* Calendar event hover effect */
 .booking-event {
-  --glow-color: rgba(59, 130, 246, 0.5);
-  transition: box-shadow 0.2s ease, filter 0.2s ease;
+  transition: outline 0.15s ease, outline-offset 0.15s ease, filter 0.15s ease;
+  outline: 2px solid transparent;
+  outline-offset: 0px;
 }
 
 .booking-event:hover {
-  box-shadow: 0 0 20px var(--glow-color), 0 4px 12px rgba(0, 0, 0, 0.15);
+  outline: 2px solid rgba(255, 255, 255, 0.8);
+  outline-offset: 2px;
+  filter: brightness(1.1);
 }
 
 .booking-approved {

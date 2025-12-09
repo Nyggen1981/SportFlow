@@ -428,7 +428,7 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                   return (
                     <div 
                       key={`${day.toISOString()}-${hour}`} 
-                      className={`relative min-h-[48px] border-l border-gray-100 ${
+                      className={`relative min-h-[48px] border-l border-gray-100 pointer-events-none ${
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
@@ -443,15 +443,13 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                           <button
                             key={booking.id}
                             onClick={() => setSelectedBooking(booking)}
-                            className="absolute left-0.5 right-0.5 rounded px-1.5 py-1 text-xs overflow-hidden cursor-pointer hover:z-10 text-left booking-event"
+                            className="absolute left-0.5 right-0.5 rounded px-1.5 py-1 text-xs overflow-hidden cursor-pointer z-10 pointer-events-auto text-left booking-event"
                             style={{
                               top: `${top}%`,
                               height: `${Math.max(duration * 100, 100)}%`,
                               minHeight: '40px',
                               backgroundColor: resourceColor,
-                              color: 'white',
-                              // @ts-expect-error CSS custom property for hover glow
-                              '--glow-color': `${resourceColor}80`
+                              color: 'white'
                             }}
                           >
                             <p className="font-semibold truncate text-[11px]">{booking.title}</p>
@@ -514,9 +512,7 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                           className="w-full text-[10px] px-1 py-0.5 rounded truncate text-left booking-event"
                           style={{
                             backgroundColor: resourceColor,
-                            color: 'white',
-                            // @ts-expect-error CSS custom property for hover glow
-                            '--glow-color': `${resourceColor}60`
+                            color: 'white'
                           }}
                         >
                           {format(parseISO(booking.startTime), "HH:mm")} {booking.title}
