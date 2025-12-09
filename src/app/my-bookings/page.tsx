@@ -17,8 +17,10 @@ import {
   Hourglass,
   Trash2,
   ChevronRight,
-  Plus
+  Plus,
+  Pencil
 } from "lucide-react"
+import { EditBookingModal } from "@/components/EditBookingModal"
 import { format, isToday, isTomorrow, isThisWeek, parseISO } from "date-fns"
 import { nb } from "date-fns/locale"
 
@@ -48,6 +50,7 @@ export default function MyBookingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>("upcoming")
   const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
 
   useEffect(() => {
@@ -286,13 +289,22 @@ export default function MyBookingsPage() {
                               {/* Actions */}
                               <div className="flex items-center gap-2">
                                 {canCancel && !isPast && (
-                                  <button
-                                    onClick={() => setCancellingId(booking.id)}
-                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    title="Kanseller"
-                                  >
-                                    <Trash2 className="w-5 h-5" />
-                                  </button>
+                                  <>
+                                    <button
+                                      onClick={() => setEditingBooking(booking)}
+                                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                      title="Rediger"
+                                    >
+                                      <Pencil className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                      onClick={() => setCancellingId(booking.id)}
+                                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                      title="Kanseller"
+                                    >
+                                      <Trash2 className="w-5 h-5" />
+                                    </button>
+                                  </>
                                 )}
                                 <Link
                                   href={`/resources/${booking.resource.id}/book`}
@@ -351,6 +363,34 @@ export default function MyBookingsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Booking Modal */}
+      {editingBooking && (
+        <EditBookingModal
+          booking={{
+            id: editingBooking.id,
+            title: editingBooking.title,
+            description: editingBooking.description,
+            startTime: editingBooking.startTime,
+            endTime: editingBooking.endTime,
+            status: editingBooking.status,
+            resourceId: editingBooking.resource.id,
+            resourceName: editingBooking.resource.name,
+            resourcePartId: null,
+            resourcePartName: editingBooking.resourcePart?.name || null,
+          }}
+          isAdmin={false}
+          onClose={() => setEditingBooking(null)}
+          onSaved={(updatedBooking) => {
+            setBookings(bookings.map(b => 
+              b.id === updatedBooking.id 
+                ? { ...b, title: updatedBooking.title, status: updatedBooking.status, startTime: updatedBooking.startTime, endTime: updatedBooking.endTime } 
+                : b
+            ))
+            setEditingBooking(null)
+          }}
+        />
       )}
     </div>
   )

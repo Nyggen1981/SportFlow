@@ -46,8 +46,25 @@ model User {
 
   bookings         Booking[]
   approvedBookings Booking[] @relation("ApprovedBy")
+  preferences      UserPreferences?
 
   @@index([organizationId, isApproved])
+}
+
+// User preferences for calendar/view settings
+model UserPreferences {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Calendar view preferences
+  defaultCalendarView String   @default("week") // "week" or "month"
+  defaultResourceId   String?  // Default resource to show
+  selectedResourceIds String?  // JSON array of selected resource IDs
+  selectedCategoryIds String?  // JSON array of selected category IDs
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Resource category (Stadium, Hall, etc.)

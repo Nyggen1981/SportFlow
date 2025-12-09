@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
-import { ChevronLeft, ChevronRight, List, Grid3X3, CheckCircle2, XCircle, Trash2, X, Loader2, Calendar, Clock, User, Repeat } from "lucide-react"
+import { ChevronLeft, ChevronRight, List, Grid3X3, CheckCircle2, XCircle, Trash2, X, Loader2, Calendar, Clock, User, Repeat, Pencil, Save, Star } from "lucide-react"
+import { EditBookingModal } from "./EditBookingModal"
 import { 
   format, 
   startOfWeek, 
@@ -40,6 +41,13 @@ interface Booking {
   userId?: string
 }
 
+interface UserPreferences {
+  defaultCalendarView: "week" | "month"
+  defaultResourceId: string | null
+  selectedResourceIds: string[]
+  selectedCategoryIds: string[]
+}
+
 interface Props {
   resources: Resource[]
   bookings: Booking[]
@@ -48,8 +56,9 @@ interface Props {
 type ViewMode = "week" | "month"
 
 export function CalendarView({ resources, bookings: initialBookings }: Props) {
-  const { data: session } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
   const isAdmin = session?.user?.role === "admin"
+  const isLoggedIn = sessionStatus === "authenticated"
   
   const [bookings, setBookings] = useState<Booking[]>(initialBookings)
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -58,6 +67,54 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [applyToAll, setApplyToAll] = useState(true)
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false)
+  const [savingPreferences, setSavingPreferences] = useState(false)
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false)
+
+  // Load user preferences on mount
+  useEffect(() => {
+    if (isLoggedIn && !preferencesLoaded) {
+      fetch("/api/user/preferences")
+        .then(res => res.json())
+        .then(prefs => {
+          if (prefs.defaultCalendarView) {
+            setViewMode(prefs.defaultCalendarView)
+          }
+          if (prefs.defaultResourceId) {
+            setSelectedResource(prefs.defaultResourceId)
+          }
+          setPreferencesLoaded(true)
+        })
+        .catch(err => {
+          console.error("Failed to load preferences:", err)
+          setPreferencesLoaded(true)
+        })
+    }
+  }, [isLoggedIn, preferencesLoaded])
+
+  // Save preferences
+  const savePreferences = useCallback(async () => {
+    if (!isLoggedIn) return
+
+    setSavingPreferences(true)
+    try {
+      await fetch("/api/user/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          defaultCalendarView: viewMode,
+          defaultResourceId: selectedResource
+        })
+      })
+      setShowSaveSuccess(true)
+      setTimeout(() => setShowSaveSuccess(false), 2000)
+    } catch (err) {
+      console.error("Failed to save preferences:", err)
+    } finally {
+      setSavingPreferences(false)
+    }
+  }, [isLoggedIn, viewMode, selectedResource])
 
   const filteredBookings = useMemo(() => {
     if (!selectedResource) return bookings
@@ -213,6 +270,29 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
               Måned
             </button>
           </div>
+
+          {/* Save as default button - only for logged in users */}
+          {isLoggedIn && (
+            <button
+              onClick={savePreferences}
+              disabled={savingPreferences}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
+                showSaveSuccess 
+                  ? "bg-green-100 text-green-700" 
+                  : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+              }`}
+              title="Lagre dette som din standardvisning"
+            >
+              {savingPreferences ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : showSaveSuccess ? (
+                <CheckCircle2 className="w-4 h-4" />
+              ) : (
+                <Star className="w-4 h-4" />
+              )}
+              {showSaveSuccess ? "Lagret!" : "Sett som standard"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -476,6 +556,7 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
             {(() => {
               const isOwner = selectedBooking.userId === session?.user?.id
               const canCancel = isOwner && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
+              const canEdit = (isOwner || isAdmin) && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
               const isPast = new Date(selectedBooking.startTime) < new Date()
 
               if (isAdmin) {
@@ -516,28 +597,50 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                         </button>
                       </div>
                     )}
-                    <button
-                      onClick={() => handleBookingAction(selectedBooking.id, "cancel")}
-                      disabled={isProcessing}
-                      className="w-full btn btn-secondary text-red-600 hover:bg-red-50 disabled:opacity-50"
-                    >
-                      {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                      Kanseller booking
-                    </button>
+                    
+                    {/* Edit and Cancel buttons */}
+                    <div className="flex gap-2">
+                      {!isPast && (
+                        <button
+                          onClick={() => { setEditingBooking(selectedBooking); setSelectedBooking(null) }}
+                          className="flex-1 btn btn-primary disabled:opacity-50"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          Rediger
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleBookingAction(selectedBooking.id, "cancel")}
+                        disabled={isProcessing}
+                        className="flex-1 btn btn-secondary text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        Kanseller
+                      </button>
+                    </div>
                   </div>
                 )
-              } else if (canCancel && !isPast) {
+              } else if (canEdit && !isPast) {
                 return (
                   <div className="p-4 border-t bg-gray-50 rounded-b-xl space-y-2">
                     <p className="text-xs text-gray-500 text-center mb-2">Dette er din booking</p>
-                    <button
-                      onClick={() => handleBookingAction(selectedBooking.id, "cancel")}
-                      disabled={isProcessing}
-                      className="w-full btn btn-secondary text-red-600 hover:bg-red-50 disabled:opacity-50"
-                    >
-                      {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                      Kanseller booking
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setEditingBooking(selectedBooking); setSelectedBooking(null) }}
+                        className="flex-1 btn btn-primary disabled:opacity-50"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        Rediger
+                      </button>
+                      <button
+                        onClick={() => handleBookingAction(selectedBooking.id, "cancel")}
+                        disabled={isProcessing}
+                        className="flex-1 btn btn-secondary text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        Kanseller
+                      </button>
+                    </div>
                     <button
                       onClick={() => setSelectedBooking(null)}
                       className="w-full btn btn-secondary"
@@ -561,6 +664,29 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
             })()}
           </div>
         </div>
+      )}
+
+      {/* Edit Booking Modal */}
+      {editingBooking && (
+        <EditBookingModal
+          booking={editingBooking}
+          isAdmin={isAdmin}
+          onClose={() => setEditingBooking(null)}
+          onSaved={(updatedBooking) => {
+            setBookings(bookings.map(b => 
+              b.id === updatedBooking.id 
+                ? { 
+                    ...b, 
+                    title: updatedBooking.title,
+                    startTime: updatedBooking.startTime,
+                    endTime: updatedBooking.endTime,
+                    status: updatedBooking.status
+                  } 
+                : b
+            ))
+            setEditingBooking(null)
+          }}
+        />
       )}
     </div>
   )
