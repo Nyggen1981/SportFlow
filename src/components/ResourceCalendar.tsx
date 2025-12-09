@@ -240,13 +240,13 @@ export function ResourceCalendar({ bookings, parts }: Props) {
                         return (
                           <div
                             key={booking.id}
-                            className={`absolute left-1 right-1 rounded-md px-2 py-1 text-xs overflow-hidden pointer-events-auto cursor-default ${
+                            className={`absolute left-1 right-1 rounded-md px-2 py-1 text-xs overflow-hidden pointer-events-auto cursor-default z-10 ${
                               isPending ? 'border-2 border-dashed' : ''
                             }`}
                             style={{
                               top: `${topPx}px`,
                               height: `${Math.max(heightPx, 36)}px`,
-                              backgroundColor: isPending ? 'rgba(34, 197, 94, 0.2)' : '#22c55e',
+                              backgroundColor: isPending ? '#dcfce7' : '#22c55e',
                               borderColor: isPending ? '#22c55e' : undefined,
                               color: isPending ? '#15803d' : 'white',
                               boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
