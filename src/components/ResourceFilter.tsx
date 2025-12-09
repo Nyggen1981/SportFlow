@@ -17,8 +17,8 @@ interface Resource {
   description: string | null
   location: string | null
   image: string | null
-  minBookingMinutes: number
-  maxBookingMinutes: number
+  minBookingMinutes: number | null
+  maxBookingMinutes: number | null
   requiresApproval: boolean
   category: Category | null
   parts: { id: string; name: string }[]
@@ -178,7 +178,9 @@ export function ResourceFilter({ categories, resources }: Props) {
                       <div className="flex items-center gap-4 text-xs text-gray-500">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5" />
-                          {resource.minBookingMinutes}-{resource.maxBookingMinutes} min
+                          {resource.minBookingMinutes !== null && resource.maxBookingMinutes !== null 
+                            ? `${resource.minBookingMinutes}-${resource.maxBookingMinutes} min`
+                            : 'Ubegrenset'}
                         </span>
                         {resource.requiresApproval && (
                           <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">
