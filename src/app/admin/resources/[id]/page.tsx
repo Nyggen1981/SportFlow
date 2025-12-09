@@ -51,6 +51,7 @@ export default function EditResourcePage({ params }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [error, setError] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
 
   // Form state
   const [name, setName] = useState("")
@@ -181,7 +182,23 @@ export default function EditResourcePage({ params }: Props) {
         throw new Error("Kunne ikke oppdatere fasilitet")
       }
 
-      router.push("/admin/resources")
+      // Reload data to reflect saved state
+      const updatedResource = await fetch(`/api/admin/resources/${id}`).then(res => res.json())
+      setLimitDuration(updatedResource.minBookingMinutes !== null && updatedResource.maxBookingMinutes !== null)
+      setMinBookingMinutes(String(updatedResource.minBookingMinutes || 60))
+      setMaxBookingMinutes(String(updatedResource.maxBookingMinutes || 240))
+      setParts(updatedResource.parts?.map((p: { id: string; name: string; description?: string; capacity?: number; mapCoordinates?: string; parentId?: string }) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description || "",
+        capacity: p.capacity ? String(p.capacity) : "",
+        mapCoordinates: p.mapCoordinates || null,
+        parentId: p.parentId || null
+      })) || [])
+
+      // Show success message
+      setSuccessMessage("Endringene ble lagret!")
+      setTimeout(() => setSuccessMessage(""), 3000)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Noe gikk galt")
     } finally {
@@ -225,6 +242,15 @@ export default function EditResourcePage({ params }: Props) {
             {error && (
               <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm">
                 {error}
+              </div>
+            )}
+
+            {successMessage && (
+              <div className="p-4 rounded-xl bg-green-50 border border-green-100 text-green-700 text-sm flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                {successMessage}
               </div>
             )}
 

@@ -78,8 +78,8 @@ model Resource {
   blockWholeWhenPartBooked  Boolean @default(true)  // When a part is booked, block "whole facility" option
 
   // Booking settings
-  minBookingMinutes  Int     @default(60)
-  maxBookingMinutes  Int     @default(240)
+  minBookingMinutes  Int?    // null = no limit
+  maxBookingMinutes  Int?    // null = no limit
   requiresApproval   Boolean @default(true)
   advanceBookingDays Int?    @default(30)
 

@@ -101,9 +101,9 @@ export async function PUT(
       mapImage: body.mapImage,
       color: body.color,
       categoryId: body.categoryId,
-      // Use default values if null (when duration limit is disabled)
-      minBookingMinutes: body.minBookingMinutes ?? 60,
-      maxBookingMinutes: body.maxBookingMinutes ?? 240,
+      // null = no duration limit
+      minBookingMinutes: body.minBookingMinutes,
+      maxBookingMinutes: body.maxBookingMinutes,
       requiresApproval: body.requiresApproval,
       advanceBookingDays: body.advanceBookingDays,
       blockPartsWhenWholeBooked: body.blockPartsWhenWholeBooked ?? true,

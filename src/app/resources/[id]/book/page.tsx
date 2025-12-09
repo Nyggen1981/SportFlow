@@ -31,8 +31,8 @@ interface ResourcePart {
 interface Resource {
   id: string
   name: string
-  minBookingMinutes: number
-  maxBookingMinutes: number
+  minBookingMinutes: number | null
+  maxBookingMinutes: number | null
   requiresApproval: boolean
   mapImage?: string | null
   parts: ResourcePart[]
@@ -370,7 +370,11 @@ export default function BookResourcePage({ params }: Props) {
             </div>
 
             <p className="text-sm text-gray-500">
-              Varighet må være mellom {resource.minBookingMinutes} og {resource.maxBookingMinutes} minutter
+              {resource.minBookingMinutes !== null && resource.maxBookingMinutes !== null ? (
+                <>Varighet må være mellom {resource.minBookingMinutes} og {resource.maxBookingMinutes} minutter</>
+              ) : (
+                <>Ubegrenset varighet</>
+              )}
             </p>
 
             {/* Recurring booking */}
