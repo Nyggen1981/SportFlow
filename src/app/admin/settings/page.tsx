@@ -220,19 +220,16 @@ export default function AdminSettingsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   URL-slug *
                 </label>
-                <div className="flex items-center">
-                  <span className="text-gray-500 text-sm mr-2">arena-booking.vercel.app/</span>
-                  <input
-                    type="text"
-                    value={slug}
-                    onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                    className="input max-w-[200px]"
-                    placeholder="lyn"
-                    required
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  className="input"
+                  placeholder="lyn"
+                  required
+                />
                 <p className="text-xs text-gray-500 mt-1">
-                  Brukes i URL-er. Kun små bokstaver, tall og bindestrek.
+                  Brukes som unik identifikator for klubben. Kun små bokstaver, tall og bindestrek.
                 </p>
               </div>
 
