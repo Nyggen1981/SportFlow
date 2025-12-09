@@ -47,7 +47,6 @@ model User {
   bookings          Booking[]
   approvedBookings  Booking[] @relation("ApprovedBy")
   preferences       UserPreferences?
-  pushSubscriptions PushSubscription[]
 
   @@index([organizationId, isApproved])
 }
@@ -66,20 +65,6 @@ model UserPreferences {
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
-
-// Push notification subscriptions
-model PushSubscription {
-  id        String   @id @default(cuid())
-  userId    String
-  endpoint  String   @unique
-  p256dh    String   // Public key
-  auth      String   // Auth secret
-  createdAt DateTime @default(now())
-  
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
 }
 
 // Resource category (Stadium, Hall, etc.)

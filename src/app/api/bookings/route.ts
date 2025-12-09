@@ -5,7 +5,6 @@ import { authOptions } from "@/lib/auth"
 import { addWeeks, addMonths, format } from "date-fns"
 import { nb } from "date-fns/locale"
 import { sendEmail, getNewBookingRequestEmail } from "@/lib/email"
-import { sendPushToAdmins } from "@/lib/push"
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions)
@@ -310,14 +309,6 @@ export async function POST(request: Request) {
         )
         await sendEmail({ to: admin.email, ...emailContent })
       }
-
-      // Send push notification to admins
-      await sendPushToAdmins(session.user.organizationId, {
-        title: '📅 Ny bookingforespørsel',
-        body: `${title} - ${resourceName} (${date})`,
-        url: '/admin/bookings?status=pending',
-        tag: `booking-${parentBooking.id}`
-      })
     }
 
     return NextResponse.json(
