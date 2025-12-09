@@ -102,9 +102,9 @@ export async function PUT(
         mapImage: body.mapImage,
         color: body.color,
         categoryId: body.categoryId,
-        // null = no duration limit
-        minBookingMinutes: body.minBookingMinutes,
-        maxBookingMinutes: body.maxBookingMinutes,
+        // 0/9999 = no duration limit (for backwards compatibility)
+        minBookingMinutes: body.minBookingMinutes ?? 0,
+        maxBookingMinutes: body.maxBookingMinutes ?? 9999,
         requiresApproval: body.requiresApproval,
         advanceBookingDays: body.advanceBookingDays,
         blockPartsWhenWholeBooked: body.blockPartsWhenWholeBooked ?? true,

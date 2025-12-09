@@ -178,7 +178,8 @@ export function ResourceFilter({ categories, resources }: Props) {
                       <div className="flex items-center gap-4 text-xs text-gray-500">
                         <span className="flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5" />
-                          {resource.minBookingMinutes !== null && resource.maxBookingMinutes !== null 
+                          {resource.minBookingMinutes !== null && resource.maxBookingMinutes !== null &&
+                           resource.minBookingMinutes !== 0 && resource.maxBookingMinutes !== 9999
                             ? `${resource.minBookingMinutes}-${resource.maxBookingMinutes} min`
                             : 'Ubegrenset'}
                         </span>

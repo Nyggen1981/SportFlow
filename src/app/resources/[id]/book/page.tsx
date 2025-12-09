@@ -370,7 +370,8 @@ export default function BookResourcePage({ params }: Props) {
             </div>
 
             <p className="text-sm text-gray-500">
-              {resource.minBookingMinutes !== null && resource.maxBookingMinutes !== null ? (
+              {resource.minBookingMinutes !== null && resource.maxBookingMinutes !== null &&
+               resource.minBookingMinutes !== 0 && resource.maxBookingMinutes !== 9999 ? (
                 <>Varighet må være mellom {resource.minBookingMinutes} og {resource.maxBookingMinutes} minutter</>
               ) : (
                 <>Ubegrenset varighet</>

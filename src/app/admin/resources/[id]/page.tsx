@@ -91,7 +91,12 @@ export default function EditResourcePage({ params }: Props) {
       setCategoryId(resource.categoryId || "")
       setColor(resource.color || "")
       setImage(resource.image || null)
-      setLimitDuration(resource.minBookingMinutes !== null && resource.maxBookingMinutes !== null)
+      // Check for 0/9999 or null to determine if duration is limited
+      const hasLimit = resource.minBookingMinutes !== null && 
+                       resource.maxBookingMinutes !== null &&
+                       resource.minBookingMinutes !== 0 && 
+                       resource.maxBookingMinutes !== 9999
+      setLimitDuration(hasLimit)
       setMinBookingMinutes(String(resource.minBookingMinutes || 60))
       setMaxBookingMinutes(String(resource.maxBookingMinutes || 240))
       setRequiresApproval(resource.requiresApproval ?? true)
@@ -184,7 +189,12 @@ export default function EditResourcePage({ params }: Props) {
 
       // Reload data to reflect saved state
       const updatedResource = await fetch(`/api/admin/resources/${id}`).then(res => res.json())
-      setLimitDuration(updatedResource.minBookingMinutes !== null && updatedResource.maxBookingMinutes !== null)
+      // Check for 0/9999 or null to determine if duration is limited
+      const hasLimit = updatedResource.minBookingMinutes !== null && 
+                       updatedResource.maxBookingMinutes !== null &&
+                       updatedResource.minBookingMinutes !== 0 && 
+                       updatedResource.maxBookingMinutes !== 9999
+      setLimitDuration(hasLimit)
       setMinBookingMinutes(String(updatedResource.minBookingMinutes || 60))
       setMaxBookingMinutes(String(updatedResource.maxBookingMinutes || 240))
       setParts(updatedResource.parts?.map((p: { id: string; name: string; description?: string; capacity?: number; mapCoordinates?: string; parentId?: string }) => ({
