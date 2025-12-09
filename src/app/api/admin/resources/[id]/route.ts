@@ -72,45 +72,46 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions)
+  try {
+    const session = await getServerSession(authOptions)
 
-  if (!session?.user || session.user.role !== "admin") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const { id } = await params
-  const body = await request.json()
-
-  const resource = await prisma.resource.findUnique({ 
-    where: { id },
-    include: { parts: true }
-  })
-
-  if (!resource || resource.organizationId !== session.user.organizationId) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 })
-  }
-
-  // Update resource
-  const updated = await prisma.resource.update({
-    where: { id },
-    data: {
-      name: body.name,
-      description: body.description,
-      location: body.location,
-      image: body.image,
-      mapImage: body.mapImage,
-      color: body.color,
-      categoryId: body.categoryId,
-      // null = no duration limit
-      minBookingMinutes: body.minBookingMinutes,
-      maxBookingMinutes: body.maxBookingMinutes,
-      requiresApproval: body.requiresApproval,
-      advanceBookingDays: body.advanceBookingDays,
-      blockPartsWhenWholeBooked: body.blockPartsWhenWholeBooked ?? true,
-      blockWholeWhenPartBooked: body.blockWholeWhenPartBooked ?? true,
-      showOnPublicCalendar: body.showOnPublicCalendar ?? true
+    if (!session?.user || session.user.role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-  })
+
+    const { id } = await params
+    const body = await request.json()
+
+    const resource = await prisma.resource.findUnique({ 
+      where: { id },
+      include: { parts: true }
+    })
+
+    if (!resource || resource.organizationId !== session.user.organizationId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
+
+    // Update resource
+    const updated = await prisma.resource.update({
+      where: { id },
+      data: {
+        name: body.name,
+        description: body.description,
+        location: body.location,
+        image: body.image,
+        mapImage: body.mapImage,
+        color: body.color,
+        categoryId: body.categoryId,
+        // null = no duration limit
+        minBookingMinutes: body.minBookingMinutes,
+        maxBookingMinutes: body.maxBookingMinutes,
+        requiresApproval: body.requiresApproval,
+        advanceBookingDays: body.advanceBookingDays,
+        blockPartsWhenWholeBooked: body.blockPartsWhenWholeBooked ?? true,
+        blockWholeWhenPartBooked: body.blockWholeWhenPartBooked ?? true,
+        showOnPublicCalendar: body.showOnPublicCalendar ?? true
+      }
+    })
 
   // Handle parts
   if (body.parts) {
@@ -175,7 +176,14 @@ export async function PUT(
     }
   }
 
-  return NextResponse.json(updated)
+    return NextResponse.json(updated)
+  } catch (error) {
+    console.error("Error updating resource:", error)
+    return NextResponse.json(
+      { error: "Kunne ikke oppdatere fasilitet", details: String(error) },
+      { status: 500 }
+    )
+  }
 }
 
 export async function DELETE(
