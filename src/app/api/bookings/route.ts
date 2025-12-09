@@ -229,9 +229,15 @@ export async function POST(request: Request) {
 
       const date = format(new Date(firstBooking.startTime), "EEEE d. MMMM yyyy", { locale: nb })
       const time = `${format(new Date(firstBooking.startTime), "HH:mm")} - ${format(new Date(firstBooking.endTime), "HH:mm")}`
-      const resourceName = resourcePartId 
-        ? `${resource.name} → ${resource.parts?.find(p => p.id === resourcePartId)?.name || ''}`
-        : resource.name
+      
+      // Get part name if resourcePartId is provided
+      let resourceName = resource.name
+      if (resourcePartId) {
+        const part = await prisma.resourcePart.findUnique({ where: { id: resourcePartId } })
+        if (part) {
+          resourceName = `${resource.name} → ${part.name}`
+        }
+      }
 
       // Send email to each admin
       for (const admin of admins) {
