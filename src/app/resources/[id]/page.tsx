@@ -100,10 +100,6 @@ export default async function ResourcePage({ params }: Props) {
     notFound()
   }
 
-  if (!resource) {
-    notFound()
-  }
-
   const openingHours = resource.openingHours 
     ? JSON.parse(resource.openingHours) 
     : null
