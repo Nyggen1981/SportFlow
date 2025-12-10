@@ -19,10 +19,11 @@ import {
   ChevronRight,
   Plus,
   Pencil,
-  Filter
+  Filter,
+  Timeline
 } from "lucide-react"
 import { EditBookingModal } from "@/components/EditBookingModal"
-import { format, isToday, isTomorrow, isThisWeek, parseISO } from "date-fns"
+import { format, isToday, isTomorrow, isThisWeek, parseISO, startOfDay, endOfDay, addDays, isSameDay, startOfWeek, endOfWeek } from "date-fns"
 import { nb } from "date-fns/locale"
 
 interface Booking {
@@ -39,10 +40,10 @@ interface Booking {
     location: string | null
     color?: string
   }
-  resourcePart: { name: string } | null
+  resourcePart: { id: string; name: string } | null
 }
 
-type Tab = "upcoming" | "history"
+type Tab = "upcoming" | "history" | "timeline"
 
 export default function MyBookingsPage() {
   const { data: session, status } = useSession()
@@ -116,7 +117,67 @@ export default function MyBookingsPage() {
     }
   }, [bookings, selectedResourceId])
 
-  const activeBookings = activeTab === "upcoming" ? upcoming : history
+  const activeBookings = activeTab === "upcoming" ? upcoming : activeTab === "history" ? history : upcoming
+
+  // Timeline data - group by resource and part
+  const timelineData = useMemo(() => {
+    if (activeTab !== "timeline") return null
+
+    const now = new Date()
+    const filtered = selectedResourceId 
+      ? bookings.filter(b => b.resource.id === selectedResourceId)
+      : bookings
+
+    const upcomingBookings = filtered.filter(b => 
+      new Date(b.startTime) >= now && 
+      (b.status === "pending" || b.status === "approved")
+    )
+
+    // Group by resource -> part
+    const grouped: Record<string, Record<string, Booking[]>> = {}
+    
+    upcomingBookings.forEach(booking => {
+      const resourceKey = booking.resource.id
+      const partKey = booking.resourcePart?.id || `whole-${resourceKey}`
+      const partName = booking.resourcePart?.name || booking.resource.name
+
+      if (!grouped[resourceKey]) {
+        grouped[resourceKey] = {}
+      }
+      if (!grouped[resourceKey][partKey]) {
+        grouped[resourceKey][partKey] = []
+      }
+      grouped[resourceKey][partKey].push(booking)
+    })
+
+    // Get date range
+    const allDates = upcomingBookings.flatMap(b => [
+      parseISO(b.startTime),
+      parseISO(b.endTime)
+    ])
+    if (allDates.length === 0) return null
+
+    const minDate = new Date(Math.min(...allDates.map(d => d.getTime())))
+    const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())))
+    
+    // Round to week boundaries
+    const weekStart = startOfWeek(minDate, { weekStartsOn: 1 })
+    const weekEnd = endOfWeek(maxDate, { weekStartsOn: 1 })
+    
+    const days: Date[] = []
+    let currentDay = weekStart
+    while (currentDay <= weekEnd) {
+      days.push(currentDay)
+      currentDay = addDays(currentDay, 1)
+    }
+
+    return {
+      grouped,
+      days,
+      weekStart,
+      weekEnd
+    }
+  }, [bookings, selectedResourceId, activeTab])
 
   const formatDateLabel = (dateStr: string) => {
     const date = parseISO(dateStr)
@@ -237,11 +298,142 @@ export default function MyBookingsPage() {
                     </span>
                   )}
                 </button>
+                <button
+                  onClick={() => setActiveTab("timeline")}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                    activeTab === "timeline"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  <Timeline className="w-4 h-4" />
+                  Tidslinje
+                </button>
                 </div>
               </div>
 
-              {/* Bookings list */}
-              {activeBookings.length === 0 ? (
+              {/* Timeline View */}
+              {activeTab === "timeline" ? (
+                timelineData ? (
+                  <div className="card p-6 overflow-x-auto">
+                    <div className="min-w-full">
+                      {/* Header with dates */}
+                      <div className="flex border-b border-gray-200 mb-4 pb-2 sticky top-0 bg-white z-10">
+                        <div className="w-48 flex-shrink-0 font-medium text-gray-700 text-sm">Fasilitet / Del</div>
+                        <div className="flex-1 flex">
+                          {timelineData.days.map((day) => (
+                            <div 
+                              key={day.toISOString()} 
+                              className="flex-1 text-center text-xs text-gray-600 border-l border-gray-200 first:border-l-0"
+                            >
+                              <div className="font-medium">{format(day, "EEE", { locale: nb })}</div>
+                              <div className="text-gray-500">{format(day, "d. MMM", { locale: nb })}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Timeline rows */}
+                      <div className="space-y-1">
+                        {Object.entries(timelineData.grouped).map(([resourceId, parts]) => {
+                          const resource = bookings.find(b => b.resource.id === resourceId)?.resource
+                          if (!resource) return null
+
+                          return Object.entries(parts).map(([partKey, partBookings]) => {
+                            const partName = partBookings[0]?.resourcePart?.name || resource.name
+                            const partId = partBookings[0]?.resourcePart?.id || `whole-${resourceId}`
+
+                            return (
+                              <div 
+                                key={`${resourceId}-${partKey}`}
+                                className="flex items-center border-b border-gray-100 py-2 hover:bg-gray-50"
+                              >
+                                {/* Resource/Part label */}
+                                <div className="w-48 flex-shrink-0 text-sm">
+                                  <div className="font-medium text-gray-900">{resource.name}</div>
+                                  {partBookings[0]?.resourcePart && (
+                                    <div className="text-xs text-gray-500">{partName}</div>
+                                  )}
+                                </div>
+
+                                {/* Timeline bars */}
+                                <div className="flex-1 flex relative" style={{ minHeight: '40px' }}>
+                                  {timelineData.days.map((day) => {
+                                    const dayStart = startOfDay(day).getTime()
+                                    const dayEnd = endOfDay(day).getTime()
+                                    
+                                    const dayBookings = partBookings.filter(b => {
+                                      const start = parseISO(b.startTime).getTime()
+                                      const end = parseISO(b.endTime).getTime()
+                                      return (start < dayEnd && end > dayStart)
+                                    })
+
+                                    return (
+                                      <div 
+                                        key={day.toISOString()}
+                                        className="flex-1 border-l border-gray-200 first:border-l-0 relative"
+                                        style={{ minHeight: '40px' }}
+                                      >
+                                        {dayBookings.map((booking) => {
+                                          const bookingStart = parseISO(booking.startTime)
+                                          const bookingEnd = parseISO(booking.endTime)
+                                          const dayStartTime = startOfDay(day)
+                                          const dayEndTime = endOfDay(day)
+                                          
+                                          const startInDay = Math.max(bookingStart.getTime(), dayStartTime.getTime())
+                                          const endInDay = Math.min(bookingEnd.getTime(), dayEndTime.getTime())
+                                          
+                                          const dayDuration = dayEndTime.getTime() - dayStartTime.getTime()
+                                          const bookingDuration = endInDay - startInDay
+                                          
+                                          const leftPercent = ((startInDay - dayStartTime.getTime()) / dayDuration) * 100
+                                          const widthPercent = (bookingDuration / dayDuration) * 100
+                                          
+                                          const statusInfo = getStatusInfo(booking.status)
+                                          const isPending = booking.status === "pending"
+
+                                          return (
+                                            <div
+                                              key={booking.id}
+                                              className="absolute top-1 bottom-1 rounded px-1.5 py-0.5 text-xs font-medium text-white cursor-pointer hover:shadow-md transition-shadow"
+                                              style={{
+                                                left: `${leftPercent}%`,
+                                                width: `${widthPercent}%`,
+                                                backgroundColor: isPending 
+                                                  ? `${resource.color || '#3b82f6'}80`
+                                                  : resource.color || '#3b82f6',
+                                                border: isPending ? `2px dashed ${resource.color || '#3b82f6'}` : 'none',
+                                                minWidth: '20px'
+                                              }}
+                                              title={`${booking.title} - ${format(bookingStart, "HH:mm")}-${format(bookingEnd, "HH:mm")}`}
+                                            >
+                                              <div className="truncate">{booking.title}</div>
+                                              <div className="text-[10px] opacity-90 truncate">
+                                                {format(bookingStart, "HH:mm")}-{format(bookingEnd, "HH:mm")}
+                                              </div>
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )
+                          })
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="card p-8 text-center">
+                    <Timeline className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">Ingen kommende bookinger å vise i tidslinje</p>
+                  </div>
+                )
+              ) : (
+              /* Bookings list */
+              activeBookings.length === 0 ? (
                 <div className="card p-8 text-center">
                   {activeTab === "upcoming" ? (
                     <>
