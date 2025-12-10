@@ -21,10 +21,24 @@ import {
 } from "date-fns"
 import { nb } from "date-fns/locale"
 
+interface Category {
+  id: string
+  name: string
+  color: string
+}
+
+interface ResourcePart {
+  id: string
+  name: string
+}
+
 interface Resource {
   id: string
   name: string
   color: string
+  categoryId: string | null
+  categoryName?: string | null
+  parts: ResourcePart[]
 }
 
 interface Booking {
@@ -49,13 +63,14 @@ interface UserPreferences {
 }
 
 interface Props {
+  categories: Category[]
   resources: Resource[]
   bookings: Booking[]
 }
 
 type ViewMode = "week" | "month"
 
-export function CalendarView({ resources, bookings: initialBookings }: Props) {
+export function CalendarView({ categories, resources, bookings: initialBookings }: Props) {
   const { data: session, status: sessionStatus } = useSession()
   const isAdmin = session?.user?.role === "admin"
   const isLoggedIn = sessionStatus === "authenticated"
@@ -63,7 +78,9 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
   const [bookings, setBookings] = useState<Booking[]>(initialBookings)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>("week")
-  const [selectedResource, setSelectedResource] = useState<string | null>(null)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
+  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(null)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [applyToAll, setApplyToAll] = useState(true)
@@ -83,7 +100,12 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
             setViewMode(prefs.defaultCalendarView)
           }
           if (prefs.defaultResourceId) {
-            setSelectedResource(prefs.defaultResourceId)
+            setSelectedResourceId(prefs.defaultResourceId)
+            // Find and set category for this resource
+            const resource = resources.find(r => r.id === prefs.defaultResourceId)
+            if (resource?.categoryId) {
+              setSelectedCategoryId(resource.categoryId)
+            }
           }
           setPreferencesLoaded(true)
         })
@@ -105,7 +127,7 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           defaultCalendarView: viewMode,
-          defaultResourceId: selectedResource
+          defaultResourceId: selectedResourceId
         })
       })
       setShowSaveSuccess(true)
@@ -115,12 +137,33 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
     } finally {
       setSavingPreferences(false)
     }
-  }, [isLoggedIn, viewMode, selectedResource])
+  }, [isLoggedIn, viewMode, selectedResourceId])
 
+  // Filter resources by selected category
+  const availableResources = useMemo(() => {
+    if (!selectedCategoryId) return []
+    return resources.filter(r => r.categoryId === selectedCategoryId)
+  }, [resources, selectedCategoryId])
+
+  const selectedResource = availableResources.find(r => r.id === selectedResourceId)
+
+  // Filter bookings based on selections
   const filteredBookings = useMemo(() => {
-    if (!selectedResource) return bookings
-    return bookings.filter(b => b.resourceId === selectedResource)
-  }, [bookings, selectedResource])
+    if (!selectedResourceId) return []
+    
+    return bookings.filter(b => {
+      if (b.resourceId !== selectedResourceId) return false
+      
+      // If a specific part is selected, only show bookings for that part
+      if (selectedPartId) {
+        const selectedPart = selectedResource?.parts.find(p => p.id === selectedPartId)
+        return b.resourcePartName === selectedPart?.name
+      }
+      
+      // If "Alle deler" is selected, show all bookings for this resource
+      return true
+    })
+  }, [bookings, selectedResourceId, selectedPartId, selectedResource])
 
   // Week view data
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
@@ -153,7 +196,7 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
         }
       }, 100)
     }
-  }, [viewMode, currentDate, selectedResource])
+  }, [viewMode, currentDate, selectedCategoryId, selectedResourceId, selectedPartId])
 
   const navigate = (direction: "prev" | "next") => {
     if (viewMode === "week") {
@@ -218,49 +261,145 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
     setApplyToAll(true) // Reset for next time
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate("prev")}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <h2 className="font-semibold text-gray-900 min-w-[200px] text-center">
-            {viewMode === "week" 
-              ? `${format(weekStart, "d. MMM", { locale: nb })} - ${format(addDays(weekStart, 6), "d. MMM yyyy", { locale: nb })}`
-              : format(currentDate, "MMMM yyyy", { locale: nb })
-            }
-          </h2>
-          <button
-            onClick={() => navigate("next")}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => setCurrentDate(new Date())}
-            className="ml-2 px-3 py-1.5 text-sm rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-          >
-            I dag
-          </button>
-        </div>
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategoryId(categoryId)
+    setSelectedResourceId(null) // Reset resource when category changes
+    setSelectedPartId(null) // Reset part when category changes
+  }
 
-        <div className="flex items-center gap-3">
-          {/* Resource filter */}
-          <select
-            value={selectedResource || ""}
-            onChange={(e) => setSelectedResource(e.target.value || null)}
-            className="input max-w-[200px]"
-          >
-            <option value="">Alle fasiliteter</option>
-            {resources.map(resource => (
-              <option key={resource.id} value={resource.id}>{resource.name}</option>
-            ))}
-          </select>
+  const handleResourceChange = (resourceId: string) => {
+    setSelectedResourceId(resourceId)
+    setSelectedPartId(null) // Reset part selection when resource changes
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Controls */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {/* Top bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
+          {/* Three selectors: Category, Resource, Part */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <select
+              value={selectedCategoryId || ""}
+              onChange={(e) => handleCategoryChange(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Velg kategori</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {selectedCategoryId && availableResources.length > 0 && (
+              <select
+                value={selectedResourceId || ""}
+                onChange={(e) => handleResourceChange(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Velg fasilitet</option>
+                {availableResources.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            {selectedResource && selectedResource.parts.length > 0 && (
+              <select
+                value={selectedPartId || ""}
+                onChange={(e) => setSelectedPartId(e.target.value || null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Alle deler</option>
+                {selectedResource.parts.map((part) => (
+                  <option key={part.id} value={part.id}>
+                    {part.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Navigation and view controls */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate("prev")}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="Forrige"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <h2 className="font-semibold text-gray-900 min-w-[200px] text-center">
+                {viewMode === "week" 
+                  ? `${format(weekStart, "d. MMM", { locale: nb })} - ${format(addDays(weekStart, 6), "d. MMM yyyy", { locale: nb })}`
+                  : format(currentDate, "MMMM yyyy", { locale: nb })
+                }
+              </h2>
+              <button
+                onClick={() => navigate("next")}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="Neste"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setCurrentDate(new Date())}
+                className="ml-2 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+              >
+                I dag
+              </button>
+            </div>
+
+            {/* View mode toggle */}
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode("week")}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
+                  viewMode === "week" ? "bg-white shadow text-gray-900" : "text-gray-600"
+                }`}
+              >
+                <List className="w-4 h-4" />
+                Uke
+              </button>
+              <button
+                onClick={() => setViewMode("month")}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1 ${
+                  viewMode === "month" ? "bg-white shadow text-gray-900" : "text-gray-600"
+                }`}
+              >
+                <Grid3X3 className="w-4 h-4" />
+                Måned
+              </button>
+            </div>
+
+            {/* Save as default button - only for logged in users */}
+            {isLoggedIn && (
+              <button
+                onClick={savePreferences}
+                disabled={savingPreferences}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1 ${
+                  showSaveSuccess 
+                    ? "bg-green-100 text-green-700" 
+                    : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                }`}
+                title="Lagre dette som din standardvisning"
+              >
+                {savingPreferences ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : showSaveSuccess ? (
+                  <CheckCircle2 className="w-4 h-4" />
+                ) : (
+                  <Star className="w-4 h-4" />
+                )}
+                {showSaveSuccess ? "Lagret!" : "Sett som standardvisning"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
           {/* View mode toggle */}
           <div className="flex bg-gray-100 rounded-lg p-1">
@@ -311,9 +450,9 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
 
       {/* Week View */}
       {viewMode === "week" && (
-        <div className="card overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           {/* Time grid with sticky header */}
-          <div ref={weekViewScrollRef} className="max-h-[600px] overflow-y-auto pr-[17px]">
+          <div ref={weekViewScrollRef} className="max-h-[650px] overflow-y-auto pr-[17px]">
             {/* Header - sticky */}
             <div className="grid bg-gray-50 border-b border-gray-200 sticky top-0 z-10 gap-x-2" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
               <div className="p-3 text-center text-sm font-medium text-gray-500" />

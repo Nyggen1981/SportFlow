@@ -7,6 +7,27 @@ import { redirect } from "next/navigation"
 // Revalidate every 30 seconds
 export const revalidate = 30
 
+// Cache categories for 60 seconds
+const getCategories = unstable_cache(
+  async () => {
+    try {
+      return await prisma.category.findMany({
+        where: { isActive: true },
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          color: true
+        }
+      })
+    } catch {
+      return []
+    }
+  },
+  ["calendar-categories"],
+  { revalidate: 60 }
+)
+
 // Cache resources for 60 seconds
 const getResources = unstable_cache(
   async () => {
@@ -18,8 +39,19 @@ const getResources = unstable_cache(
           id: true,
           name: true,
           color: true,
+          categoryId: true,
           category: {
-            select: { color: true }
+            select: { 
+              id: true,
+              name: true,
+              color: true 
+            }
+          },
+          parts: {
+            select: {
+              id: true,
+              name: true
+            }
           }
         }
       })
@@ -59,7 +91,8 @@ const getBookings = unstable_cache(
 )
 
 export default async function CalendarPage() {
-  const [resources, bookings] = await Promise.all([
+  const [categories, resources, bookings] = await Promise.all([
+    getCategories(),
     getResources(),
     getBookings()
   ])
@@ -76,10 +109,18 @@ export default async function CalendarPage() {
         <p className="text-gray-500 mb-6">Oversikt over alle bookinger på tvers av fasiliteter</p>
 
         <CalendarView 
+          categories={categories.map(c => ({
+            id: c.id,
+            name: c.name,
+            color: c.color
+          }))}
           resources={resources.map(r => ({
             id: r.id,
             name: r.name,
-            color: r.color || r.category?.color || '#3b82f6'
+            color: r.color || r.category?.color || '#3b82f6',
+            categoryId: r.categoryId,
+            categoryName: r.category?.name,
+            parts: r.parts.map(p => ({ id: p.id, name: p.name }))
           }))}
           bookings={bookings.map(b => ({
             id: b.id,
