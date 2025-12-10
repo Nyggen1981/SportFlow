@@ -217,6 +217,7 @@ export function Navbar() {
                   <Calendar className="w-5 h-5" />
                   Kalender
                 </Link>
+              </>
             ) : null}
 
             {session ? (
