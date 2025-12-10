@@ -138,8 +138,8 @@ export default async function PublicHomePage() {
             bookings={bookings.map(b => ({
               id: b.id,
               title: b.title,
-              startTime: b.startTime.toISOString(),
-              endTime: b.endTime.toISOString(),
+              startTime: (b.startTime instanceof Date ? b.startTime : new Date(b.startTime)).toISOString(),
+              endTime: (b.endTime instanceof Date ? b.endTime : new Date(b.endTime)).toISOString(),
               resourceId: b.resourceId,
               resourceName: b.resource.name,
               resourcePartName: b.resourcePart?.name

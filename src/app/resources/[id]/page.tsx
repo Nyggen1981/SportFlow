@@ -168,8 +168,8 @@ export default async function ResourcePage({ params }: Props) {
                 bookings={resource.bookings.map(b => ({
                   id: b.id,
                   title: b.title,
-                  startTime: b.startTime.toISOString(),
-                  endTime: b.endTime.toISOString(),
+                  startTime: (b.startTime instanceof Date ? b.startTime : new Date(b.startTime)).toISOString(),
+                  endTime: (b.endTime instanceof Date ? b.endTime : new Date(b.endTime)).toISOString(),
                   status: b.status,
                   resourcePartName: b.resourcePart?.name
                 }))}

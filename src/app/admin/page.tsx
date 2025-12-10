@@ -223,8 +223,8 @@ export default async function AdminPage() {
                 resourceName: b.resource.name,
                 resourcePartName: b.resourcePart?.name || null,
                 userName: b.user.name || b.user.email,
-                startTime: b.startTime.toISOString(),
-                endTime: b.endTime.toISOString()
+                startTime: (b.startTime instanceof Date ? b.startTime : new Date(b.startTime)).toISOString(),
+                endTime: (b.endTime instanceof Date ? b.endTime : new Date(b.endTime)).toISOString()
               }))}
             />
           </div>
