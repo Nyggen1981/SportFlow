@@ -345,59 +345,77 @@ export default function TimelinePage() {
             </p>
           </div>
 
-          {/* Filter Panel */}
+          {/* Filter Panel - Compact */}
           {showFilter && (
-            <div className="mb-6 bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <Filter className="w-5 h-5" />
-                  Filtrer fasiliteter
-                </h2>
+            <div className="mb-4 bg-white rounded-lg border border-gray-200 shadow-sm p-3">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-700">
+                    {selectedResources.size} av {timelineData?.resources.length || 0} valgt
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
                   <button
                     onClick={selectAll}
-                    className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    className="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors"
                   >
-                    Velg alle
+                    Alle
                   </button>
+                  <span className="text-gray-300">|</span>
                   <button
                     onClick={deselectAll}
-                    className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                    className="px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 rounded transition-colors"
                   >
-                    Fjern alle
+                    Ingen
                   </button>
                 </div>
               </div>
               
-              <div className="space-y-4 max-h-96 overflow-y-auto">
+              {/* Selected Resources as Chips */}
+              {selectedResources.size > 0 && (
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {timelineData?.resources
+                    .filter(r => selectedResources.has(r.id))
+                    .map((resource) => (
+                      <button
+                        key={resource.id}
+                        onClick={() => toggleResource(resource.id)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full hover:bg-blue-100 transition-colors"
+                      >
+                        {resource.name}
+                        <span className="text-blue-500">×</span>
+                      </button>
+                    ))}
+                </div>
+              )}
+              
+              {/* Compact Resource List */}
+              <div className="space-y-2 max-h-64 overflow-y-auto">
                 {resourcesByCategory.map((category) => (
-                  <div key={category.id} className="border-b border-gray-100 last:border-b-0 pb-4 last:pb-0">
-                    <div className="flex items-center gap-2 mb-2">
+                  <div key={category.id} className="space-y-1.5">
+                    <div className="flex items-center gap-1.5">
                       {category.color && (
                         <div
-                          className="w-3 h-3 rounded-full"
+                          className="w-2 h-2 rounded-full flex-shrink-0"
                           style={{ backgroundColor: category.color }}
                         />
                       )}
-                      <h3 className="font-medium text-gray-900">{category.name}</h3>
-                      <span className="text-xs text-gray-500">
-                        ({category.resources.length})
-                      </span>
+                      <span className="text-xs font-medium text-gray-600">{category.name}</span>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 ml-5">
+                    <div className="flex flex-wrap gap-1 ml-3.5">
                       {category.resources.map((resource) => (
-                        <label
+                        <button
                           key={resource.id}
-                          className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
+                          onClick={() => toggleResource(resource.id)}
+                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                            selectedResources.has(resource.id)
+                              ? "bg-blue-100 text-blue-700 font-medium"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          }`}
                         >
-                          <input
-                            type="checkbox"
-                            checked={selectedResources.has(resource.id)}
-                            onChange={() => toggleResource(resource.id)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700">{resource.name}</span>
-                        </label>
+                          {resource.name}
+                        </button>
                       ))}
                     </div>
                   </div>
