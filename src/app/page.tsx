@@ -24,6 +24,14 @@ const getResources = unstable_cache(
           categoryId: true,
           category: {
             select: { id: true, name: true, color: true }
+          },
+          parts: {
+            where: { isActive: true },
+            select: {
+              id: true,
+              name: true
+            },
+            orderBy: { name: "asc" }
           }
         },
         orderBy: [
@@ -123,17 +131,13 @@ export default async function PublicHomePage() {
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
         {hasData ? (
           <PublicCalendar 
-            categories={categories.map(c => ({
-              id: c.id,
-              name: c.name,
-              color: c.color
-            }))}
             resources={resources.map(r => ({
               id: r.id,
               name: r.name,
               color: r.color || r.category?.color || '#3b82f6',
               categoryId: r.categoryId,
-              categoryName: r.category?.name
+              categoryName: r.category?.name,
+              parts: r.parts.map(p => ({ id: p.id, name: p.name }))
             }))}
             bookings={bookings.map(b => ({
               id: b.id,

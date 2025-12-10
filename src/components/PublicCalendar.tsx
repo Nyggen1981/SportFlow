@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { ChevronLeft, ChevronRight, List, Grid3X3, Calendar, Clock, MapPin, Filter, Check, X, ChevronDown } from "lucide-react"
+import { ChevronLeft, ChevronRight, List, Grid3X3, Calendar, Clock, MapPin } from "lucide-react"
 import { 
   format, 
   startOfWeek, 
@@ -18,10 +18,9 @@ import {
 } from "date-fns"
 import { nb } from "date-fns/locale"
 
-interface Category {
+interface ResourcePart {
   id: string
   name: string
-  color: string
 }
 
 interface Resource {
@@ -30,6 +29,7 @@ interface Resource {
   color: string
   categoryId: string | null
   categoryName?: string | null
+  parts: ResourcePart[]
 }
 
 interface Booking {
@@ -43,36 +43,37 @@ interface Booking {
 }
 
 interface Props {
-  categories: Category[]
   resources: Resource[]
   bookings: Booking[]
 }
 
 type ViewMode = "week" | "month"
 
-export function PublicCalendar({ categories, resources, bookings }: Props) {
+export function PublicCalendar({ resources, bookings }: Props) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>("week")
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set(categories.map(c => c.id)))
-  const [selectedResources, setSelectedResources] = useState<Set<string>>(new Set(resources.map(r => r.id)))
+  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(null)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
-  const [showFilterPanel, setShowFilterPanel] = useState(false)
 
-  // Filter resources by selected categories first, then by selected resources
-  const visibleResources = useMemo(() => {
-    return resources.filter(r => {
-      // If resource has no category, show it if "Ukategorisert" is selected or if all categories are selected
-      if (!r.categoryId) {
-        return selectedCategories.has('uncategorized') || selectedCategories.size === categories.length + 1
-      }
-      return selectedCategories.has(r.categoryId) && selectedResources.has(r.id)
-    })
-  }, [resources, selectedCategories, selectedResources, categories.length])
+  const selectedResource = resources.find(r => r.id === selectedResourceId)
 
   const filteredBookings = useMemo(() => {
-    const visibleResourceIds = new Set(visibleResources.map(r => r.id))
-    return bookings.filter(b => visibleResourceIds.has(b.resourceId) && selectedResources.has(b.resourceId))
-  }, [bookings, visibleResources, selectedResources])
+    if (!selectedResourceId) return []
+    
+    return bookings.filter(b => {
+      if (b.resourceId !== selectedResourceId) return false
+      
+      // If a specific part is selected, only show bookings for that part
+      if (selectedPartId) {
+        const selectedPart = selectedResource?.parts.find(p => p.id === selectedPartId)
+        return b.resourcePartName === selectedPart?.name
+      }
+      
+      // If "Alle deler" is selected, show all bookings for this resource
+      return true
+    })
+  }, [bookings, selectedResourceId, selectedPartId, selectedResource])
 
   // Week view data
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
@@ -102,73 +103,41 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
     }
   }
 
-  const toggleCategory = (categoryId: string) => {
-    const newSelected = new Set(selectedCategories)
-    if (newSelected.has(categoryId)) {
-      newSelected.delete(categoryId)
-      // Also deselect all resources in this category
-      resources.filter(r => r.categoryId === categoryId || (categoryId === 'uncategorized' && !r.categoryId))
-        .forEach(r => selectedResources.delete(r.id))
-      setSelectedResources(new Set(selectedResources))
-    } else {
-      newSelected.add(categoryId)
-      // Also select all resources in this category
-      const newResources = new Set(selectedResources)
-      resources.filter(r => r.categoryId === categoryId || (categoryId === 'uncategorized' && !r.categoryId))
-        .forEach(r => newResources.add(r.id))
-      setSelectedResources(newResources)
-    }
-    setSelectedCategories(newSelected)
+  const handleResourceChange = (resourceId: string) => {
+    setSelectedResourceId(resourceId)
+    setSelectedPartId(null) // Reset part selection when resource changes
   }
 
-  const toggleResource = (resourceId: string) => {
-    const newSelected = new Set(selectedResources)
-    if (newSelected.has(resourceId)) {
-      newSelected.delete(resourceId)
-    } else {
-      newSelected.add(resourceId)
-    }
-    setSelectedResources(newSelected)
+  // If no resource selected, show selection screen
+  if (!selectedResourceId) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-8">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Velg fasilitet</h2>
+        <div className="space-y-3">
+          {resources.map((resource) => (
+            <button
+              key={resource.id}
+              onClick={() => handleResourceChange(resource.id)}
+              className="w-full text-left p-4 rounded-lg border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <div 
+                  className="w-4 h-4 rounded-full"
+                  style={{ backgroundColor: resource.color }}
+                />
+                <div>
+                  <p className="font-medium text-gray-900">{resource.name}</p>
+                  {resource.categoryName && (
+                    <p className="text-sm text-gray-500">{resource.categoryName}</p>
+                  )}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
   }
-
-  const selectAll = () => {
-    setSelectedCategories(new Set([...categories.map(c => c.id), 'uncategorized']))
-    setSelectedResources(new Set(resources.map(r => r.id)))
-  }
-  
-  const selectNone = () => {
-    setSelectedCategories(new Set())
-    setSelectedResources(new Set())
-  }
-
-  // Group resources by category
-  const resourcesByCategory = useMemo(() => {
-    const grouped: { [key: string]: { category: Category | null, resources: Resource[] } } = {}
-    
-    // Initialize with categories
-    categories.forEach(c => {
-      grouped[c.id] = { category: c, resources: [] }
-    })
-    
-    // Add uncategorized
-    grouped['uncategorized'] = { category: null, resources: [] }
-    
-    // Group resources
-    resources.forEach(r => {
-      const key = r.categoryId || 'uncategorized'
-      if (grouped[key]) {
-        grouped[key].resources.push(r)
-      }
-    })
-    
-    // Filter out empty categories
-    return Object.entries(grouped).filter(([_, v]) => v.resources.length > 0)
-  }, [categories, resources])
-
-  const activeFilterCount = resources.length - selectedResources.size
-
-  // Resources to show in legend (only selected ones)
-  const legendResources = resources.filter(r => selectedResources.has(r.id))
 
   return (
     <div className="space-y-4">
@@ -176,56 +145,75 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {/* Top bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
-          {/* Navigation */}
-          <div className="flex items-center gap-2">
+          {/* Resource and part selection */}
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate("prev")}
+              onClick={() => {
+                setSelectedResourceId(null)
+                setSelectedPartId(null)
+              }}
               className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              aria-label="Forrige"
+              title="Tilbake til fasilitetsvalg"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <h2 className="font-semibold text-gray-900 min-w-[200px] text-center">
-              {viewMode === "week" 
-                ? `${format(weekStart, "d. MMM", { locale: nb })} - ${format(addDays(weekStart, 6), "d. MMM yyyy", { locale: nb })}`
-                : format(currentDate, "MMMM yyyy", { locale: nb })
-              }
-            </h2>
-            <button
-              onClick={() => navigate("next")}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              aria-label="Neste"
+            <select
+              value={selectedResourceId}
+              onChange={(e) => handleResourceChange(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setCurrentDate(new Date())}
-              className="ml-2 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-            >
-              I dag
-            </button>
+              {resources.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+            {selectedResource && selectedResource.parts.length > 0 && (
+              <select
+                value={selectedPartId || ""}
+                onChange={(e) => setSelectedPartId(e.target.value || null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Alle deler</option>
+                {selectedResource.parts.map((part) => (
+                  <option key={part.id} value={part.id}>
+                    {part.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
-          {/* View controls */}
+          {/* Navigation and view controls */}
           <div className="flex items-center gap-2">
-            {/* Filter button */}
-            <button
-              onClick={() => setShowFilterPanel(!showFilterPanel)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                showFilterPanel || activeFilterCount > 0
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Filter className="w-4 h-4" />
-              Filter
-              {activeFilterCount > 0 && (
-                <span className="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded-full">
-                  {activeFilterCount}
-                </span>
-              )}
-              <ChevronDown className={`w-4 h-4 transition-transform ${showFilterPanel ? 'rotate-180' : ''}`} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate("prev")}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="Forrige"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <h2 className="font-semibold text-gray-900 min-w-[200px] text-center">
+                {viewMode === "week" 
+                  ? `${format(weekStart, "d. MMM", { locale: nb })} - ${format(addDays(weekStart, 6), "d. MMM yyyy", { locale: nb })}`
+                  : format(currentDate, "MMMM yyyy", { locale: nb })
+                }
+              </h2>
+              <button
+                onClick={() => navigate("next")}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="Neste"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setCurrentDate(new Date())}
+                className="ml-2 px-3 py-1.5 text-sm font-medium rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+              >
+                I dag
+              </button>
+            </div>
 
             {/* View mode toggle */}
             <div className="flex bg-gray-100 rounded-lg p-1">
@@ -251,132 +239,7 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
           </div>
         </div>
 
-        {/* Filter panel */}
-        {showFilterPanel && (
-          <div className="border-t border-gray-200 p-4 bg-gray-50">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm font-medium text-gray-700">Filtrer visning</span>
-              <div className="flex gap-2">
-                <button
-                  onClick={selectAll}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Velg alle
-                </button>
-                <span className="text-gray-300">|</span>
-                <button
-                  onClick={selectNone}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Fjern alle
-                </button>
-              </div>
-            </div>
-
-            {/* Categories and resources */}
-            <div className="space-y-4">
-              {resourcesByCategory.map(([categoryId, { category, resources: catResources }]) => (
-                <div key={categoryId} className="space-y-2">
-                  {/* Category header */}
-                  <button
-                    onClick={() => toggleCategory(categoryId)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all w-full ${
-                      selectedCategories.has(categoryId)
-                        ? 'bg-white shadow-sm border border-gray-200'
-                        : 'bg-gray-200/50 text-gray-500 hover:bg-gray-200'
-                    }`}
-                  >
-                    <div 
-                      className={`w-5 h-5 rounded flex items-center justify-center ${
-                        selectedCategories.has(categoryId) ? '' : 'bg-gray-300'
-                      }`}
-                      style={selectedCategories.has(categoryId) ? { 
-                        backgroundColor: category?.color || '#6b7280' 
-                      } : undefined}
-                    >
-                      {selectedCategories.has(categoryId) && <Check className="w-3.5 h-3.5 text-white" />}
-                    </div>
-                    <span style={selectedCategories.has(categoryId) ? { color: category?.color || '#374151' } : undefined}>
-                      {category?.name || 'Ukategorisert'}
-                    </span>
-                    <span className="text-xs text-gray-400 ml-auto">
-                      {catResources.filter(r => selectedResources.has(r.id)).length}/{catResources.length}
-                    </span>
-                  </button>
-
-                  {/* Resources in category */}
-                  {selectedCategories.has(categoryId) && (
-                    <div className="flex flex-wrap gap-2 pl-4">
-                      {catResources.map((resource) => {
-                        const isSelected = selectedResources.has(resource.id)
-                        return (
-                          <button
-                            key={resource.id}
-                            onClick={() => toggleResource(resource.id)}
-                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                              isSelected 
-                                ? 'bg-white shadow-sm border' 
-                                : 'bg-gray-200/50 text-gray-500 hover:bg-gray-200'
-                            }`}
-                            style={isSelected ? { 
-                              borderColor: resource.color,
-                              color: resource.color
-                            } : undefined}
-                          >
-                            <div 
-                              className={`w-3 h-3 rounded-full ${isSelected ? '' : 'bg-gray-300'}`}
-                              style={isSelected ? { backgroundColor: resource.color } : undefined}
-                            />
-                            {resource.name}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {selectedResources.size === 0 && (
-              <p className="text-sm text-amber-600 mt-3 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                Ingen fasiliteter valgt - kalenderen er tom
-              </p>
-            )}
-          </div>
-        )}
       </div>
-
-      {/* Active filters summary (when panel is closed) */}
-      {!showFilterPanel && activeFilterCount > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-gray-500">Viser:</span>
-          {legendResources.slice(0, 5).map((resource) => (
-            <span
-              key={resource.id}
-              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-white"
-              style={{ backgroundColor: resource.color }}
-            >
-              {resource.name}
-              <button
-                onClick={() => toggleResource(resource.id)}
-                className="hover:bg-white/20 rounded-full p-0.5"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          ))}
-          {legendResources.length > 5 && (
-            <span className="text-xs text-gray-500">+{legendResources.length - 5} til</span>
-          )}
-          <button
-            onClick={selectAll}
-            className="text-xs text-blue-600 hover:text-blue-700 font-medium ml-2"
-          >
-            Vis alle
-          </button>
-        </div>
-      )}
 
       {/* Week View */}
       {viewMode === "week" && (
@@ -575,21 +438,6 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
         </div>
       )}
 
-      {/* Compact legend - only show selected resources */}
-      {legendResources.length > 0 && (
-        <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
-          <span className="font-medium">Farger:</span>
-          {legendResources.map((resource) => (
-            <span key={resource.id} className="flex items-center gap-1">
-              <span 
-                className="w-2.5 h-2.5 rounded-full" 
-                style={{ backgroundColor: resource.color }}
-              />
-              {resource.name}
-            </span>
-          ))}
-        </div>
-      )}
 
       {/* Booking detail modal */}
       {selectedBooking && (
