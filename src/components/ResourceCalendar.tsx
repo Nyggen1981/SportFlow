@@ -468,7 +468,13 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
           <span className="text-gray-600">Godkjent</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded booking-pending" />
+          <div 
+            className="w-4 h-3 rounded border-2 border-dashed" 
+            style={{ 
+              backgroundColor: '#dcfce7', 
+              borderColor: '#22c55e' 
+            }} 
+          />
           <span className="text-gray-600">Venter på godkjenning</span>
         </div>
       </div>
