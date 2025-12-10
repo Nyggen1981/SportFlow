@@ -18,6 +18,12 @@ import {
 } from "date-fns"
 import { nb } from "date-fns/locale"
 
+interface Category {
+  id: string
+  name: string
+  color: string
+}
+
 interface ResourcePart {
   id: string
   name: string
@@ -43,21 +49,30 @@ interface Booking {
 }
 
 interface Props {
+  categories: Category[]
   resources: Resource[]
   bookings: Booking[]
 }
 
 type ViewMode = "week" | "month"
 
-export function PublicCalendar({ resources, bookings }: Props) {
+export function PublicCalendar({ categories, resources, bookings }: Props) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>("week")
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
 
-  const selectedResource = resources.find(r => r.id === selectedResourceId)
+  // Filter resources by selected category
+  const availableResources = useMemo(() => {
+    if (!selectedCategoryId) return []
+    return resources.filter(r => r.categoryId === selectedCategoryId)
+  }, [resources, selectedCategoryId])
 
+  const selectedResource = availableResources.find(r => r.id === selectedResourceId)
+
+  // Filter bookings based on selections
   const filteredBookings = useMemo(() => {
     if (!selectedResourceId) return []
     
@@ -74,6 +89,17 @@ export function PublicCalendar({ resources, bookings }: Props) {
       return true
     })
   }, [bookings, selectedResourceId, selectedPartId, selectedResource])
+
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategoryId(categoryId)
+    setSelectedResourceId(null) // Reset resource when category changes
+    setSelectedPartId(null) // Reset part when category changes
+  }
+
+  const handleResourceChange = (resourceId: string) => {
+    setSelectedResourceId(resourceId)
+    setSelectedPartId(null) // Reset part selection when resource changes
+  }
 
   // Week view data
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
@@ -103,71 +129,40 @@ export function PublicCalendar({ resources, bookings }: Props) {
     }
   }
 
-  const handleResourceChange = (resourceId: string) => {
-    setSelectedResourceId(resourceId)
-    setSelectedPartId(null) // Reset part selection when resource changes
-  }
-
-  // If no resource selected, show selection screen
-  if (!selectedResourceId) {
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 p-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Velg fasilitet</h2>
-        <div className="space-y-3">
-          {resources.map((resource) => (
-            <button
-              key={resource.id}
-              onClick={() => handleResourceChange(resource.id)}
-              className="w-full text-left p-4 rounded-lg border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <div 
-                  className="w-4 h-4 rounded-full"
-                  style={{ backgroundColor: resource.color }}
-                />
-                <div>
-                  <p className="font-medium text-gray-900">{resource.name}</p>
-                  {resource.categoryName && (
-                    <p className="text-sm text-gray-500">{resource.categoryName}</p>
-                  )}
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
       {/* Controls */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {/* Top bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
-          {/* Resource and part selection */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                setSelectedResourceId(null)
-                setSelectedPartId(null)
-              }}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              title="Tilbake til fasilitetsvalg"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
+          {/* Three selectors: Category, Resource, Part */}
+          <div className="flex items-center gap-3 flex-wrap">
             <select
-              value={selectedResourceId}
-              onChange={(e) => handleResourceChange(e.target.value)}
+              value={selectedCategoryId || ""}
+              onChange={(e) => handleCategoryChange(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {resources.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
+              <option value="">Velg kategori</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
                 </option>
               ))}
             </select>
+            {selectedCategoryId && availableResources.length > 0 && (
+              <select
+                value={selectedResourceId || ""}
+                onChange={(e) => handleResourceChange(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Velg fasilitet</option>
+                {availableResources.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            )}
             {selectedResource && selectedResource.parts.length > 0 && (
               <select
                 value={selectedPartId || ""}

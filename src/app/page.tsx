@@ -131,6 +131,11 @@ export default async function PublicHomePage() {
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
         {hasData ? (
           <PublicCalendar 
+            categories={categories.map(c => ({
+              id: c.id,
+              name: c.name,
+              color: c.color
+            }))}
             resources={resources.map(r => ({
               id: r.id,
               name: r.name,
