@@ -304,12 +304,10 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
             {/* Header - sticky */}
             <div className="grid bg-gray-50 border-b border-gray-200 sticky top-0 z-10" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
               <div className="p-3 text-center text-sm font-medium text-gray-500" />
-              {weekDays.map((day, dayIndex) => (
+              {weekDays.map((day) => (
                 <div 
                   key={day.toISOString()} 
-                  className={`p-3 text-center ${
-                    dayIndex > 0 ? 'border-l border-gray-200' : ''
-                  } ${
+                  className={`p-3 text-center border-l border-gray-200 ${
                     isToday(day) ? 'bg-blue-50' : 'bg-gray-50'
                   }`}
                 >
@@ -331,7 +329,7 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                 <div className="p-2 text-right text-xs text-gray-400 pr-3">
                   {hour.toString().padStart(2, "0")}:00
                 </div>
-                {weekDays.map((day, dayIndex) => {
+                {weekDays.map((day) => {
                   // Get bookings that overlap with this hour
                   const dayBookings = getBookingsForDay(day).filter(b => {
                     const start = parseISO(b.startTime)
@@ -350,7 +348,7 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                   return (
                     <div 
                       key={`${day.toISOString()}-${hour}`} 
-                      className={`relative min-h-[48px] ${dayIndex > 0 ? 'border-l border-gray-100' : ''} pointer-events-none ${
+                      className={`relative min-h-[48px] border-l border-gray-100 pointer-events-none ${
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
