@@ -11,8 +11,7 @@ export const revalidate = 30
 const getCategories = unstable_cache(
   async () => {
     try {
-      return await prisma.category.findMany({
-        where: { isActive: true },
+      return await prisma.resourceCategory.findMany({
         orderBy: { name: "asc" },
         select: {
           id: true,
