@@ -20,7 +20,7 @@ import {
   Plus,
   Pencil,
   Filter,
-  Timeline
+  GanttChart
 } from "lucide-react"
 import { EditBookingModal } from "@/components/EditBookingModal"
 import { format, isToday, isTomorrow, isThisWeek, parseISO, startOfDay, endOfDay, addDays, isSameDay, startOfWeek, endOfWeek } from "date-fns"
@@ -306,7 +306,7 @@ export default function MyBookingsPage() {
                       : "text-gray-600 hover:text-gray-900"
                   }`}
                 >
-                  <Timeline className="w-4 h-4" />
+                  <GanttChart className="w-4 h-4" />
                   Tidslinje
                 </button>
                 </div>
@@ -427,13 +427,12 @@ export default function MyBookingsPage() {
                   </div>
                 ) : (
                   <div className="card p-8 text-center">
-                    <Timeline className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <GanttChart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                     <p className="text-gray-500">Ingen kommende bookinger å vise i tidslinje</p>
                   </div>
                 )
               ) : (
-              /* Bookings list */
-              activeBookings.length === 0 ? (
+                activeBookings.length === 0 ? (
                 <div className="card p-8 text-center">
                   {activeTab === "upcoming" ? (
                     <>
