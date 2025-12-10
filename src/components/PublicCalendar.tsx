@@ -144,6 +144,12 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Help text */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+        <p className="font-medium mb-1">Slik finner du frem i kalenderen:</p>
+        <p className="text-blue-700">Velg først en kategori, deretter en fasilitet. Hvis fasiliteten har underdeler, kan du velge en spesifikk del eller se alle deler.</p>
+      </div>
+
       {/* Controls */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {/* Top bar */}
