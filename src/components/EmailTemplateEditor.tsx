@@ -263,12 +263,12 @@ export function EmailTemplateEditor({ template, onSave, onReset }: EmailTemplate
                 type="button"
                 onClick={toggleEditorMode}
                 className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 transition-colors"
-                title={editorMode === "html" ? "Bytt til WYSIWYG" : "Bytt til HTML"}
+                title={editorMode === "html" ? "Bytt til tekst" : "Bytt til HTML"}
               >
                 {editorMode === "html" ? (
                   <>
                     <Eye className="w-3 h-3" />
-                    WYSIWYG
+                    Tekst
                   </>
                 ) : (
                   <>
@@ -376,7 +376,7 @@ export function EmailTemplateEditor({ template, onSave, onReset }: EmailTemplate
                 suppressContentEditableWarning
               />
               <p className="text-xs text-gray-500 mt-1">
-                WYSIWYG-redigering. Variabler som <code className="bg-gray-100 px-1 rounded">{"{{variableName}}"}</code> vil vises som tekst, men fungerer i e-posten
+                Tekst-redigering. Variabler som <code className="bg-gray-100 px-1 rounded">{"{{variableName}}"}</code> vil vises som tekst, men fungerer i e-posten
               </p>
             </>
           )}
