@@ -345,6 +345,38 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                     return start.getHours() === hour
                   })
                   
+                  // Group overlapping bookings for stacking
+                  const groupedBookings: Booking[][] = []
+                  bookingsStartingThisHour.forEach(booking => {
+                    const bookingStart = parseISO(booking.startTime)
+                    const bookingEnd = parseISO(booking.endTime)
+                    
+                    // Find a group this booking overlaps with
+                    let addedToGroup = false
+                    for (const group of groupedBookings) {
+                      const groupStart = parseISO(group[0].startTime)
+                      const groupEnd = parseISO(group[0].endTime)
+                      
+                      // Check if booking overlaps with any booking in this group
+                      const overlaps = group.some(b => {
+                        const bStart = parseISO(b.startTime)
+                        const bEnd = parseISO(b.endTime)
+                        return (bookingStart < bEnd && bookingEnd > bStart)
+                      })
+                      
+                      if (overlaps) {
+                        group.push(booking)
+                        addedToGroup = true
+                        break
+                      }
+                    }
+                    
+                    // If no overlap found, create new group
+                    if (!addedToGroup) {
+                      groupedBookings.push([booking])
+                    }
+                  })
+                  
                   return (
                     <div 
                       key={`${day.toISOString()}-${hour}`} 
@@ -352,33 +384,25 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
-                      {bookingsStartingThisHour.map((booking, index) => {
-                        const start = parseISO(booking.startTime)
-                        const end = parseISO(booking.endTime)
-                        const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
-                        const isPending = booking.status === "pending"
-                        const resourceColor = getResourceColor(booking.resourceId)
+                      {groupedBookings.flatMap((group, groupIndex) => 
+                        group.map((booking, bookingIndex) => {
+                          const start = parseISO(booking.startTime)
+                          const end = parseISO(booking.endTime)
+                          const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+                          const isPending = booking.status === "pending"
+                          const resourceColor = getResourceColor(booking.resourceId)
 
-                        // Add gap between bookings for visual separation
-                        const gapPx = 3
-                        const cellHeight = 48 // min-h-[48px]
-                        const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
-                        const heightPx = duration * cellHeight - (gapPx * 2)
-                        
-                        // If multiple bookings at same time, stack them with slight offset
-                        // Group by same resource and overlapping time
-                        const overlappingCount = bookingsStartingThisHour.filter(b => {
-                          const bStart = parseISO(b.startTime)
-                          const bEnd = parseISO(b.endTime)
-                          return b.resourceId === booking.resourceId && 
-                                 ((bStart <= start && bEnd > start) || (bStart < end && bEnd >= end) || (bStart >= start && bEnd <= end))
-                        }).length
-                        
-                        // Calculate offset for stacking (only if multiple bookings)
-                        const stackOffset = overlappingCount > 1 ? index * 2 : 0
-                        const leftOffset = stackOffset > 0 ? `${stackOffset}px` : '4px'
-                        const rightOffset = stackOffset > 0 ? `${stackOffset}px` : '4px'
-                        const zIndex = 10 + index
+                          // Add gap between bookings for visual separation
+                          const gapPx = 3
+                          const cellHeight = 48 // min-h-[48px]
+                          const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
+                          const heightPx = duration * cellHeight - (gapPx * 2)
+                          
+                          // Stack overlapping bookings with offset
+                          const stackOffset = group.length > 1 ? bookingIndex * 4 : 0
+                          const leftOffset = stackOffset > 0 ? `${4 + stackOffset}px` : '4px'
+                          const rightOffset = stackOffset > 0 ? `${4 + stackOffset}px` : '4px'
+                          const zIndex = 10 + groupIndex * 10 + bookingIndex
 
                         return (
                           <div

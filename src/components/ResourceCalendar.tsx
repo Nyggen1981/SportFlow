@@ -214,6 +214,41 @@ export function ResourceCalendar({ bookings, parts }: Props) {
                 </div>
                 {weekDays.map((day) => {
                   const dayBookings = getBookingsForDayAndHour(day, hour)
+                  
+                  // Filter to only bookings that start in this hour
+                  const bookingsStartingThisHour = dayBookings.filter(booking => {
+                    const start = parseISO(booking.startTime)
+                    return start.getHours() === hour
+                  })
+                  
+                  // Group overlapping bookings for stacking
+                  const groupedBookings: Booking[][] = []
+                  bookingsStartingThisHour.forEach(booking => {
+                    const bookingStart = parseISO(booking.startTime)
+                    const bookingEnd = parseISO(booking.endTime)
+                    
+                    // Find a group this booking overlaps with
+                    let addedToGroup = false
+                    for (const group of groupedBookings) {
+                      const overlaps = group.some(b => {
+                        const bStart = parseISO(b.startTime)
+                        const bEnd = parseISO(b.endTime)
+                        return (bookingStart < bEnd && bookingEnd > bStart)
+                      })
+                      
+                      if (overlaps) {
+                        group.push(booking)
+                        addedToGroup = true
+                        break
+                      }
+                    }
+                    
+                    // If no overlap found, create new group
+                    if (!addedToGroup) {
+                      groupedBookings.push([booking])
+                    }
+                  })
+                  
                   return (
                     <div 
                       key={`${day.toISOString()}-${hour}`} 
@@ -221,46 +256,52 @@ export function ResourceCalendar({ bookings, parts }: Props) {
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
-                      {dayBookings.map((booking) => {
-                        const start = parseISO(booking.startTime)
-                        const end = parseISO(booking.endTime)
-                        const startHour = start.getHours()
-                        
-                        // Only render on first hour
-                        if (hour !== startHour) return null
-                        
-                        const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
-                        const isPending = booking.status === "pending"
-                        
-                        // Add gap for visual separation
-                        const gapPx = 3
-                        const cellHeight = 48
-                        const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
-                        const heightPx = durationHours * cellHeight - (gapPx * 2)
+                      {groupedBookings.flatMap((group, groupIndex) =>
+                        group.map((booking, bookingIndex) => {
+                          const start = parseISO(booking.startTime)
+                          const end = parseISO(booking.endTime)
+                          const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+                          const isPending = booking.status === "pending"
+                          
+                          // Add gap for visual separation
+                          const gapPx = 3
+                          const cellHeight = 48
+                          const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
+                          const heightPx = durationHours * cellHeight - (gapPx * 2)
+                          
+                          // Stack overlapping bookings with offset
+                          const stackOffset = group.length > 1 ? bookingIndex * 4 : 0
+                          const leftOffset = stackOffset > 0 ? `${4 + stackOffset}px` : '4px'
+                          const rightOffset = stackOffset > 0 ? `${4 + stackOffset}px` : '4px'
+                          const zIndex = 10 + groupIndex * 10 + bookingIndex
 
-                        return (
-                          <div
-                            key={booking.id}
-                            className={`absolute left-1 right-1 rounded-md px-2 py-1 text-xs overflow-hidden pointer-events-auto cursor-default z-10 ${
-                              isPending ? 'border-2 border-dashed' : ''
-                            }`}
-                            style={{
-                              top: `${topPx}px`,
-                              height: `${Math.max(heightPx, 36)}px`,
-                              backgroundColor: isPending ? '#dcfce7' : '#22c55e',
-                              borderColor: isPending ? '#22c55e' : undefined,
-                              color: isPending ? '#15803d' : 'white',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                            }}
-                            title={`${booking.title}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''}`}
-                          >
-                            <p className="font-medium truncate">{booking.title}</p>
-                            {booking.resourcePartName && (
-                              <p className="text-[10px] opacity-80 truncate">{booking.resourcePartName}</p>
-                            )}
-                          </div>
-                        )
-                      })}
+                          return (
+                            <div
+                              key={booking.id}
+                              className={`absolute rounded-md px-2 py-1 text-xs overflow-hidden pointer-events-auto cursor-default ${
+                                isPending ? 'border-2 border-dashed' : ''
+                              }`}
+                              style={{
+                                top: `${topPx}px`,
+                                left: leftOffset,
+                                right: rightOffset,
+                                height: `${Math.max(heightPx, 36)}px`,
+                                backgroundColor: isPending ? '#dcfce7' : '#22c55e',
+                                borderColor: isPending ? '#22c55e' : undefined,
+                                color: isPending ? '#15803d' : 'white',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                zIndex: zIndex
+                              }}
+                              title={`${booking.title}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''}`}
+                            >
+                              <p className="font-medium truncate">{booking.title}</p>
+                              {booking.resourcePartName && (
+                                <p className="text-[10px] opacity-80 truncate">{booking.resourcePartName}</p>
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
                     </div>
                   )
                 })}
