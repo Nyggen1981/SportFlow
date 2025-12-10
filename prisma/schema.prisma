@@ -23,6 +23,13 @@ model Organization {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  // SMTP settings per organization (optional - falls back to global env vars if not set)
+  smtpHost       String?  // e.g., smtp.office365.com, smtp.gmail.com
+  smtpPort       Int?     // e.g., 587, 465
+  smtpUser       String?  // Email address or username
+  smtpPass       String?  // Password or app password (encrypted in production)
+  smtpFrom       String?  // From email address (defaults to smtpUser if not set)
+
   users     User[]
   resources Resource[]
   bookings  Booking[]

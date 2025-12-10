@@ -3,16 +3,26 @@
 ## Oversikt
 Arena Booking-applikasjonen trenger tilgang til en SMTP-server for å sende e-postvarsler om bookinger. Applikasjonen bruker standard SMTP-protokoll (nodemailer).
 
-## Nødvendige miljøvariabler
-Følgende miljøvariabler må settes opp i Vercel (eller annen hosting-plattform):
+**Viktig:** Arena Booking støtter nå per-organisasjon SMTP-innstillinger. Hver idrettslag kan konfigurere sin egen e-postserver direkte i admin-panelet. Dette gir bedre branding og fleksibilitet.
 
-### Påkrevde variabler:
+## To måter å konfigurere e-post
+
+### 1. Per-organisasjon (Anbefalt for produksjon)
+Hver organisasjon kan konfigurere sine egne SMTP-innstillinger i admin-panelet under "Innstillinger" → "E-postinnstillinger". Dette gir:
+- E-poster sendt fra organisasjonens egen e-postadresse
+- Bedre branding og troverdighet
+- Fleksibilitet - hver organisasjon kan bruke sin egen e-postleverandør
+
+### 2. Globale miljøvariabler (Fallback/Testing)
+Hvis en organisasjon ikke har konfigurert egne SMTP-innstillinger, faller systemet tilbake til globale miljøvariabler. Disse settes i Vercel (eller annen hosting-plattform):
+
+#### Påkrevde variabler:
 - **SMTP_HOST** - SMTP-serveradressen (f.eks. `smtp.office365.com`, `smtp.gmail.com`, eller intern SMTP-server)
 - **SMTP_PORT** - Portnummer (vanligvis `587` for TLS eller `465` for SSL)
 - **SMTP_USER** - E-postadressen eller brukernavnet for SMTP-autentisering
 - **SMTP_PASS** - Passord eller app-passord for SMTP-autentisering
 
-### Valgfri variabel:
+#### Valgfri variabel:
 - **SMTP_FROM** - Avsenderadresse (hvis ikke satt, brukes SMTP_USER)
 
 ## Hva IT-avdelingen må gjøre

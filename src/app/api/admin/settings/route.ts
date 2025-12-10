@@ -24,7 +24,19 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { name, slug, logo, tagline, primaryColor, secondaryColor } = await request.json()
+  const { 
+    name, 
+    slug, 
+    logo, 
+    tagline, 
+    primaryColor, 
+    secondaryColor,
+    smtpHost,
+    smtpPort,
+    smtpUser,
+    smtpPass,
+    smtpFrom
+  } = await request.json()
 
   // Check if slug is already taken by another org
   if (slug) {
@@ -47,7 +59,12 @@ export async function PUT(request: Request) {
       logo,
       tagline,
       primaryColor,
-      secondaryColor
+      secondaryColor,
+      smtpHost: smtpHost || null,
+      smtpPort: smtpPort ? parseInt(smtpPort) : null,
+      smtpUser: smtpUser || null,
+      smtpPass: smtpPass || null, // Note: In production, consider encrypting this
+      smtpFrom: smtpFrom || null,
     }
   })
 

@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     }
 
     // Try to send test email
-    const result = await sendEmail({
+    const result = await sendEmail(session.user.organizationId, {
       to: testEmail,
       subject: "Test fra Arena Booking",
       html: `

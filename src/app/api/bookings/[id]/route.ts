@@ -215,7 +215,7 @@ export async function PATCH(
           session.user.email || contactEmail || "",
           description || undefined
         )
-        await sendEmail({ to: admin.email, ...emailContent })
+        await sendEmail(session.user.organizationId, { to: admin.email, ...emailContent })
       }
     }
 

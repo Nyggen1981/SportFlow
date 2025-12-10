@@ -88,7 +88,7 @@ export async function PATCH(
         count > 1 ? `${date} (og ${count - 1} andre datoer)` : date, 
         time
       )
-      await sendEmail({ to: userEmail, ...emailContent })
+      await sendEmail(booking.organizationId, { to: userEmail, ...emailContent })
     } else {
       const count = bookingIdsToUpdate.length
       const emailContent = await getBookingRejectedEmail(
@@ -99,7 +99,7 @@ export async function PATCH(
         time, 
         statusNote
       )
-      await sendEmail({ to: userEmail, ...emailContent })
+      await sendEmail(booking.organizationId, { to: userEmail, ...emailContent })
     }
   }
 

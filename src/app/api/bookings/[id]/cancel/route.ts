@@ -81,7 +81,7 @@ export async function POST(
           time,
           reason
         )
-        await sendEmail({
+        await sendEmail(booking.resource.organizationId, {
           to: userEmail,
           ...emailContent
         })
@@ -105,7 +105,7 @@ export async function POST(
           booking.user.name || booking.contactName || "Ukjent",
           booking.user.email
         )
-        await sendEmail({
+        await sendEmail(booking.resource.organizationId, {
           to: admin.email,
           ...emailContent
         })

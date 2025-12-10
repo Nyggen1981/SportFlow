@@ -308,7 +308,7 @@ export async function POST(request: Request) {
           session.user.email || contactEmail || "",
           description
         )
-        await sendEmail({ to: admin.email, ...emailContent })
+        await sendEmail(session.user.organizationId, { to: admin.email, ...emailContent })
       }
     }
 
