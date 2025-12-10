@@ -648,8 +648,8 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
           
           // If a specific resource is selected, only show that one
           // Otherwise, show all resources that have bookings in the current view
-          const resourcesToShow = selectedResource
-            ? resources.filter(r => r.id === selectedResource)
+          const resourcesToShow = selectedResourceId
+            ? resources.filter(r => r.id === selectedResourceId)
             : resources.filter(r => visibleResourceIds.has(r.id))
           
           return resourcesToShow.map((resource) => (
