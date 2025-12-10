@@ -16,6 +16,12 @@ export async function getEmailTemplate(
   templateType: "new_booking" | "approved" | "rejected" | "cancelled_by_admin" | "cancelled_by_user"
 ) {
   try {
+    // Check if emailTemplate is available in Prisma Client
+    if (!prisma.emailTemplate) {
+      console.warn("EmailTemplate model not available in Prisma Client, using default templates")
+      return null
+    }
+
     const template = await prisma.emailTemplate.findUnique({
       where: {
         organizationId_templateType: {
@@ -27,8 +33,15 @@ export async function getEmailTemplate(
     return template
   } catch (error: any) {
     // If table doesn't exist yet (P2021) or other Prisma errors, return null to use defaults
-    if (error?.code === "P2021" || error?.code === "P2001" || error?.message?.includes("does not exist")) {
-      console.warn(`EmailTemplate table not found, using default templates. Error: ${error.message}`)
+    if (
+      error?.code === "P2021" || 
+      error?.code === "P2001" || 
+      error?.code === "P2025" ||
+      error?.message?.includes("does not exist") ||
+      error?.message?.includes("Unknown arg") ||
+      error?.message?.includes("emailTemplate")
+    ) {
+      console.warn(`EmailTemplate table/model not found, using default templates. Error: ${error.message}`)
       return null
     }
     console.error("Error fetching email template:", error)
