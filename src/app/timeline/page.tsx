@@ -284,13 +284,13 @@ export default function TimelinePage() {
           {/* Header */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <GanttChart className="w-6 h-6" />
-                Tidslinje
-              </h1>
-              
-              {/* Date Navigation */}
               <div className="flex items-center gap-4">
+                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  <GanttChart className="w-6 h-6" />
+                  Tidslinje
+                </h1>
+                
+                {/* Filter Button */}
                 <button
                   onClick={() => setShowFilter(!showFilter)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
@@ -302,11 +302,17 @@ export default function TimelinePage() {
                   <Filter className="w-4 h-4" />
                   Filter
                   {selectedResources.size > 0 && (
-                    <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">
+                    <span className={`px-2 py-0.5 text-xs rounded-full ${
+                      showFilter ? "bg-blue-100 text-blue-700" : "bg-blue-100 text-blue-700"
+                    }`}>
                       {selectedResources.size}
                     </span>
                   )}
                 </button>
+              </div>
+              
+              {/* Date Navigation */}
+              <div className="flex items-center gap-4">
                 <button
                   onClick={() => changeDate(-1)}
                   className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
