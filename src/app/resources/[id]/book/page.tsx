@@ -18,6 +18,7 @@ import {
   MapPin
 } from "lucide-react"
 import { MapViewer } from "@/components/MapViewer"
+import { TimePicker } from "@/components/TimePicker"
 
 interface ResourcePart {
   id: string
@@ -350,46 +351,19 @@ export default function BookResourcePage({ params }: Props) {
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Clock className="w-4 h-4 inline mr-1" />
-                  Fra kl. *
-                </label>
-                <select
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="input"
-                  required
-                >
-                  <option value="">Velg tid</option>
-                  {Array.from({ length: 24 * 4 }, (_, i) => {
-                    const hour = Math.floor(i / 4)
-                    const minute = (i % 4) * 15
-                    const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-                    return <option key={time} value={time}>{time}</option>
-                  })}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Clock className="w-4 h-4 inline mr-1" />
-                  Til kl. *
-                </label>
-                <select
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="input"
-                  required
-                >
-                  <option value="">Velg tid</option>
-                  {Array.from({ length: 24 * 4 }, (_, i) => {
-                    const hour = Math.floor(i / 4)
-                    const minute = (i % 4) * 15
-                    const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-                    return <option key={time} value={time}>{time}</option>
-                  })}
-                </select>
-              </div>
+              <TimePicker
+                value={startTime}
+                onChange={setStartTime}
+                label="Fra kl."
+                required
+              />
+              <TimePicker
+                value={endTime}
+                onChange={setEndTime}
+                label="Til kl."
+                required
+                minTime={startTime}
+              />
             </div>
 
             <p className="text-sm text-gray-500">
