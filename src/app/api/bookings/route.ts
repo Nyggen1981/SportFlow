@@ -180,7 +180,7 @@ export async function POST(request: Request) {
         // 1. The part itself
         // 2. All children (if booking parent, children are blocked)
         // 3. The parent (if booking child, parent is blocked)
-        const partIdsToCheck: (string | null)[] = [resourcePartId]
+        const partIdsToCheck: string[] = [resourcePartId]
         
         // If this part has children, add all children IDs
         if (bookingPart.children && bookingPart.children.length > 0) {
@@ -193,17 +193,25 @@ export async function POST(request: Request) {
           partIdsToCheck.push(bookingPart.parentId)
         }
         
-        // Also check for whole facility bookings (resourcePartId = null)
-        partIdsToCheck.push(null)
-        
         console.log("Booking part:", bookingPart.name, "Checking conflicts for parts:", partIdsToCheck)
         
+        // Check for conflicts: same parts OR whole facility (null) OR parent/children
         conflictingBookings = await prisma.booking.findMany({
           where: {
             resourceId,
             status: { notIn: ["cancelled", "rejected"] },
-            resourcePartId: { in: partIdsToCheck },
-            OR: timeOverlapConditions
+            OR: [
+              // Check for bookings on the specific parts (self, parent, children)
+              {
+                resourcePartId: { in: partIdsToCheck },
+                AND: { OR: timeOverlapConditions }
+              },
+              // Check for whole facility bookings (resourcePartId = null)
+              {
+                resourcePartId: null,
+                AND: { OR: timeOverlapConditions }
+              }
+            ]
           },
           include: { 
             resourcePart: {
