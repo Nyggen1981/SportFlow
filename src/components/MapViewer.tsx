@@ -118,7 +118,9 @@ export function MapViewer({ mapImage, parts, onPartClick, selectedPartId }: Prop
           return (
             <div
               key={`label-${part.id}`}
-              className={`absolute px-2 py-1 rounded text-xs font-bold text-white whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2 transition-all pointer-events-none ${
+              className={`absolute px-2 py-1 rounded text-xs font-bold text-white whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2 transition-all ${
+                onPartClick ? "cursor-pointer" : "pointer-events-none"
+              } ${
                 isSelected || isHovered ? "scale-110 shadow-lg z-10" : ""
               }`}
               style={{ 
@@ -128,6 +130,9 @@ export function MapViewer({ mapImage, parts, onPartClick, selectedPartId }: Prop
                 opacity: isSelected || isHovered ? 1 : 0.95,
                 textShadow: '0 1px 2px rgba(0,0,0,0.3)'
               }}
+              onClick={() => onPartClick?.(part.id)}
+              onMouseEnter={() => setHoveredPartId(part.id)}
+              onMouseLeave={() => setHoveredPartId(null)}
             >
               {part.name}
             </div>
