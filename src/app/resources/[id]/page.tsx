@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { unstable_cache } from "next/cache"
 import { 
   MapPin, 
   Clock, 
@@ -24,73 +23,70 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-// Cache resource data for 30 seconds
-const getResource = unstable_cache(
-  async (id: string) => {
-    try {
-      const now = new Date()
-      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
-      const twoMonthsAhead = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
+// Fetch resource data directly without unstable_cache to avoid caching issues
+async function getResource(id: string) {
+  try {
+    const now = new Date()
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+    const twoMonthsAhead = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
 
-      return await prisma.resource.findUnique({
-        where: { id },
-        include: {
-          category: {
-            select: {
-              id: true,
-              name: true,
-              color: true
-            }
+    return await prisma.resource.findUnique({
+      where: { id },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            color: true
+          }
+        },
+        parts: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            capacity: true,
+            mapCoordinates: true
           },
-          parts: {
-            where: { isActive: true },
-            select: {
-              id: true,
-              name: true,
-              description: true,
-              capacity: true,
-              mapCoordinates: true
-            },
-            orderBy: { name: "asc" }
+          orderBy: { name: "asc" }
+        },
+        bookings: {
+          where: {
+            status: { in: ["approved", "pending"] },
+            startTime: { gte: twoWeeksAgo, lte: twoMonthsAhead }
           },
-          bookings: {
-            where: {
-              status: { in: ["approved", "pending"] },
-              startTime: { gte: twoWeeksAgo, lte: twoMonthsAhead }
-            },
-            select: {
-              id: true,
-              title: true,
-              startTime: true,
-              endTime: true,
-              status: true,
-              isRecurring: true,
-              parentBookingId: true,
-              userId: true,
-              resourcePart: {
-                select: {
-                  name: true
-                }
-              },
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true
-                }
+          select: {
+            id: true,
+            title: true,
+            startTime: true,
+            endTime: true,
+            status: true,
+            isRecurring: true,
+            parentBookingId: true,
+            userId: true,
+            resourcePart: {
+              select: {
+                name: true
               }
             },
-            orderBy: { startTime: "asc" }
-          }
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true
+              }
+            }
+          },
+          orderBy: { startTime: "asc" }
         }
-      })
-    } catch {
-      return null
-    }
-  },
-  ["resource-detail"],
-  { revalidate: 30 }
-)
+      }
+    })
+  } catch (error) {
+    console.error("Error fetching resource:", error)
+    return null
+  }
+}
 
 export default async function ResourcePage({ params }: Props) {
   const { id } = await params
