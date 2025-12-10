@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { ChevronLeft, ChevronRight, X, Calendar, Clock, User, Repeat, CheckCircle2, XCircle, Trash2, Pencil, Loader2 } from "lucide-react"
 import { 
@@ -116,6 +116,18 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
     })
   }
 
+  // Scroll to bottom of week view on mount and when viewMode/date/part changes
+  useEffect(() => {
+    if (viewMode === "week" && weekViewScrollRef.current) {
+      // Small delay to ensure content is rendered
+      setTimeout(() => {
+        if (weekViewScrollRef.current) {
+          weekViewScrollRef.current.scrollTop = weekViewScrollRef.current.scrollHeight
+        }
+      }, 100)
+    }
+  }, [viewMode, currentDate, selectedPart])
+
   const handleBookingAction = async (bookingId: string, action: "approve" | "reject" | "cancel") => {
     setIsProcessing(true)
     const booking = bookings.find(b => b.id === bookingId)
@@ -227,7 +239,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
       {viewMode === "week" && (
         <div className="border border-gray-200 rounded-xl overflow-hidden">
           {/* Time grid with sticky header */}
-          <div className="max-h-[600px] overflow-y-auto pr-[17px]">
+          <div ref={weekViewScrollRef} className="max-h-[600px] overflow-y-auto pr-[17px]">
             {/* Header - sticky */}
             <div className="grid bg-gray-50 border-b border-gray-200 sticky top-0 z-10" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
               <div className="p-3 text-center text-sm font-medium text-gray-500" />

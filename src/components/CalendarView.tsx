@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useCallback } from "react"
+import { useState, useMemo, useEffect, useCallback, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { ChevronLeft, ChevronRight, List, Grid3X3, CheckCircle2, XCircle, Trash2, X, Loader2, Calendar, Clock, User, Repeat, Pencil, Save, Star } from "lucide-react"
 import { EditBookingModal } from "./EditBookingModal"
@@ -141,6 +141,18 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
   const getResourceColor = (resourceId: string) => {
     return resources.find(r => r.id === resourceId)?.color || '#3b82f6'
   }
+
+  // Scroll to bottom of week view on mount and when viewMode/date changes
+  useEffect(() => {
+    if (viewMode === "week" && weekViewScrollRef.current) {
+      // Small delay to ensure content is rendered
+      setTimeout(() => {
+        if (weekViewScrollRef.current) {
+          weekViewScrollRef.current.scrollTop = weekViewScrollRef.current.scrollHeight
+        }
+      }, 100)
+    }
+  }, [viewMode, currentDate, selectedResource])
 
   const navigate = (direction: "prev" | "next") => {
     if (viewMode === "week") {
@@ -300,7 +312,7 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
       {viewMode === "week" && (
         <div className="card overflow-hidden">
           {/* Time grid with sticky header */}
-          <div className="max-h-[600px] overflow-y-auto pr-[17px]">
+          <div ref={weekViewScrollRef} className="max-h-[600px] overflow-y-auto pr-[17px]">
             {/* Header - sticky */}
             <div className="grid bg-gray-50 border-b border-gray-200 sticky top-0 z-10" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
               <div className="p-3 text-center text-sm font-medium text-gray-500" />

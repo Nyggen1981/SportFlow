@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect, useRef } from "react"
 import { ChevronLeft, ChevronRight, List, Grid3X3, Calendar, Clock, MapPin } from "lucide-react"
 import { 
   format, 
@@ -63,6 +63,7 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const weekViewScrollRef = useRef<HTMLDivElement>(null)
 
   // Filter resources by selected category
   const availableResources = useMemo(() => {
@@ -128,6 +129,18 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
       setCurrentDate(direction === "prev" ? subMonths(currentDate, 1) : addMonths(currentDate, 1))
     }
   }
+
+  // Scroll to bottom of week view on mount and when viewMode changes
+  useEffect(() => {
+    if (viewMode === "week" && weekViewScrollRef.current) {
+      // Small delay to ensure content is rendered
+      setTimeout(() => {
+        if (weekViewScrollRef.current) {
+          weekViewScrollRef.current.scrollTop = weekViewScrollRef.current.scrollHeight
+        }
+      }, 100)
+    }
+  }, [viewMode, selectedCategoryId, selectedResourceId, selectedPartId])
 
   return (
     <div className="space-y-4">
@@ -240,7 +253,7 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
       {viewMode === "week" && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
           {/* Time grid with sticky header */}
-          <div className="max-h-[650px] overflow-y-auto pr-[17px]">
+          <div ref={weekViewScrollRef} className="max-h-[650px] overflow-y-auto pr-[17px]">
             {/* Header - sticky */}
             <div className="grid bg-gray-50 border-b border-gray-200 sticky top-0 z-10" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
               <div className="p-3 text-center text-sm font-medium text-gray-500" />
