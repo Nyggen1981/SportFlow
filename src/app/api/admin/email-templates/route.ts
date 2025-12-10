@@ -29,26 +29,38 @@ export async function GET() {
     // Get custom templates from database
     // If table doesn't exist yet, return empty array (will use defaults)
     let customTemplates: EmailTemplate[] = []
-    try {
-      customTemplates = await prisma.emailTemplate.findMany({
-        where: { organizationId },
-      })
-    } catch (error: any) {
-      // If table doesn't exist (P2021), use empty array
-      if (
-        error?.code === "P2021" || 
-        error?.code === "P2001" || 
-        error?.code === "P2025" ||
-        error?.message?.includes("does not exist") ||
-        error?.message?.includes("Unknown arg") ||
-        error?.message?.includes("emailTemplate") ||
-        error?.message?.includes("Cannot read property") ||
-        error?.message?.includes("is not a function")
-      ) {
-        console.warn("EmailTemplate table not found, using default templates")
-      } else {
-        throw error
+    
+    // Check if EmailTemplate model is available
+    const isAvailable = typeof (prisma as any).emailTemplate !== 'undefined' && 
+                        (prisma as any).emailTemplate !== null &&
+                        typeof (prisma as any).emailTemplate.findMany === 'function'
+    
+    if (isAvailable) {
+      try {
+        customTemplates = await (prisma as any).emailTemplate.findMany({
+          where: { organizationId },
+        })
+      } catch (error: any) {
+        // If table doesn't exist (P2021), use empty array
+        if (
+          error?.code === "P2021" || 
+          error?.code === "P2001" || 
+          error?.code === "P2025" ||
+          error?.message?.includes("does not exist") ||
+          error?.message?.includes("Unknown arg") ||
+          error?.message?.includes("emailTemplate") ||
+          error?.message?.includes("Cannot read property") ||
+          error?.message?.includes("is not a function") ||
+          error?.message?.includes("Cannot find module") ||
+          error?.name === "TypeError"
+        ) {
+          console.warn("EmailTemplate table not found, using default templates")
+        } else {
+          throw error
+        }
       }
+    } else {
+      console.warn("EmailTemplate model not available in Prisma Client, using default templates")
     }
 
     // Get default templates
@@ -108,11 +120,21 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Subject and HTML body are required" }, { status: 400 })
   }
 
-  try {
-    // Try to upsert - if table doesn't exist, it will fail gracefully
+  // Check if EmailTemplate model is available
+  const isAvailable = typeof (prisma as any).emailTemplate !== 'undefined' && 
+                      (prisma as any).emailTemplate !== null &&
+                      typeof (prisma as any).emailTemplate.upsert === 'function'
+  
+  if (!isAvailable) {
+    return NextResponse.json(
+      { error: "EmailTemplate model not available. Please run 'prisma generate' and ensure database migration is complete." },
+      { status: 503 }
+    )
+  }
 
+  try {
     // Upsert template (create or update)
-    const template = await prisma.emailTemplate.upsert({
+    const template = await (prisma as any).emailTemplate.upsert({
       where: {
         organizationId_templateType: {
           organizationId,
@@ -142,7 +164,9 @@ export async function PUT(request: Request) {
       error?.message?.includes("Unknown arg") ||
       error?.message?.includes("emailTemplate") ||
       error?.message?.includes("Cannot read property") ||
-      error?.message?.includes("is not a function")
+      error?.message?.includes("is not a function") ||
+      error?.message?.includes("Cannot find module") ||
+      error?.name === "TypeError"
     ) {
       return NextResponse.json(
         { error: "EmailTemplate model not available. Please run 'prisma generate' and ensure database migration is complete." },
@@ -174,7 +198,19 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    await prisma.emailTemplate.delete({
+    // Check if EmailTemplate model is available
+    const isAvailable = typeof (prisma as any).emailTemplate !== 'undefined' && 
+                        (prisma as any).emailTemplate !== null &&
+                        typeof (prisma as any).emailTemplate.delete === 'function'
+    
+    if (!isAvailable) {
+      return NextResponse.json(
+        { error: "EmailTemplate model not available. Please run 'prisma generate' and ensure database migration is complete." },
+        { status: 503 }
+      )
+    }
+
+    await (prisma as any).emailTemplate.delete({
       where: {
         organizationId_templateType: {
           organizationId,

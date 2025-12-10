@@ -10,13 +10,30 @@ function replaceVariables(template: string, variables: Record<string, string | u
   return result
 }
 
+// Check if EmailTemplate model is available in Prisma Client
+function isEmailTemplateAvailable(): boolean {
+  try {
+    // Check if prisma.emailTemplate exists and is a function/object
+    return typeof (prisma as any).emailTemplate !== 'undefined' && 
+           (prisma as any).emailTemplate !== null &&
+           typeof (prisma as any).emailTemplate.findUnique === 'function'
+  } catch {
+    return false
+  }
+}
+
 // Get email template from database or return null
 export async function getEmailTemplate(
   organizationId: string,
   templateType: "new_booking" | "approved" | "rejected" | "cancelled_by_admin" | "cancelled_by_user"
 ) {
+  // First check if the model is available
+  if (!isEmailTemplateAvailable()) {
+    return null
+  }
+
   try {
-    const template = await prisma.emailTemplate.findUnique({
+    const template = await (prisma as any).emailTemplate.findUnique({
       where: {
         organizationId_templateType: {
           organizationId,
@@ -35,9 +52,11 @@ export async function getEmailTemplate(
       error?.message?.includes("Unknown arg") ||
       error?.message?.includes("emailTemplate") ||
       error?.message?.includes("Cannot read property") ||
-      error?.message?.includes("is not a function")
+      error?.message?.includes("is not a function") ||
+      error?.message?.includes("Cannot find module") ||
+      error?.name === "TypeError"
     ) {
-      console.warn(`EmailTemplate table/model not found, using default templates. Error: ${error.message}`)
+      console.warn(`EmailTemplate table/model not found, using default templates. Error: ${error.message || error}`)
       return null
     }
     console.error("Error fetching email template:", error)
