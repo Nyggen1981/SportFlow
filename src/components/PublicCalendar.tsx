@@ -260,7 +260,7 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
               {weekDays.map((day) => (
                 <div 
                   key={day.toISOString()} 
-                  className={`p-3 text-center border-l-2 border-gray-300 ${
+                  className={`p-3 text-center border-l border-gray-200 ${
                     isToday(day) ? 'bg-blue-50' : 'bg-gray-50'
                   }`}
                 >
@@ -327,7 +327,7 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                   return (
                     <div 
                       key={`${day.toISOString()}-${hour}`} 
-                      className={`relative min-h-[48px] border-l-2 border-gray-300 pointer-events-none ${
+                      className={`relative min-h-[48px] border-l border-gray-100 pointer-events-none ${
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
@@ -358,8 +358,11 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                           })
                           const gapBetweenPx = hasOverlap ? 3 : 0 // More gap horizontally (3px) vs vertical (1px)
                           const bookingWidthPercent = 100 / groupSize
-                          const leftPercent = index * bookingWidthPercent
                           const marginRight = index < groupSize - 1 ? gapBetweenPx : 0
+                          // Center single boxes, keep side-by-side for overlapping
+                          const isSingleBox = groupSize === 1
+                          const leftPercent = isSingleBox ? 50 : (index * bookingWidthPercent)
+                          const boxWidth = isSingleBox ? '90%' : (marginRight > 0 ? `calc(${bookingWidthPercent}% - ${marginRight}px)` : `${bookingWidthPercent}%`)
 
                           return (
                             <button
@@ -368,8 +371,9 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                               className="absolute rounded px-1.5 py-1 text-xs overflow-hidden cursor-pointer z-10 pointer-events-auto text-left booking-event"
                               style={{
                                 top: `${topPx}px`,
-                                left: `${leftPercent}%`,
-                                width: marginRight > 0 ? `calc(${bookingWidthPercent}% - ${marginRight}px)` : `${bookingWidthPercent}%`,
+                                left: isSingleBox ? '50%' : `${leftPercent}%`,
+                                transform: isSingleBox ? 'translateX(-50%)' : 'none',
+                                width: boxWidth,
                                 height: `${Math.max(heightPx, 36)}px`,
                                 backgroundColor: resourceColor,
                                 color: 'white',

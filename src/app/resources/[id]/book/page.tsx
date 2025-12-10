@@ -497,29 +497,29 @@ export default function BookResourcePage({ params }: Props) {
             {/* Submit */}
             <div className="space-y-3 pt-4">
               <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="btn btn-primary flex-1 py-3 disabled:opacity-50"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Sender...
-                    </>
-                  ) : (
-                    <>
-                      <Calendar className="w-5 h-5" />
-                      Send bookingforespørsel
-                    </>
-                  )}
-                </button>
-                <Link
-                  href={`/resources/${id}`}
-                  className="btn btn-secondary py-3"
-                >
-                  Avbryt
-                </Link>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="btn btn-primary flex-1 py-3 disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Sender...
+                  </>
+                ) : (
+                  <>
+                    <Calendar className="w-5 h-5" />
+                    Send bookingforespørsel
+                  </>
+                )}
+              </button>
+              <Link
+                href={`/resources/${id}`}
+                className="btn btn-secondary py-3"
+              >
+                Avbryt
+              </Link>
               </div>
               {error && (
                 <div className="p-4 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3 text-red-700 animate-in slide-in-from-top-2">

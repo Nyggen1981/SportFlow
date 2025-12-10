@@ -320,7 +320,7 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
               {weekDays.map((day) => (
                 <div 
                   key={day.toISOString()} 
-                  className={`p-3 text-center border-l-2 border-gray-300 ${
+                  className={`p-3 text-center border-l border-gray-200 ${
                     isToday(day) ? 'bg-blue-50' : 'bg-gray-50'
                   }`}
                 >
@@ -389,7 +389,7 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                   return (
                     <div 
                       key={`${day.toISOString()}-${hour}`} 
-                      className={`relative min-h-[48px] border-l-2 border-gray-300 pointer-events-none ${
+                      className={`relative min-h-[48px] border-l border-gray-100 pointer-events-none ${
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
@@ -421,8 +421,9 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                           })
                           const gapBetweenPx = hasOverlap ? 3 : 0 // More gap horizontally (3px) vs vertical (1px)
                           const bookingWidthPercent = 100 / groupSize
-                          const leftPercent = index * bookingWidthPercent
                           const marginRight = index < groupSize - 1 ? gapBetweenPx : 0
+                          const leftPercent = groupSize === 1 ? 50 : (index * bookingWidthPercent)
+                          const boxWidth = groupSize === 1 ? '90%' : (marginRight > 0 ? `calc(${bookingWidthPercent}% - ${marginRight}px)` : `${bookingWidthPercent}%`)
 
                           return (
                             <div
@@ -433,8 +434,9 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                               }`}
                               style={{
                                 top: `${topPx}px`,
-                                left: `${leftPercent}%`,
-                                width: marginRight > 0 ? `calc(${bookingWidthPercent}% - ${marginRight}px)` : `${bookingWidthPercent}%`,
+                                left: groupSize === 1 ? '50%' : `${leftPercent}%`,
+                                transform: groupSize === 1 ? 'translateX(-50%)' : 'none',
+                                width: boxWidth,
                                 height: `${Math.max(heightPx, 36)}px`,
                                 backgroundColor: isPending 
                                   ? `${resourceColor}20`
