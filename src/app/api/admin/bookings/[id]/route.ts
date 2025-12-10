@@ -54,15 +54,29 @@ export async function PATCH(
     }
   }
 
-  const { action, statusNote, applyToAll } = body
-  console.log("Extracted values:", { action, statusNote, applyToAll, actionType: typeof action })
+  // Support both 'action' and 'status' fields for backward compatibility
+  let action: string | undefined = body.action
+  const status = body.status as string | undefined
+  
+  // If action is not provided but status is, convert status to action
+  if (!action && status) {
+    if (status === "approved") {
+      action = "approve"
+    } else if (status === "rejected") {
+      action = "reject"
+    }
+    console.log("Converted status to action:", { status, action })
+  }
+  
+  const { statusNote, applyToAll } = body
+  console.log("Extracted values:", { action, status, statusNote, applyToAll, actionType: typeof action })
 
   // Validate action
   if (!action || (action !== "approve" && action !== "reject")) {
-    console.error("Invalid action received:", action, "Type:", typeof action)
+    console.error("Invalid action received:", action, "Type:", typeof action, "Status:", status)
     return NextResponse.json({ 
-      error: "Invalid action. Must be 'approve' or 'reject'",
-      received: action,
+      error: "Invalid action. Must be 'approve' or 'reject' (or status: 'approved'/'rejected')",
+      received: { action, status },
       receivedType: typeof action,
       fullBody: body
     }, { status: 400 })
