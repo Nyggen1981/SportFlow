@@ -19,17 +19,16 @@ export async function PATCH(
   const { id } = await params
   
   // Parse request body with error handling
-  let body
+  let body: { action?: string; statusNote?: string; applyToAll?: boolean } = {}
   try {
-    const text = await request.text()
-    console.log("Raw request body:", text)
-    body = text ? JSON.parse(text) : {}
+    body = await request.json()
+    console.log("Parsed body:", body)
   } catch (error) {
     console.error("Error parsing request body:", error)
-    return NextResponse.json({ error: "Invalid request body", details: String(error) }, { status: 400 })
+    // If body is empty or invalid, try to continue with empty body
+    // This might happen if no body is sent
   }
 
-  console.log("Parsed body:", body)
   const { action, statusNote, applyToAll } = body
 
   // Validate action
