@@ -1,7 +1,7 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
 import { Footer } from "@/components/Footer"
@@ -23,7 +23,7 @@ import {
   GanttChart
 } from "lucide-react"
 import { EditBookingModal } from "@/components/EditBookingModal"
-import { format, isToday, isTomorrow, isThisWeek, parseISO, startOfDay, endOfDay, addDays, isSameDay, startOfWeek, endOfWeek } from "date-fns"
+import { format, isToday, isTomorrow, isThisWeek, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns"
 import { nb } from "date-fns/locale"
 
 interface Booking {
@@ -73,30 +73,43 @@ export default function MyBookingsPage() {
     }
   }, [status, router])
 
-  useEffect(() => {
-    if (session) {
-      fetch("/api/bookings")
-        .then(res => res.json())
-        .then(data => {
-          setBookings(data)
-          setIsLoading(false)
-        })
+  const fetchBookings = useCallback(async () => {
+    if (!session) return
+    try {
+      const res = await fetch("/api/bookings")
+      const data = await res.json()
+      setBookings(data)
+    } catch (error) {
+      console.error("Failed to fetch bookings:", error)
+    } finally {
+      setIsLoading(false)
     }
   }, [session])
 
-  const handleCancel = async (bookingId: string) => {
-    setIsProcessing(true)
-    const response = await fetch(`/api/bookings/${bookingId}/cancel`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({})
-    })
-    if (response.ok) {
-      setBookings(bookings.map(b => b.id === bookingId ? { ...b, status: "cancelled" } : b))
+  useEffect(() => {
+    if (session) {
+      fetchBookings()
     }
-    setIsProcessing(false)
-    setCancellingId(null)
-  }
+  }, [session, fetchBookings])
+
+  const handleCancel = useCallback(async (bookingId: string) => {
+    setIsProcessing(true)
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
+      })
+      if (response.ok) {
+        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: "cancelled" } : b))
+      }
+    } catch (error) {
+      console.error("Failed to cancel booking:", error)
+    } finally {
+      setIsProcessing(false)
+      setCancellingId(null)
+    }
+  }, [])
 
   // Categorize and filter bookings
   const { upcoming, history } = useMemo(() => {
@@ -179,15 +192,15 @@ export default function MyBookingsPage() {
     }
   }, [bookings, selectedResourceId, activeTab])
 
-  const formatDateLabel = (dateStr: string) => {
+  const formatDateLabel = useCallback((dateStr: string) => {
     const date = parseISO(dateStr)
     if (isToday(date)) return "I dag"
     if (isTomorrow(date)) return "I morgen"
     if (isThisWeek(date, { weekStartsOn: 1 })) return format(date, "EEEE", { locale: nb })
     return format(date, "EEEE d. MMMM", { locale: nb })
-  }
+  }, [])
 
-  const getStatusInfo = (status: string) => {
+  const getStatusInfo = useCallback((status: string) => {
     switch (status) {
       case "pending": return { label: "Venter på godkjenning", color: "bg-amber-100 text-amber-700", icon: Hourglass }
       case "approved": return { label: "Godkjent", color: "bg-green-100 text-green-700", icon: CheckCircle2 }
@@ -195,7 +208,16 @@ export default function MyBookingsPage() {
       case "cancelled": return { label: "Kansellert", color: "bg-gray-100 text-gray-600", icon: XCircle }
       default: return { label: status, color: "bg-gray-100 text-gray-600", icon: AlertCircle }
     }
-  }
+  }, [])
+
+  const handleBookingSaved = useCallback((updatedBooking: any) => {
+    setBookings(prev => prev.map(b => 
+      b.id === updatedBooking.id 
+        ? { ...b, title: updatedBooking.title, status: updatedBooking.status, startTime: updatedBooking.startTime, endTime: updatedBooking.endTime } 
+        : b
+    ))
+    setEditingBooking(null)
+  }, [])
 
   if (status === "loading" || isLoading) {
     return (
@@ -216,14 +238,14 @@ export default function MyBookingsPage() {
       <main className="flex-1">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Mine bookinger</h1>
-              <p className="text-gray-500">Oversikt over dine reservasjoner</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Mine bookinger</h1>
+              <p className="text-sm sm:text-base text-gray-500">Oversikt over dine reservasjoner</p>
             </div>
             <Link 
               href="/resources" 
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm sm:text-base"
             >
               <Plus className="w-4 h-4" />
               Ny booking
@@ -610,14 +632,7 @@ export default function MyBookingsPage() {
           }}
           isAdmin={false}
           onClose={() => setEditingBooking(null)}
-          onSaved={(updatedBooking) => {
-            setBookings(bookings.map(b => 
-              b.id === updatedBooking.id 
-                ? { ...b, title: updatedBooking.title, status: updatedBooking.status, startTime: updatedBooking.startTime, endTime: updatedBooking.endTime } 
-                : b
-            ))
-            setEditingBooking(null)
-          }}
+          onSaved={handleBookingSaved}
         />
       )}
     </div>

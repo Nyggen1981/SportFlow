@@ -154,6 +154,13 @@ export function getDefaultEmailTemplates() {
                 <p><strong>Tid:</strong> {{time}}</p>
               </div>
               
+              {{#if adminNote}}
+              <div class="info-box" style="background: #fef3c7; border-left-color: #f59e0b;">
+                <p style="margin: 0; font-weight: 600; color: #92400e; margin-bottom: 8px;">📋 Viktig informasjon:</p>
+                <p style="margin: 0; color: #78350f;">{{adminNote}}</p>
+              </div>
+              {{/if}}
+              
               <p>Vi gleder oss til å se deg!</p>
             </div>
             <div class="footer">

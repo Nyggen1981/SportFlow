@@ -71,11 +71,12 @@ export async function POST(request: Request) {
       openingHours: openingHours ? JSON.stringify(openingHours) : null,
       organizationId: session.user.organizationId,
       parts: parts ? {
-        create: parts.map((p: { name: string; description?: string; capacity?: number; mapCoordinates?: string }) => ({
+        create: parts.map((p: { name: string; description?: string; capacity?: number; mapCoordinates?: string; adminNote?: string }) => ({
           name: p.name,
           description: p.description,
           capacity: p.capacity,
-          mapCoordinates: p.mapCoordinates
+          mapCoordinates: p.mapCoordinates,
+          adminNote: p.adminNote || null
         }))
       } : undefined
     },

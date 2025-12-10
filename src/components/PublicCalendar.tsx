@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef } from "react"
+import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { ChevronLeft, ChevronRight, List, Grid3X3, Calendar, Clock, MapPin } from "lucide-react"
 import { 
   format, 
@@ -91,16 +91,16 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
     })
   }, [bookings, selectedResourceId, selectedPartId, selectedResource])
 
-  const handleCategoryChange = (categoryId: string) => {
+  const handleCategoryChange = useCallback((categoryId: string) => {
     setSelectedCategoryId(categoryId)
     setSelectedResourceId(null) // Reset resource when category changes
     setSelectedPartId(null) // Reset part when category changes
-  }
+  }, [])
 
-  const handleResourceChange = (resourceId: string) => {
+  const handleResourceChange = useCallback((resourceId: string) => {
     setSelectedResourceId(resourceId)
     setSelectedPartId(null) // Reset part selection when resource changes
-  }
+  }, [])
 
   // Week view data
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })

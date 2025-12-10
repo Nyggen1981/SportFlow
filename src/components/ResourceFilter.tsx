@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo, useCallback } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { MapPin, Clock, ArrowRight, Filter } from "lucide-react"
@@ -32,26 +32,36 @@ interface Props {
 export function ResourceFilter({ categories, resources }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
-  // Filter resources by selected category
-  const filteredResources = selectedCategory
-    ? resources.filter(r => r.category?.id === selectedCategory)
-    : resources
+  // Filter resources by selected category - memoized
+  const filteredResources = useMemo(() => {
+    return selectedCategory
+      ? resources.filter(r => r.category?.id === selectedCategory)
+      : resources
+  }, [selectedCategory, resources])
 
-  // Group filtered resources by category (only show categories that have resources after filtering)
-  const grouped = filteredResources.reduce((acc, resource) => {
-    const categoryName = resource.category?.name || "Annet"
-    if (!acc[categoryName]) {
-      acc[categoryName] = {
-        category: resource.category,
-        resources: []
+  // Group filtered resources by category - memoized
+  const grouped = useMemo(() => {
+    return filteredResources.reduce((acc, resource) => {
+      const categoryName = resource.category?.name || "Annet"
+      if (!acc[categoryName]) {
+        acc[categoryName] = {
+          category: resource.category,
+          resources: []
+        }
       }
-    }
-    acc[categoryName].resources.push(resource)
-    return acc
-  }, {} as Record<string, { category: Category | null, resources: Resource[] }>)
+      acc[categoryName].resources.push(resource)
+      return acc
+    }, {} as Record<string, { category: Category | null, resources: Resource[] }>)
+  }, [filteredResources])
 
-  // Only show categories that have resources after filtering
-  const visibleCategories = Object.keys(grouped).filter(categoryName => grouped[categoryName].resources.length > 0)
+  // Only show categories that have resources after filtering - memoized
+  const visibleCategories = useMemo(() => {
+    return Object.keys(grouped).filter(categoryName => grouped[categoryName].resources.length > 0)
+  }, [grouped])
+
+  const handleCategorySelect = useCallback((categoryId: string | null) => {
+    setSelectedCategory(categoryId)
+  }, [])
 
   return (
     <>
@@ -63,7 +73,7 @@ export function ResourceFilter({ categories, resources }: Props) {
             Filtrer:
           </div>
           <button 
-            onClick={() => setSelectedCategory(null)}
+            onClick={() => handleCategorySelect(null)}
             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
               selectedCategory === null
                 ? "bg-blue-600 text-white"
@@ -75,7 +85,7 @@ export function ResourceFilter({ categories, resources }: Props) {
           {categories.map((category) => (
             <button 
               key={category.id}
-              onClick={() => setSelectedCategory(category.id)}
+              onClick={() => handleCategorySelect(category.id)}
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                 selectedCategory === category.id
                   ? "text-white"

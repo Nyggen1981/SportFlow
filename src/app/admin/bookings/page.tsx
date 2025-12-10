@@ -1,7 +1,7 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
 import Link from "next/link"
@@ -31,6 +31,7 @@ interface Booking {
   startTime: string
   endTime: string
   status: string
+  statusNote: string | null
   contactName: string | null
   contactEmail: string | null
   isRecurring: boolean
@@ -53,6 +54,9 @@ export default function AdminBookingsPage() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [cancelReason, setCancelReason] = useState("")
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [rejectReason, setRejectReason] = useState("")
+  const [rejectApplyToAll, setRejectApplyToAll] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -62,19 +66,24 @@ export default function AdminBookingsPage() {
     }
   }, [status, session, router])
 
+  const fetchBookings = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const response = await fetch(`/api/admin/bookings?status=all`)
+      const data = await response.json()
+      setBookings(data)
+    } catch (error) {
+      console.error("Failed to fetch bookings:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (session?.user?.role === "admin") {
       fetchBookings()
     }
-  }, [session])
-
-  const fetchBookings = async () => {
-    setIsLoading(true)
-    const response = await fetch(`/api/admin/bookings?status=all`)
-    const data = await response.json()
-    setBookings(data)
-    setIsLoading(false)
-  }
+  }, [session, fetchBookings])
 
   // Group recurring bookings
   const groupedBookings = useMemo(() => {
@@ -144,11 +153,17 @@ export default function AdminBookingsPage() {
     history: bookings.filter(b => b.status !== "pending" && (b.status !== "approved" || new Date(b.startTime) < new Date())).length
   }), [bookings])
 
-  const handleAction = async (bookingId: string, action: "approve" | "reject", applyToAll: boolean = false) => {
+  const handleAction = useCallback(async (bookingId: string, action: "approve" | "reject", applyToAll: boolean = false, statusNote?: string) => {
     setProcessingId(bookingId)
     const booking = bookings.find(b => b.id === bookingId)
     
-    const requestBody = { action, applyToAll: applyToAll && booking?.isRecurring }
+    const requestBody: { action: string; applyToAll?: boolean; statusNote?: string } = { action }
+    if (applyToAll && booking?.isRecurring) {
+      requestBody.applyToAll = true
+    }
+    if (statusNote) {
+      requestBody.statusNote = statusNote
+    }
     const bodyString = JSON.stringify(requestBody)
     console.log("Sending request:", { bookingId, action, requestBody, bodyString })
     
@@ -175,46 +190,60 @@ export default function AdminBookingsPage() {
       
       // Refresh bookings from server to get accurate state
       await fetchBookings()
+      
+      // Close reject modal if it was open
+      if (action === "reject") {
+        setRejectingId(null)
+        setRejectReason("")
+        setRejectApplyToAll(false)
+      }
     } catch (error) {
       console.error("Error in handleAction:", error)
       alert(`Feil: ${error instanceof Error ? error.message : "Noe gikk galt"}`)
     } finally {
       setProcessingId(null)
     }
-  }
+  }, [bookings, fetchBookings])
 
-  const handleCancel = async (bookingId: string) => {
+  const handleCancel = useCallback(async (bookingId: string) => {
     setProcessingId(bookingId)
-    const response = await fetch(`/api/bookings/${bookingId}/cancel`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reason: cancelReason })
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: cancelReason })
+      })
+      if (response.ok) {
+        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: "cancelled" } : b))
+      }
+    } catch (error) {
+      console.error("Failed to cancel booking:", error)
+    } finally {
+      setProcessingId(null)
+      setCancellingId(null)
+      setCancelReason("")
+    }
+  }, [cancelReason])
+
+  const toggleGroup = useCallback((groupId: string) => {
+    setExpandedGroups(prev => {
+      const newExpanded = new Set(prev)
+      if (newExpanded.has(groupId)) {
+        newExpanded.delete(groupId)
+      } else {
+        newExpanded.add(groupId)
+      }
+      return newExpanded
     })
-    if (response.ok) {
-      setBookings(bookings.map(b => b.id === bookingId ? { ...b, status: "cancelled" } : b))
-    }
-    setProcessingId(null)
-    setCancellingId(null)
-    setCancelReason("")
-  }
+  }, [])
 
-  const toggleGroup = (groupId: string) => {
-    const newExpanded = new Set(expandedGroups)
-    if (newExpanded.has(groupId)) {
-      newExpanded.delete(groupId)
-    } else {
-      newExpanded.add(groupId)
-    }
-    setExpandedGroups(newExpanded)
-  }
-
-  const formatDateLabel = (dateStr: string) => {
+  const formatDateLabel = useCallback((dateStr: string) => {
     const date = parseISO(dateStr)
     if (isToday(date)) return "I dag"
     if (isTomorrow(date)) return "I morgen"
     if (isThisWeek(date, { weekStartsOn: 1 })) return format(date, "EEEE", { locale: nb })
     return format(date, "d. MMM", { locale: nb })
-  }
+  }, [])
 
   if (status === "loading" || isLoading) {
     return (
@@ -374,7 +403,19 @@ export default function AdminBookingsPage() {
                               {booking.status === "cancelled" && (
                                 <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Kansellert</span>
                               )}
-                              {isGrouped && (
+                            </div>
+                            {booking.status === "rejected" && booking.statusNote && (
+                              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                                <p className="text-xs text-red-800">
+                                  <span className="font-medium">Begrunnelse:</span> {booking.statusNote}
+                                </p>
+                              </div>
+                            )}
+                            <p className="text-sm text-gray-500 truncate">
+                              {booking.resource.name}
+                              {booking.resourcePart && ` → ${booking.resourcePart.name}`}
+                            </p>
+                            {isGrouped && (
                                 <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 flex items-center gap-1">
                                   <Repeat className="w-3 h-3" />
                                   {booking._groupCount} ganger
@@ -417,11 +458,14 @@ export default function AdminBookingsPage() {
                                     Godkjenn alle
                                   </button>
                                   <button
-                                    onClick={() => handleAction(booking.id, "reject", true)}
+                                    onClick={() => {
+                                      setRejectingId(booking.id)
+                                      setRejectApplyToAll(true)
+                                    }}
                                     disabled={processingId === booking.id}
                                     className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 flex items-center gap-1"
                                   >
-                                    {processingId === booking.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
+                                    <XCircle className="w-3 h-3" />
                                     Avslå alle
                                   </button>
                                 </div>
@@ -436,12 +480,15 @@ export default function AdminBookingsPage() {
                                     {processingId === booking.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                                   </button>
                                   <button
-                                    onClick={() => handleAction(booking.id, "reject", false)}
+                                    onClick={() => {
+                                      setRejectingId(booking.id)
+                                      setRejectApplyToAll(false)
+                                    }}
                                     disabled={processingId === booking.id}
                                     className="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
                                     title="Avslå"
                                   >
-                                    {processingId === booking.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                                    <XCircle className="w-4 h-4" />
                                   </button>
                                 </>
                               )}
@@ -482,6 +529,13 @@ export default function AdminBookingsPage() {
                                   {childBooking.status === "rejected" && (
                                     <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Avslått</span>
                                   )}
+                                  {childBooking.status === "rejected" && childBooking.statusNote && (
+                                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                                      <p className="text-xs text-red-800">
+                                        <span className="font-medium">Begrunnelse:</span> {childBooking.statusNote}
+                                      </p>
+                                    </div>
+                                  )}
                                   {childBooking.status === "cancelled" && (
                                     <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Kansellert</span>
                                   )}
@@ -511,12 +565,15 @@ export default function AdminBookingsPage() {
                                     {processingId === childBooking.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
                                   </button>
                                   <button
-                                    onClick={() => handleAction(childBooking.id, "reject", false)}
+                                    onClick={() => {
+                                      setRejectingId(childBooking.id)
+                                      setRejectApplyToAll(false)
+                                    }}
                                     disabled={processingId === childBooking.id}
                                     className="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
                                     title="Avslå"
                                   >
-                                    {processingId === childBooking.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
+                                    <XCircle className="w-3 h-3" />
                                   </button>
                                 </>
                               )}
@@ -534,6 +591,67 @@ export default function AdminBookingsPage() {
           </div>
         )}
       </div>
+
+      {/* Reject modal */}
+      {rejectingId && (() => {
+        const booking = bookings.find(b => b.id === rejectingId)
+        const isRecurring = booking?.isRecurring && rejectApplyToAll
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-md w-full shadow-2xl p-6 animate-fadeIn">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                <XCircle className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
+                Avslå booking{isRecurring ? "er" : ""}?
+              </h3>
+              <p className="text-gray-600 text-center mb-4">
+                {isRecurring 
+                  ? "Alle gjentakende bookinger vil bli avslått. Brukeren vil bli varslet på e-post."
+                  : "Brukeren vil bli varslet på e-post."}
+              </p>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Begrunnelse (valgfritt)
+                </label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="F.eks. Fasiliteten er allerede booket..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+                  rows={3}
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setRejectingId(null)
+                    setRejectReason("")
+                    setRejectApplyToAll(false)
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Avbryt
+                </button>
+                <button
+                  onClick={() => handleAction(rejectingId, "reject", rejectApplyToAll, rejectReason || undefined)}
+                  disabled={processingId === rejectingId}
+                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  {processingId === rejectingId ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <XCircle className="w-4 h-4" />
+                      Avslå
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Cancel modal */}
       {cancellingId && (

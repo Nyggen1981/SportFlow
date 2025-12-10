@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect, useRef } from "react"
+import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { ChevronLeft, ChevronRight, X, Calendar, Clock, User, Repeat, CheckCircle2, XCircle, Trash2, Pencil, Loader2 } from "lucide-react"
 import { 
@@ -96,14 +96,14 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
     })
   }, [bookings, selectedPart, weekDays, monthDays, viewMode])
 
-  const getBookingsForDay = (day: Date) => {
+  const getBookingsForDay = useCallback((day: Date) => {
     return filteredBookings.filter(booking => {
       const start = parseISO(booking.startTime)
       return isSameDay(day, start)
     })
-  }
+  }, [filteredBookings])
 
-  const getBookingsForDayAndHour = (day: Date, hour: number) => {
+  const getBookingsForDayAndHour = useCallback((day: Date, hour: number) => {
     return filteredBookings.filter(booking => {
       const start = parseISO(booking.startTime)
       const end = parseISO(booking.endTime)
@@ -115,7 +115,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
       
       return hour >= startHour && hour < endHour
     })
-  }
+  }, [filteredBookings])
 
   // Scroll to bottom of week view on mount and when viewMode/date/part changes
   useEffect(() => {
@@ -129,35 +129,41 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
     }
   }, [viewMode, currentDate, selectedPart])
 
-  const handleBookingAction = async (bookingId: string, action: "approve" | "reject" | "cancel") => {
+  const handleBookingAction = useCallback(async (bookingId: string, action: "approve" | "reject" | "cancel") => {
     setIsProcessing(true)
     const booking = bookings.find(b => b.id === bookingId)
     const shouldApplyToAll = applyToAll && booking?.isRecurring
     
-    let response
-    if (action === "cancel") {
-      response = await fetch(`/api/bookings/${bookingId}/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: "Kansellert fra kalender", applyToAll: shouldApplyToAll })
-      })
-    } else {
-      response = await fetch(`/api/admin/bookings/${bookingId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, applyToAll: shouldApplyToAll })
-      })
-    }
+    try {
+      let response
+      if (action === "cancel") {
+        response = await fetch(`/api/bookings/${bookingId}/cancel`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: "Kansellert fra kalender", applyToAll: shouldApplyToAll })
+        })
+      } else {
+        response = await fetch(`/api/admin/bookings/${bookingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, applyToAll: shouldApplyToAll })
+        })
+      }
 
-    if (response.ok) {
-      // Refresh the page to get updated bookings
-      window.location.reload()
-    } else {
-      const error = await response.json()
-      alert(error.error || "En feil oppstod")
+      if (response.ok) {
+        // Refresh the page to get updated bookings
+        window.location.reload()
+      } else {
+        const error = await response.json()
+        alert(error.error || "En feil oppstod")
+        setIsProcessing(false)
+      }
+    } catch (error) {
+      console.error("Failed to perform booking action:", error)
+      alert("En feil oppstod")
       setIsProcessing(false)
     }
-  }
+  }, [bookings, applyToAll])
 
   return (
     <div>

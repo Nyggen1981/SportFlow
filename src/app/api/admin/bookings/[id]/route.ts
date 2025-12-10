@@ -95,7 +95,13 @@ export async function PATCH(
     include: {
       user: true,
       resource: true,
-      resourcePart: true
+      resourcePart: {
+        select: {
+          id: true,
+          name: true,
+          adminNote: true
+        }
+      }
     }
   })
 
@@ -160,12 +166,15 @@ export async function PATCH(
     if (action === "approve") {
       console.log("Sending APPROVED email to:", userEmail)
       const count = bookingIdsToUpdate.length
+      // Get admin note from resource part if booking is for a specific part
+      const adminNote = booking.resourcePart?.adminNote || null
       const emailContent = await getBookingApprovedEmail(
         booking.organizationId,
         booking.title, 
         resourceName, 
         count > 1 ? `${date} (og ${count - 1} andre datoer)` : date, 
-        time
+        time,
+        adminNote
       )
       console.log("Approved email subject:", emailContent.subject)
       await sendEmail(booking.organizationId, { to: userEmail, ...emailContent })

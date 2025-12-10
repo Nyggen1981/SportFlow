@@ -1,7 +1,7 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
 import { Footer } from "@/components/Footer"
@@ -57,48 +57,65 @@ export default function AdminResourcesPage() {
     }
   }, [status, session, router])
 
+  const fetchData = useCallback(async () => {
+    try {
+      const [resourcesRes, categoriesRes] = await Promise.all([
+        fetch("/api/admin/resources"),
+        fetch("/api/admin/categories")
+      ])
+      const [resourcesData, categoriesData] = await Promise.all([
+        resourcesRes.json(),
+        categoriesRes.json()
+      ])
+      setResources(resourcesData)
+      setCategories(categoriesData)
+    } catch (error) {
+      console.error("Failed to fetch data:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (session?.user?.role === "admin") {
       fetchData()
     }
-  }, [session])
+  }, [session, fetchData])
 
-  const fetchData = async () => {
-    const [resourcesRes, categoriesRes] = await Promise.all([
-      fetch("/api/admin/resources"),
-      fetch("/api/admin/categories")
-    ])
-    const [resourcesData, categoriesData] = await Promise.all([
-      resourcesRes.json(),
-      categoriesRes.json()
-    ])
-    setResources(resourcesData)
-    setCategories(categoriesData)
-    setIsLoading(false)
-  }
+  const filteredResources = useMemo(() => {
+    return selectedCategory
+      ? resources.filter(r => r.category?.id === selectedCategory)
+      : resources
+  }, [selectedCategory, resources])
 
-  const filteredResources = selectedCategory
-    ? resources.filter(r => r.category?.id === selectedCategory)
-    : resources
+  const toggleActive = useCallback(async (resourceId: string, isActive: boolean) => {
+    try {
+      await fetch(`/api/admin/resources/${resourceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !isActive })
+      })
+      fetchData()
+    } catch (error) {
+      console.error("Failed to toggle resource:", error)
+    } finally {
+      setOpenMenu(null)
+    }
+  }, [fetchData])
 
-  const toggleActive = async (resourceId: string, isActive: boolean) => {
-    await fetch(`/api/admin/resources/${resourceId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isActive: !isActive })
-    })
-    fetchData()
-    setOpenMenu(null)
-  }
-
-  const deleteResource = async (resourceId: string) => {
+  const deleteResource = useCallback(async (resourceId: string) => {
     if (!confirm("Er du sikker på at du vil slette denne ressursen? Alle bookinger vil også bli slettet.")) {
       return
     }
-    await fetch(`/api/admin/resources/${resourceId}`, { method: "DELETE" })
-    fetchData()
-    setOpenMenu(null)
-  }
+    try {
+      await fetch(`/api/admin/resources/${resourceId}`, { method: "DELETE" })
+      fetchData()
+    } catch (error) {
+      console.error("Failed to delete resource:", error)
+    } finally {
+      setOpenMenu(null)
+    }
+  }, [fetchData])
 
   if (status === "loading" || isLoading) {
     return (

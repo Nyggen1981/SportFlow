@@ -139,7 +139,8 @@ export async function PUT(
             name: part.name,
             description: part.description,
             capacity: part.capacity,
-            mapCoordinates: part.mapCoordinates
+            mapCoordinates: part.mapCoordinates,
+            adminNote: part.adminNote || null
           }
         })
         if (part.tempId) {
@@ -152,6 +153,7 @@ export async function PUT(
             description: part.description,
             capacity: part.capacity,
             mapCoordinates: part.mapCoordinates,
+            adminNote: part.adminNote || null,
             resourceId: id
           }
         })

@@ -33,6 +33,7 @@ interface Part {
   description: string
   capacity: string
   mapCoordinates?: string | null
+  adminNote?: string | null
   parentId?: string | null
   isNew?: boolean
 }

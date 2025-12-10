@@ -24,53 +24,53 @@ model Organization {
   updatedAt      DateTime @updatedAt
 
   // SMTP settings per organization (optional - falls back to global env vars if not set)
-  smtpHost       String?  // e.g., smtp.office365.com, smtp.gmail.com
-  smtpPort       Int?     // e.g., 587, 465
-  smtpUser       String?  // Email address or username
-  smtpPass       String?  // Password or app password (encrypted in production)
-  smtpFrom       String?  // From email address (defaults to smtpUser if not set)
+  smtpHost String? // e.g., smtp.office365.com, smtp.gmail.com
+  smtpPort Int? // e.g., 587, 465
+  smtpUser String? // Email address or username
+  smtpPass String? // Password or app password (encrypted in production)
+  smtpFrom String? // From email address (defaults to smtpUser if not set)
 
-  users     User[]
-  resources Resource[]
-  bookings  Booking[]
+  users          User[]
+  resources      Resource[]
+  bookings       Booking[]
   emailTemplates EmailTemplate[]
 }
 
 // User with role-based access
 model User {
-  id         String   @id @default(cuid())
-  email      String   @unique
+  id         String    @id @default(cuid())
+  email      String    @unique
   name       String?
   password   String
-  role       String   @default("user") // "admin", "user"
+  role       String    @default("user") // "admin", "user"
   phone      String?
-  isApproved Boolean  @default(false)  // Must be approved by admin to use system
+  isApproved Boolean   @default(false) // Must be approved by admin to use system
   approvedAt DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  bookings          Booking[]
-  approvedBookings  Booking[] @relation("ApprovedBy")
-  preferences       UserPreferences?
+  bookings         Booking[]
+  approvedBookings Booking[]        @relation("ApprovedBy")
+  preferences      UserPreferences?
 
   @@index([organizationId, isApproved])
 }
 
 // User preferences for calendar/view settings
 model UserPreferences {
-  id                  String   @id @default(cuid())
-  userId              String   @unique
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Calendar view preferences
-  defaultCalendarView String   @default("week") // "week" or "month"
-  defaultResourceId   String?  // Default resource to show
-  selectedResourceIds String?  // JSON array of selected resource IDs
-  selectedCategoryIds String?  // JSON array of selected category IDs
-  
+  defaultCalendarView String  @default("week") // "week" or "month"
+  defaultResourceId   String? // Default resource to show
+  selectedResourceIds String? // JSON array of selected resource IDs
+  selectedCategoryIds String? // JSON array of selected category IDs
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -88,24 +88,24 @@ model ResourceCategory {
 
 // Main resource (e.g., "Hovedstadion", "Idrettshall")
 model Resource {
-  id          String  @id @default(cuid())
-  name        String
-  description String?
-  location    String?
-  image       String?
-  mapImage    String?  // Overview map/floorplan image
-  color       String?  // Custom color for this facility
-  isActive    Boolean @default(true)
-  showOnPublicCalendar Boolean @default(true)  // Show on public calendar
-  
+  id                   String  @id @default(cuid())
+  name                 String
+  description          String?
+  location             String?
+  image                String?
+  mapImage             String? // Overview map/floorplan image
+  color                String? // Custom color for this facility
+  isActive             Boolean @default(true)
+  showOnPublicCalendar Boolean @default(true) // Show on public calendar
+
   // Part booking settings
-  blockPartsWhenWholeBooked Boolean @default(true)  // When whole facility is booked, block all parts
-  blockWholeWhenPartBooked  Boolean @default(true)  // When a part is booked, block "whole facility" option
-  allowWholeBooking         Boolean @default(true)  // Allow booking entire facility (false = must select a part)
+  blockPartsWhenWholeBooked Boolean @default(true) // When whole facility is booked, block all parts
+  blockWholeWhenPartBooked  Boolean @default(true) // When a part is booked, block "whole facility" option
+  allowWholeBooking         Boolean @default(true) // Allow booking entire facility (false = must select a part)
 
   // Booking settings
-  minBookingMinutes  Int?    // null = no limit
-  maxBookingMinutes  Int?    // null = no limit
+  minBookingMinutes  Int? // null = no limit
+  maxBookingMinutes  Int? // null = no limit
   requiresApproval   Boolean @default(true)
   advanceBookingDays Int?    @default(30)
 
@@ -138,20 +138,24 @@ model ResourcePart {
   description String?
   capacity    Int?
   isActive    Boolean @default(true)
-  
+
   // Map marker coordinates (JSON: {points: [{x,y}]} for polygon)
   mapCoordinates String?
 
+  // Admin note that will be included in approved booking emails
+  // e.g., "Nøkler hentes i resepsjonen" or "Kode til låsen er 1234"
+  adminNote String?
+
   // Hierarchy - parent part (null = top level)
-  parentId    String?
-  parent      ResourcePart?  @relation("PartHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children    ResourcePart[] @relation("PartHierarchy")
+  parentId String?
+  parent   ResourcePart?  @relation("PartHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children ResourcePart[] @relation("PartHierarchy")
 
   resourceId String
   resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
 
   bookings Booking[]
-  
+
   @@index([parentId])
   @@index([resourceId])
 }
@@ -211,16 +215,16 @@ model Booking {
 
 // Email templates for customizing automated emails
 model EmailTemplate {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  templateType   String   // "new_booking", "approved", "rejected", "cancelled_by_admin", "cancelled_by_user"
-  subject        String   // Email subject (supports variables like {{bookingTitle}})
-  htmlBody       String   // HTML email body (supports variables)
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+
+  templateType String // "new_booking", "approved", "rejected", "cancelled_by_admin", "cancelled_by_user"
+  subject      String // Email subject (supports variables like {{bookingTitle}})
+  htmlBody     String // HTML email body (supports variables)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([organizationId, templateType])
   @@index([organizationId])

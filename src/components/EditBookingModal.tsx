@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { X, Loader2, Calendar, Clock, AlertCircle } from "lucide-react"
 import { format } from "date-fns"
 
@@ -40,7 +40,17 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Memoize time options to avoid regenerating on every render
+  const timeOptions = useMemo(() => {
+    return Array.from({ length: 24 * 4 }, (_, i) => {
+      const hour = Math.floor(i / 4)
+      const minute = (i % 4) * 15
+      const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+      return { value: time, label: time }
+    })
+  }, [])
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setIsSubmitting(true)
@@ -80,7 +90,7 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
       setError("En feil oppstod. Prøv igjen.")
       setIsSubmitting(false)
     }
-  }
+  }, [title, description, date, startTime, endTime, booking.id, onSaved])
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -176,12 +186,9 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
                 required
                 className="input"
               >
-                {Array.from({ length: 24 * 4 }, (_, i) => {
-                  const hour = Math.floor(i / 4)
-                  const minute = (i % 4) * 15
-                  const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-                  return <option key={time} value={time}>{time}</option>
-                })}
+                {timeOptions.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -195,12 +202,9 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
                 required
                 className="input"
               >
-                {Array.from({ length: 24 * 4 }, (_, i) => {
-                  const hour = Math.floor(i / 4)
-                  const minute = (i % 4) * 15
-                  const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-                  return <option key={time} value={time}>{time}</option>
-                })}
+                {timeOptions.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
               </select>
             </div>
           </div>

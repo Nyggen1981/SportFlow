@@ -205,7 +205,8 @@ export async function getBookingApprovedEmail(
   bookingTitle: string,
   resourceName: string,
   date: string,
-  time: string
+  time: string,
+  adminNote?: string | null
 ) {
   const customTemplate = await getEmailTemplate(organizationId, "approved")
   const defaultTemplates = getDefaultEmailTemplates()
@@ -219,6 +220,7 @@ export async function getBookingApprovedEmail(
     resourceName,
     date,
     time,
+    adminNote: adminNote || "",
   })
 }
 

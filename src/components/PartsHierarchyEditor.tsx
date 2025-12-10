@@ -17,6 +17,7 @@ export interface HierarchicalPart {
   description: string
   capacity: string
   mapCoordinates?: string | null
+  adminNote?: string | null
   parentId?: string | null
   children?: HierarchicalPart[]
   isNew?: boolean
@@ -80,6 +81,7 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
       name: "",
       description: "",
       capacity: "",
+      adminNote: "",
       parentId,
       isNew: true
     }
@@ -280,20 +282,29 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
           </div>
 
           {/* Details row - always visible */}
-          <div className="grid grid-cols-2 gap-2 mt-2 ml-9">
-            <input
-              type="text"
-              value={part.description}
-              onChange={(e) => updatePart(id, "description", e.target.value)}
-              placeholder="Beskrivelse (valgfri)"
-              className="px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 focus:bg-white focus:border-blue-300"
-            />
-            <input
-              type="number"
-              value={part.capacity}
-              onChange={(e) => updatePart(id, "capacity", e.target.value)}
-              placeholder="Kapasitet"
-              className="px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 focus:bg-white focus:border-blue-300"
+          <div className="mt-2 ml-9 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={part.description || ""}
+                onChange={(e) => updatePart(id, "description", e.target.value)}
+                placeholder="Beskrivelse (valgfri)"
+                className="px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 focus:bg-white focus:border-blue-300"
+              />
+              <input
+                type="number"
+                value={part.capacity || ""}
+                onChange={(e) => updatePart(id, "capacity", e.target.value)}
+                placeholder="Kapasitet"
+                className="px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 focus:bg-white focus:border-blue-300"
+              />
+            </div>
+            <textarea
+              value={part.adminNote || ""}
+              onChange={(e) => updatePart(id, "adminNote", e.target.value)}
+              placeholder="Admin notat (f.eks. 'Nøkler hentes i resepsjonen' - vises i godkjent e-post)"
+              rows={2}
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 focus:bg-white focus:border-blue-300 resize-none"
             />
           </div>
         </div>
