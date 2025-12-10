@@ -221,6 +221,34 @@ export function ResourceCalendar({ bookings, parts }: Props) {
                     return start.getHours() === hour
                   })
                   
+                  // Group overlapping bookings
+                  const bookingGroups: Booking[][] = []
+                  bookingsStartingThisHour.forEach(booking => {
+                    const bookingStart = parseISO(booking.startTime)
+                    const bookingEnd = parseISO(booking.endTime)
+                    
+                    // Find a group this booking overlaps with
+                    let addedToGroup = false
+                    for (const group of bookingGroups) {
+                      const overlaps = group.some(b => {
+                        const bStart = parseISO(b.startTime)
+                        const bEnd = parseISO(b.endTime)
+                        return (bookingStart < bEnd && bookingEnd > bStart)
+                      })
+                      
+                      if (overlaps) {
+                        group.push(booking)
+                        addedToGroup = true
+                        break
+                      }
+                    }
+                    
+                    // If no overlap found, create new group
+                    if (!addedToGroup) {
+                      bookingGroups.push([booking])
+                    }
+                  })
+                  
                   return (
                     <div 
                       key={`${day.toISOString()}-${hour}`} 
@@ -228,44 +256,52 @@ export function ResourceCalendar({ bookings, parts }: Props) {
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
-                      {bookingsStartingThisHour.map((booking) => {
-                        const start = parseISO(booking.startTime)
-                        const end = parseISO(booking.endTime)
-                        const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
-                        const isPending = booking.status === "pending"
-                        
-                        // Add gap for visual separation
-                        const gapPx = 3
-                        const cellHeight = 48
-                        const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
-                        const heightPx = durationHours * cellHeight - (gapPx * 2)
+                      {bookingGroups.flatMap((group) =>
+                        group.map((booking, index) => {
+                          const start = parseISO(booking.startTime)
+                          const end = parseISO(booking.endTime)
+                          const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+                          const isPending = booking.status === "pending"
+                          
+                          // Add gap for visual separation
+                          const gapPx = 3
+                          const cellHeight = 48
+                          const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
+                          const heightPx = durationHours * cellHeight - (gapPx * 2)
+                          
+                          // Calculate width and position for overlapping bookings
+                          const groupSize = group.length
+                          const gapBetween = groupSize > 1 ? 1 : 0 // Small gap between overlapping bookings in %
+                          const bookingWidthPercent = (100 - (gapBetween * (groupSize - 1))) / groupSize
+                          const leftPercent = index * (bookingWidthPercent + gapBetween)
 
-                        return (
-                          <div
-                            key={booking.id}
-                            className={`absolute rounded-md px-2 py-1 text-xs overflow-hidden pointer-events-auto cursor-default ${
-                              isPending ? 'border-2 border-dashed' : ''
-                            }`}
-                            style={{
-                              top: `${topPx}px`,
-                              left: '4px',
-                              right: '4px',
-                              height: `${Math.max(heightPx, 36)}px`,
-                              backgroundColor: isPending ? '#dcfce7' : '#22c55e',
-                              borderColor: isPending ? '#22c55e' : undefined,
-                              color: isPending ? '#15803d' : 'white',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                              zIndex: 10
-                            }}
-                            title={`${booking.title}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''}`}
-                          >
-                            <p className="font-medium truncate">{booking.title}</p>
-                            {booking.resourcePartName && (
-                              <p className="text-[10px] opacity-80 truncate">{booking.resourcePartName}</p>
-                            )}
-                          </div>
-                        )
-                      })}
+                          return (
+                            <div
+                              key={booking.id}
+                              className={`absolute rounded-md px-2 py-1 text-xs overflow-hidden pointer-events-auto cursor-default ${
+                                isPending ? 'border-2 border-dashed' : ''
+                              }`}
+                              style={{
+                                top: `${topPx}px`,
+                                left: `${leftPercent}%`,
+                                width: `${bookingWidthPercent}%`,
+                                height: `${Math.max(heightPx, 36)}px`,
+                                backgroundColor: isPending ? '#dcfce7' : '#22c55e',
+                                borderColor: isPending ? '#22c55e' : undefined,
+                                color: isPending ? '#15803d' : 'white',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                zIndex: 10
+                              }}
+                              title={`${booking.title}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''}`}
+                            >
+                              <p className="font-medium truncate">{booking.title}</p>
+                              {booking.resourcePartName && (
+                                <p className="text-[10px] opacity-80 truncate">{booking.resourcePartName}</p>
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
                     </div>
                   )
                 })}

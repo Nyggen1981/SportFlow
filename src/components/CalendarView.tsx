@@ -345,6 +345,34 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                     return start.getHours() === hour
                   })
                   
+                  // Group overlapping bookings
+                  const bookingGroups: Booking[][] = []
+                  bookingsStartingThisHour.forEach(booking => {
+                    const bookingStart = parseISO(booking.startTime)
+                    const bookingEnd = parseISO(booking.endTime)
+                    
+                    // Find a group this booking overlaps with
+                    let addedToGroup = false
+                    for (const group of bookingGroups) {
+                      const overlaps = group.some(b => {
+                        const bStart = parseISO(b.startTime)
+                        const bEnd = parseISO(b.endTime)
+                        return (bookingStart < bEnd && bookingEnd > bStart)
+                      })
+                      
+                      if (overlaps) {
+                        group.push(booking)
+                        addedToGroup = true
+                        break
+                      }
+                    }
+                    
+                    // If no overlap found, create new group
+                    if (!addedToGroup) {
+                      bookingGroups.push([booking])
+                    }
+                  })
+                  
                   return (
                     <div 
                       key={`${day.toISOString()}-${hour}`} 
@@ -352,48 +380,56 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
-                      {bookingsStartingThisHour.map((booking) => {
-                        const start = parseISO(booking.startTime)
-                        const end = parseISO(booking.endTime)
-                        const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
-                        const isPending = booking.status === "pending"
-                        const resourceColor = getResourceColor(booking.resourceId)
+                      {bookingGroups.flatMap((group) =>
+                        group.map((booking, index) => {
+                          const start = parseISO(booking.startTime)
+                          const end = parseISO(booking.endTime)
+                          const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+                          const isPending = booking.status === "pending"
+                          const resourceColor = getResourceColor(booking.resourceId)
 
-                        // Add gap between bookings for visual separation
-                        const gapPx = 3
-                        const cellHeight = 48 // min-h-[48px]
-                        const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
-                        const heightPx = duration * cellHeight - (gapPx * 2)
+                          // Add gap between bookings for visual separation
+                          const gapPx = 3
+                          const cellHeight = 48 // min-h-[48px]
+                          const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
+                          const heightPx = duration * cellHeight - (gapPx * 2)
+                          
+                          // Calculate width and position for overlapping bookings
+                          const groupSize = group.length
+                          const gapBetween = groupSize > 1 ? 1 : 0 // Small gap between overlapping bookings in %
+                          const bookingWidthPercent = (100 - (gapBetween * (groupSize - 1))) / groupSize
+                          const leftPercent = index * (bookingWidthPercent + gapBetween)
 
-                        return (
-                          <div
-                            key={booking.id}
-                            onClick={() => setSelectedBooking(booking)}
-                            className={`absolute rounded-md px-2 py-1 text-xs overflow-hidden cursor-pointer pointer-events-auto booking-event ${
-                              isPending ? 'border-2 border-dashed' : ''
-                            }`}
-                            style={{
-                              top: `${topPx}px`,
-                              left: '4px',
-                              right: '4px',
-                              height: `${Math.max(heightPx, 36)}px`,
-                              backgroundColor: isPending 
-                                ? `${resourceColor}20`
-                                : resourceColor,
-                              borderColor: isPending ? resourceColor : undefined,
-                              color: isPending ? resourceColor : 'white',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                              zIndex: 10
-                            }}
-                            title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resourceName}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''} - Klikk for mer info`}
-                          >
-                            <p className="font-medium truncate">{booking.title}</p>
-                            <p className={`truncate text-[10px] ${isPending ? 'opacity-70' : 'opacity-80'}`}>
-                              {booking.resourcePartName || booking.resourceName}
-                            </p>
-                          </div>
-                        )
-                      })}
+                          return (
+                            <div
+                              key={booking.id}
+                              onClick={() => setSelectedBooking(booking)}
+                              className={`absolute rounded-md px-2 py-1 text-xs overflow-hidden cursor-pointer pointer-events-auto booking-event ${
+                                isPending ? 'border-2 border-dashed' : ''
+                              }`}
+                              style={{
+                                top: `${topPx}px`,
+                                left: `${leftPercent}%`,
+                                width: `${bookingWidthPercent}%`,
+                                height: `${Math.max(heightPx, 36)}px`,
+                                backgroundColor: isPending 
+                                  ? `${resourceColor}20`
+                                  : resourceColor,
+                                borderColor: isPending ? resourceColor : undefined,
+                                color: isPending ? resourceColor : 'white',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                zIndex: 10
+                              }}
+                              title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resourceName}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''} - Klikk for mer info`}
+                            >
+                              <p className="font-medium truncate">{booking.title}</p>
+                              <p className={`truncate text-[10px] ${isPending ? 'opacity-70' : 'opacity-80'}`}>
+                                {booking.resourcePartName || booking.resourceName}
+                              </p>
+                            </div>
+                          )
+                        })
+                      )}
                     </div>
                   )
                 })}
