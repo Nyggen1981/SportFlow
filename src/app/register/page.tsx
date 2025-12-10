@@ -34,6 +34,7 @@ function RegisterForm() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [consentGiven, setConsentGiven] = useState(false)
 
   // Organization form (for new clubs)
   const [orgName, setOrgName] = useState("")
@@ -55,6 +56,12 @@ function RegisterForm() {
 
     if (password.length < 6) {
       setError("Passordet må være minst 6 tegn")
+      setIsLoading(false)
+      return
+    }
+
+    if (!consentGiven) {
+      setError("Du må godta personvernpolicyn for å registrere deg")
       setIsLoading(false)
       return
     }
@@ -329,6 +336,25 @@ function RegisterForm() {
                 />
               </div>
 
+              {/* Consent checkbox */}
+              <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="consent-join"
+                  checked={consentGiven}
+                  onChange={(e) => setConsentGiven(e.target.checked)}
+                  className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  required
+                />
+                <label htmlFor="consent-join" className="text-sm text-gray-700 cursor-pointer">
+                  Jeg godtar{" "}
+                  <Link href="/personvern" target="_blank" className="text-blue-600 hover:text-blue-700 underline">
+                    personvernpolicyn
+                  </Link>
+                  {" "}og samtykker til behandling av mine personopplysninger *
+                </label>
+              </div>
+
               {/* Info about approval */}
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
                 <p className="text-sm text-amber-800">
@@ -522,6 +548,25 @@ function RegisterForm() {
                     autoComplete="new-password"
                   />
                 </div>
+              </div>
+
+              {/* Consent checkbox */}
+              <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="consent-create"
+                  checked={consentGiven}
+                  onChange={(e) => setConsentGiven(e.target.checked)}
+                  className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  required
+                />
+                <label htmlFor="consent-create" className="text-sm text-gray-700 cursor-pointer">
+                  Jeg godtar{" "}
+                  <Link href="/personvern" target="_blank" className="text-blue-600 hover:text-blue-700 underline">
+                    personvernpolicyn
+                  </Link>
+                  {" "}og samtykker til behandling av mine personopplysninger *
+                </label>
               </div>
 
               <button

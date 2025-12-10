@@ -75,6 +75,15 @@ export function NavLinks() {
               Mine bookinger
             </Link>
 
+            <Link 
+              href="/innstillinger" 
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+              title="Innstillinger"
+            >
+              <Settings className="w-4 h-4" />
+              Innstillinger
+            </Link>
+
             {isAdmin && (
               <Link 
                 href="/admin" 
@@ -164,6 +173,15 @@ export function NavLinks() {
                 >
                   <ClipboardList className="w-5 h-5" />
                   Mine bookinger
+                </Link>
+
+                <Link 
+                  href="/innstillinger" 
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Settings className="w-5 h-5" />
+                  Innstillinger
                 </Link>
 
                 {isAdmin && (

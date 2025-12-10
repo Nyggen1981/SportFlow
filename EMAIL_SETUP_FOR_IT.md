@@ -1,0 +1,109 @@
+# E-postkonfigurasjon for Arena Booking
+
+## Oversikt
+Arena Booking-applikasjonen trenger tilgang til en SMTP-server for å sende e-postvarsler om bookinger. Applikasjonen bruker standard SMTP-protokoll (nodemailer).
+
+## Nødvendige miljøvariabler
+Følgende miljøvariabler må settes opp i Vercel (eller annen hosting-plattform):
+
+### Påkrevde variabler:
+- **SMTP_HOST** - SMTP-serveradressen (f.eks. `smtp.office365.com`, `smtp.gmail.com`, eller intern SMTP-server)
+- **SMTP_PORT** - Portnummer (vanligvis `587` for TLS eller `465` for SSL)
+- **SMTP_USER** - E-postadressen eller brukernavnet for SMTP-autentisering
+- **SMTP_PASS** - Passord eller app-passord for SMTP-autentisering
+
+### Valgfri variabel:
+- **SMTP_FROM** - Avsenderadresse (hvis ikke satt, brukes SMTP_USER)
+
+## Hva IT-avdelingen må gjøre
+
+### Alternativ 1: Bruk eksisterende e-postserver (anbefalt)
+Hvis organisasjonen allerede har en e-postserver (Office 365, Exchange, etc.):
+
+1. **Opprett en dedikert e-postkonto** for Arena Booking (f.eks. `arena-booking@organisasjon.no`)
+2. **Gi IT følgende informasjon:**
+   - SMTP-serveradresse (f.eks. `smtp.office365.com`)
+   - Portnummer (vanligvis `587` for STARTTLS eller `465` for SSL)
+   - E-postadresse og passord for kontoen
+   - Hvis MFA (tofaktorautentisering) er aktivert, må det opprettes et "app-passord"
+
+### Alternativ 2: Intern SMTP-server
+Hvis organisasjonen har en intern SMTP-server:
+
+1. **Gi IT følgende informasjon:**
+   - SMTP-serveradresse (f.eks. `mail.organisasjon.no` eller intern IP)
+   - Portnummer (vanligvis `587` eller `25`)
+   - Brukernavn og passord for autentisering
+   - Bekreft at serveren tillater ekstern tilkobling (hvis applikasjonen hostes eksternt)
+
+### Alternativ 3: Tredjepartstjeneste
+Hvis organisasjonen ikke har egen e-postserver, kan IT vurdere:
+- **SendGrid** (gratis tier: 100 e-poster/dag)
+- **Mailgun** (gratis tier: 100 e-poster/dag)
+- **Amazon SES** (pay-as-you-go)
+
+## Vanlige SMTP-konfigurasjoner
+
+### Office 365 / Microsoft 365
+```
+SMTP_HOST=smtp.office365.com
+SMTP_PORT=587
+SMTP_USER=arena-booking@organisasjon.no
+SMTP_PASS=[app-passord hvis MFA er aktivert]
+SMTP_FROM=arena-booking@organisasjon.no
+```
+
+**Viktig for Office 365:**
+- Hvis MFA er aktivert, må det opprettes et "app-passord" i Microsoft 365 Admin Center
+- Vanlig passord vil ikke fungere med MFA aktivert
+
+### Gmail
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=din-epost@gmail.com
+SMTP_PASS=[app-passord fra Google Account]
+SMTP_FROM=din-epost@gmail.com
+```
+
+**Viktig for Gmail:**
+- Må aktivere "Mindre sikre apper" eller opprette app-passord
+- App-passord opprettes i Google Account → Security → 2-Step Verification → App passwords
+
+### Intern Exchange Server
+```
+SMTP_HOST=mail.organisasjon.no
+SMTP_PORT=587
+SMTP_USER=arena-booking@organisasjon.no
+SMTP_PASS=[passord]
+SMTP_FROM=arena-booking@organisasjon.no
+```
+
+## Sikkerhetshensyn
+
+1. **Ikke del passord i klartekst** - Bruk sikker kanal for å dele passord
+2. **App-passord anbefales** - Hvis MFA er aktivert, bruk app-passord i stedet for hovedpassord
+3. **Begrens tilgang** - E-postkontoen bør kun brukes til Arena Booking, ikke personlig e-post
+4. **Regelmessig passordbytte** - Vurder å bytte passord med jevne mellomrom
+
+## Testing
+
+Etter at miljøvariablene er satt opp, kan e-postfunksjonen testes via:
+- Admin-panelet i Arena Booking (hvis test-endpoint er tilgjengelig)
+- Eller ved å opprette en test-booking og se om e-post sendes
+
+## Tekniske detaljer for IT
+
+- **Protokoll:** SMTP med STARTTLS (port 587) eller SSL (port 465)
+- **Autentisering:** SMTP AUTH (username/password)
+- **Bibliotek:** nodemailer (Node.js)
+- **Hosting:** Vercel (serverless functions)
+
+## Kontaktinformasjon
+
+Hvis IT har spørsmål om tekniske detaljer eller trenger mer informasjon, kan de kontakte utvikleren.
+
+---
+
+**Status:** Ventende på SMTP-konfigurasjon fra IT-avdelingen
+
