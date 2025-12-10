@@ -290,7 +290,7 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
               ) : (
                 <Star className="w-4 h-4" />
               )}
-              {showSaveSuccess ? "Lagret!" : "Sett som standard"}
+              {showSaveSuccess ? "Lagret!" : "Sett som standardvisning"}
             </button>
           )}
         </div>
