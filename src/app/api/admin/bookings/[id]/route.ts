@@ -137,7 +137,8 @@ export async function PATCH(
       status: newStatus,
       statusNote: statusNote || null,
       approvedAt: action === "approve" ? new Date() : null,
-      approvedById: action === "approve" ? session.user.id : null
+      approvedById: action === "approve" ? session.user.id : null,
+      userSeenAt: null // Reset so user sees the notification
     }
   })
 

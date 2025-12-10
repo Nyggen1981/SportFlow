@@ -55,6 +55,7 @@ export default function MyBookingsPage() {
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
+  const [unreadCounts, setUnreadCounts] = useState({ upcoming: 0, history: 0 })
 
   // Get unique resources from bookings
   const resources = useMemo(() => {
@@ -91,6 +92,49 @@ export default function MyBookingsPage() {
       fetchBookings()
     }
   }, [session, fetchBookings])
+
+  // Fetch unread counts
+  const fetchUnreadCounts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/bookings/unread")
+      if (res.ok) {
+        const data = await res.json()
+        setUnreadCounts({ upcoming: data.upcoming, history: data.history })
+      }
+    } catch (error) {
+      console.error("Failed to fetch unread counts:", error)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (session) {
+      fetchUnreadCounts()
+    }
+  }, [session, fetchUnreadCounts])
+
+  // Mark bookings as seen when switching tabs
+  const handleTabChange = useCallback(async (tab: Tab) => {
+    setActiveTab(tab)
+    
+    // Mark bookings as seen for this tab
+    if ((tab === "upcoming" && unreadCounts.upcoming > 0) || 
+        (tab === "history" && unreadCounts.history > 0)) {
+      try {
+        await fetch("/api/bookings/mark-seen", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: tab })
+        })
+        // Update local state
+        setUnreadCounts(prev => ({
+          ...prev,
+          [tab]: 0
+        }))
+      } catch (error) {
+        console.error("Failed to mark bookings as seen:", error)
+      }
+    }
+  }, [unreadCounts])
 
   const handleCancel = useCallback(async (bookingId: string) => {
     setIsProcessing(true)
@@ -242,8 +286,8 @@ export default function MyBookingsPage() {
                 {/* Tabs */}
                 <div className="flex gap-1 p-1 bg-gray-100 rounded-xl flex-1 sm:flex-initial">
                   <button
-                    onClick={() => setActiveTab("upcoming")}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                    onClick={() => handleTabChange("upcoming")}
+                    className={`relative flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
                       activeTab === "upcoming"
                         ? "bg-white text-gray-900 shadow-sm"
                         : "text-gray-600 hover:text-gray-900"
@@ -258,10 +302,15 @@ export default function MyBookingsPage() {
                       {upcoming.length}
                     </span>
                   )}
+                  {unreadCounts.upcoming > 0 && (
+                    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-green-500 text-white text-[10px] font-bold rounded-full animate-pulse">
+                      {unreadCounts.upcoming}
+                    </span>
+                  )}
                 </button>
                 <button
-                  onClick={() => setActiveTab("history")}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                  onClick={() => handleTabChange("history")}
+                  className={`relative flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
                     activeTab === "history"
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
@@ -274,6 +323,11 @@ export default function MyBookingsPage() {
                       activeTab === "history" ? "bg-gray-200 text-gray-700" : "bg-gray-200 text-gray-600"
                     }`}>
                       {history.length}
+                    </span>
+                  )}
+                  {unreadCounts.history > 0 && (
+                    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full animate-pulse">
+                      {unreadCounts.history}
                     </span>
                   )}
                 </button>

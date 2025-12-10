@@ -33,8 +33,10 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [org, setOrg] = useState<Organization | null>(orgCache?.data || null)
   const [pendingCount, setPendingCount] = useState(0)
+  const [unreadBookings, setUnreadBookings] = useState(0)
 
   const isAdmin = session?.user?.role === "admin"
+  const isLoggedIn = !!session
 
   useEffect(() => {
     // Use cache if valid
@@ -73,6 +75,28 @@ export function Navbar() {
       return () => clearInterval(interval)
     }
   }, [isAdmin])
+
+  // Fetch unread bookings count for logged-in users
+  useEffect(() => {
+    if (isLoggedIn) {
+      const fetchUnreadCount = async () => {
+        try {
+          const response = await fetch("/api/bookings/unread")
+          if (response.ok) {
+            const data = await response.json()
+            setUnreadBookings(data.total)
+          }
+        } catch (error) {
+          console.error("Failed to fetch unread count:", error)
+        }
+      }
+      
+      fetchUnreadCount()
+      // Refresh every 30 seconds
+      const interval = setInterval(fetchUnreadCount, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [isLoggedIn])
 
   const orgName = org?.name || session?.user?.organizationName || "Arena Booking"
   const orgColor = org?.primaryColor || session?.user?.organizationColor || "#2563eb"
@@ -138,10 +162,15 @@ export function Navbar() {
               <>
                 <Link 
                   href="/my-bookings" 
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                  className="relative flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
                 >
                   <ClipboardList className="w-4 h-4" />
                   Mine bookinger
+                  {unreadBookings > 0 && (
+                    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-green-500 text-white text-xs font-bold rounded-full animate-pulse">
+                      {unreadBookings > 99 ? "99+" : unreadBookings}
+                    </span>
+                  )}
                 </Link>
                 <Link 
                   href="/timeline" 
@@ -232,11 +261,16 @@ export function Navbar() {
               <>
                 <Link 
                   href="/my-bookings" 
-                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100"
+                  className="relative flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <ClipboardList className="w-5 h-5" />
                   Mine bookinger
+                  {unreadBookings > 0 && (
+                    <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-green-500 text-white text-xs font-bold rounded-full">
+                      {unreadBookings}
+                    </span>
+                  )}
                 </Link>
                 <Link 
                   href="/timeline" 
