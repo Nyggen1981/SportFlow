@@ -422,8 +422,14 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                           const gapBetweenPx = hasOverlap ? 3 : 0 // More gap horizontally (3px) vs vertical (1px)
                           const bookingWidthPercent = 100 / groupSize
                           const marginRight = index < groupSize - 1 ? gapBetweenPx : 0
-                          const leftPercent = groupSize === 1 ? 50 : (index * bookingWidthPercent)
-                          const boxWidth = groupSize === 1 ? '90%' : (marginRight > 0 ? `calc(${bookingWidthPercent}% - ${marginRight}px)` : `${bookingWidthPercent}%`)
+                          const isSingleBox = groupSize === 1
+                          const leftPercent = isSingleBox ? 50 : (index * bookingWidthPercent)
+                          // 1px margin from column lines on each side
+                          const boxWidth = isSingleBox 
+                            ? 'calc(100% - 2px)' 
+                            : (marginRight > 0 
+                              ? `calc(${bookingWidthPercent}% - ${marginRight}px - 1px)` 
+                              : `calc(${bookingWidthPercent}% - 1px)`)
 
                           return (
                             <div
@@ -434,8 +440,8 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                               }`}
                               style={{
                                 top: `${topPx}px`,
-                                left: groupSize === 1 ? '50%' : `${leftPercent}%`,
-                                transform: groupSize === 1 ? 'translateX(-50%)' : 'none',
+                                left: isSingleBox ? '50%' : `calc(${leftPercent}% + 1px)`,
+                                transform: isSingleBox ? 'translateX(-50%)' : 'none',
                                 width: boxWidth,
                                 height: `${Math.max(heightPx, 36)}px`,
                                 backgroundColor: isPending 

@@ -362,7 +362,12 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                           // Center single boxes, keep side-by-side for overlapping
                           const isSingleBox = groupSize === 1
                           const leftPercent = isSingleBox ? 50 : (index * bookingWidthPercent)
-                          const boxWidth = isSingleBox ? '90%' : (marginRight > 0 ? `calc(${bookingWidthPercent}% - ${marginRight}px)` : `${bookingWidthPercent}%`)
+                          // 1px margin from column lines on each side
+                          const boxWidth = isSingleBox 
+                            ? 'calc(100% - 2px)' 
+                            : (marginRight > 0 
+                              ? `calc(${bookingWidthPercent}% - ${marginRight}px - 1px)` 
+                              : `calc(${bookingWidthPercent}% - 1px)`)
 
                           return (
                             <button
@@ -371,7 +376,7 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                               className="absolute rounded px-1.5 py-1 text-xs overflow-hidden cursor-pointer z-10 pointer-events-auto text-left booking-event"
                               style={{
                                 top: `${topPx}px`,
-                                left: isSingleBox ? '50%' : `${leftPercent}%`,
+                                left: isSingleBox ? '50%' : `calc(${leftPercent}% + 1px)`,
                                 transform: isSingleBox ? 'translateX(-50%)' : 'none',
                                 width: boxWidth,
                                 height: `${Math.max(heightPx, 36)}px`,
