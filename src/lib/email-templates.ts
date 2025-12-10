@@ -16,12 +16,6 @@ export async function getEmailTemplate(
   templateType: "new_booking" | "approved" | "rejected" | "cancelled_by_admin" | "cancelled_by_user"
 ) {
   try {
-    // Check if emailTemplate is available in Prisma Client
-    if (!prisma.emailTemplate) {
-      console.warn("EmailTemplate model not available in Prisma Client, using default templates")
-      return null
-    }
-
     const template = await prisma.emailTemplate.findUnique({
       where: {
         organizationId_templateType: {
@@ -39,7 +33,9 @@ export async function getEmailTemplate(
       error?.code === "P2025" ||
       error?.message?.includes("does not exist") ||
       error?.message?.includes("Unknown arg") ||
-      error?.message?.includes("emailTemplate")
+      error?.message?.includes("emailTemplate") ||
+      error?.message?.includes("Cannot read property") ||
+      error?.message?.includes("is not a function")
     ) {
       console.warn(`EmailTemplate table/model not found, using default templates. Error: ${error.message}`)
       return null

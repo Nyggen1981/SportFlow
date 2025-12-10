@@ -19,29 +19,25 @@ export async function GET() {
     // Get custom templates from database
     // If table doesn't exist yet, return empty array (will use defaults)
     let customTemplates: EmailTemplate[] = []
-    
-    // Check if emailTemplate is available in Prisma Client
-    if (!prisma.emailTemplate) {
-      console.warn("EmailTemplate model not available in Prisma Client, using default templates")
-    } else {
-      try {
-        customTemplates = await prisma.emailTemplate.findMany({
-          where: { organizationId },
-        })
-      } catch (error: any) {
-        // If table doesn't exist (P2021), use empty array
-        if (
-          error?.code === "P2021" || 
-          error?.code === "P2001" || 
-          error?.code === "P2025" ||
-          error?.message?.includes("does not exist") ||
-          error?.message?.includes("Unknown arg") ||
-          error?.message?.includes("emailTemplate")
-        ) {
-          console.warn("EmailTemplate table not found, using default templates")
-        } else {
-          throw error
-        }
+    try {
+      customTemplates = await prisma.emailTemplate.findMany({
+        where: { organizationId },
+      })
+    } catch (error: any) {
+      // If table doesn't exist (P2021), use empty array
+      if (
+        error?.code === "P2021" || 
+        error?.code === "P2001" || 
+        error?.code === "P2025" ||
+        error?.message?.includes("does not exist") ||
+        error?.message?.includes("Unknown arg") ||
+        error?.message?.includes("emailTemplate") ||
+        error?.message?.includes("Cannot read property") ||
+        error?.message?.includes("is not a function")
+      ) {
+        console.warn("EmailTemplate table not found, using default templates")
+      } else {
+        throw error
       }
     }
 
@@ -127,6 +123,22 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ template, message: "E-postmal lagret" })
   } catch (error: any) {
+    // Handle missing table/model gracefully
+    if (
+      error?.code === "P2021" || 
+      error?.code === "P2001" || 
+      error?.code === "P2025" ||
+      error?.message?.includes("does not exist") ||
+      error?.message?.includes("Unknown arg") ||
+      error?.message?.includes("emailTemplate") ||
+      error?.message?.includes("Cannot read property") ||
+      error?.message?.includes("is not a function")
+    ) {
+      return NextResponse.json(
+        { error: "EmailTemplate model not available. Please run 'prisma generate' and ensure database migration is complete." },
+        { status: 503 }
+      )
+    }
     console.error("Error saving email template:", error)
     return NextResponse.json(
       { error: "Failed to save template", message: error.message },
@@ -152,14 +164,6 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    // Check if emailTemplate is available in Prisma Client
-    if (!prisma.emailTemplate) {
-      return NextResponse.json(
-        { error: "EmailTemplate model not available. Please run 'prisma generate' and ensure database migration is complete." },
-        { status: 503 }
-      )
-    }
-
     await prisma.emailTemplate.delete({
       where: {
         organizationId_templateType: {
