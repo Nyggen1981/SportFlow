@@ -21,6 +21,8 @@ import {
   Database,
   AlertCircle,
   Mail,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react"
 import Image from "next/image"
 import { EmailTemplateEditor } from "@/components/EmailTemplateEditor"
@@ -59,6 +61,7 @@ export default function AdminSettingsPage() {
   // Email templates state
   const [emailTemplates, setEmailTemplates] = useState<any[]>([])
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false)
+  const [expandedTemplates, setExpandedTemplates] = useState<Set<string>>(new Set())
 
   // Form state
   const [name, setName] = useState("")
@@ -145,6 +148,33 @@ export default function AdminSettingsPage() {
 
     // Refresh templates
     await fetchEmailTemplates()
+  }
+
+  // Helper function to get template label
+  const getTemplateLabel = (templateType: string) => {
+    const labels: Record<string, { name: string; description: string }> = {
+      new_booking: {
+        name: "Ny bookingforespørsel",
+        description: "Sendes til administratorer når en ny booking opprettes",
+      },
+      approved: {
+        name: "Booking godkjent",
+        description: "Sendes til brukeren når booking blir godkjent",
+      },
+      rejected: {
+        name: "Booking avslått",
+        description: "Sendes til brukeren når booking blir avslått",
+      },
+      cancelled_by_admin: {
+        name: "Booking kansellert (av admin)",
+        description: "Sendes til brukeren når admin kansellerer booking",
+      },
+      cancelled_by_user: {
+        name: "Booking kansellert (av bruker)",
+        description: "Sendes til administratorer når bruker kansellerer booking",
+      },
+    }
+    return labels[templateType] || { name: templateType, description: "" }
   }
 
   const handleResetEmailTemplate = async (templateType: string) => {
@@ -592,10 +622,25 @@ export default function AdminSettingsPage() {
             <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
               <Mail className="w-6 h-6 text-green-600" />
             </div>
-            <div>
+            <div className="flex-1">
               <h2 className="text-xl font-bold text-gray-900">E-postmaler</h2>
               <p className="text-gray-500 text-sm">Tilpass automatiske e-poster som sendes ved bookinger</p>
             </div>
+            {emailTemplates.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (expandedTemplates.size === emailTemplates.length) {
+                    setExpandedTemplates(new Set())
+                  } else {
+                    setExpandedTemplates(new Set(emailTemplates.map(t => t.templateType)))
+                  }
+                }}
+                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                {expandedTemplates.size === emailTemplates.length ? "Lukk alle" : "Åpne alle"}
+              </button>
+            )}
           </div>
 
           {isLoadingTemplates ? (
@@ -603,15 +648,55 @@ export default function AdminSettingsPage() {
               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             </div>
           ) : (
-            <div className="space-y-6">
-              {emailTemplates.map((template) => (
-                <EmailTemplateEditor
-                  key={template.templateType}
-                  template={template}
-                  onSave={handleSaveEmailTemplate}
-                  onReset={() => handleResetEmailTemplate(template.templateType)}
-                />
-              ))}
+            <div className="space-y-2">
+              {emailTemplates.map((template) => {
+                const isExpanded = expandedTemplates.has(template.templateType)
+                const label = getTemplateLabel(template.templateType)
+                
+                return (
+                  <div key={template.templateType} className="border border-gray-200 rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newExpanded = new Set(expandedTemplates)
+                        if (newExpanded.has(template.templateType)) {
+                          newExpanded.delete(template.templateType)
+                        } else {
+                          newExpanded.add(template.templateType)
+                        }
+                        setExpandedTemplates(newExpanded)
+                      }}
+                      className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors flex items-center justify-between text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        {isExpanded ? (
+                          <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                        )}
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{label.name}</h3>
+                          <p className="text-xs text-gray-500">{label.description}</p>
+                        </div>
+                      </div>
+                      {template.isCustom && (
+                        <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">
+                          Tilpasset
+                        </span>
+                      )}
+                    </button>
+                    {isExpanded && (
+                      <div className="p-4 bg-white border-t border-gray-200">
+                        <EmailTemplateEditor
+                          template={template}
+                          onSave={handleSaveEmailTemplate}
+                          onReset={() => handleResetEmailTemplate(template.templateType)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

@@ -122,45 +122,34 @@ export function EmailTemplateEditor({ template, onSave, onReset }: EmailTemplate
   }
 
   return (
-    <div className="border border-gray-200 rounded-xl p-5 bg-white">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <h3 className="font-semibold text-gray-900 mb-1">{label.name}</h3>
-          <p className="text-sm text-gray-600">{label.description}</p>
-          {template.isCustom && (
-            <span className="inline-block mt-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">
-              Tilpasset mal
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {template.isCustom && (
-            <button
-              onClick={handleReset}
-              disabled={isResetting}
-              className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              {isResetting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RotateCcw className="w-4 h-4" />
-              )}
-              Tilbakestill
-            </button>
-          )}
+    <div className="space-y-4">
+      <div className="flex items-center justify-end gap-2">
+        {template.isCustom && (
           <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            onClick={handleReset}
+            disabled={isResetting}
+            className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
-            {isSaving ? (
+            {isResetting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Save className="w-4 h-4" />
+              <RotateCcw className="w-4 h-4" />
             )}
-            Lagre
+            Tilbakestill
           </button>
-        </div>
+        )}
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+        >
+          {isSaving ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4" />
+          )}
+          Lagre
+        </button>
       </div>
 
       {message && (
