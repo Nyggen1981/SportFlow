@@ -79,6 +79,10 @@ export default function AdminSettingsPage() {
   const [smtpPass, setSmtpPass] = useState("")
   const [smtpFrom, setSmtpFrom] = useState("")
   const [showSmtpPassword, setShowSmtpPassword] = useState(false)
+  
+  // SMTP test state
+  const [isTestingSmtp, setIsTestingSmtp] = useState(false)
+  const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; message: string } | null>(null)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -175,6 +179,42 @@ export default function AdminSettingsPage() {
       },
     }
     return labels[templateType] || { name: templateType, description: "" }
+  }
+
+  const handleTestSmtp = async () => {
+    setIsTestingSmtp(true)
+    setSmtpTestResult(null)
+    
+    try {
+      const response = await fetch("/api/test-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: session?.user?.email || "",
+        }),
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        setSmtpTestResult({
+          success: true,
+          message: data.message || "Test-e-post sendt!",
+        })
+      } else {
+        setSmtpTestResult({
+          success: false,
+          message: data.message || "Kunne ikke sende test-e-post",
+        })
+      }
+    } catch (error) {
+      setSmtpTestResult({
+        success: false,
+        message: "Feil ved testing av e-post. Sjekk at SMTP-innstillingene er korrekte.",
+      })
+    } finally {
+      setIsTestingSmtp(false)
+    }
   }
 
   const handleResetEmailTemplate = async (templateType: string) => {
@@ -612,6 +652,61 @@ export default function AdminSettingsPage() {
               <p className="text-sm text-blue-800">
                 <strong>Tips:</strong> Hvis du ikke setter opp organisasjonsspesifikke innstillinger, vil systemet bruke globale SMTP-innstillinger. Dette er nyttig for å teste, men for produksjon bør hver organisasjon ha sine egne innstillinger.
               </p>
+            </div>
+
+            {/* SMTP Test */}
+            <div className="border-t pt-4 mt-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="font-medium text-gray-900">Test e-postinnstillinger</h3>
+                  <p className="text-sm text-gray-500">Send en test-e-post for å verifisere at innstillingene fungerer</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleTestSmtp}
+                  disabled={isTestingSmtp}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isTestingSmtp ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Tester...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4" />
+                      Send test-e-post
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {smtpTestResult && (
+                <div
+                  className={`p-3 rounded-lg flex items-start gap-2 text-sm ${
+                    smtpTestResult.success
+                      ? "bg-green-50 border border-green-200 text-green-700"
+                      : "bg-red-50 border border-red-200 text-red-700"
+                  }`}
+                >
+                  {smtpTestResult.success ? (
+                    <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-medium">{smtpTestResult.success ? "Suksess!" : "Feil"}</p>
+                    <p>{smtpTestResult.message}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSmtpTestResult(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
