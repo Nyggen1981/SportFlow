@@ -145,65 +145,83 @@ export async function POST(request: Request) {
       let conflictingBookings
       
       if (!resourcePartId) {
-        // Booking whole facility
-        console.log("Booking whole facility, blockWholeWhenPartBooked:", resource.blockWholeWhenPartBooked)
-        if (resource.blockWholeWhenPartBooked) {
-          // If parts block whole facility, check if ANY booking exists (whole or parts)
-          console.log("Checking for ANY bookings (whole or parts) with filter:", JSON.stringify(baseFilter, null, 2))
-          conflictingBookings = await prisma.booking.findMany({
-            where: baseFilter,
-            include: { resourcePart: true }
-          })
-          console.log("Found conflicting bookings:", conflictingBookings.length, conflictingBookings.map(b => ({
-            id: b.id,
-            title: b.title,
-            status: b.status,
-            resourcePart: b.resourcePart?.name || "hele fasiliteten",
-            startTime: b.startTime,
-            endTime: b.endTime
-          })))
-        } else {
-          // Only check for whole facility bookings (parts don't block whole facility)
-          conflictingBookings = await prisma.booking.findMany({
-            where: {
-              ...baseFilter,
-              resourcePartId: null
-            },
-            include: { resourcePart: true }
-          })
-        }
+        // Booking whole facility (resourcePartId = null)
+        // Check if ANY part is booked (hierarchical: any child or descendant)
+        conflictingBookings = await prisma.booking.findMany({
+          where: baseFilter,
+          include: { 
+            resourcePart: {
+              include: {
+                parent: true
+              }
+            }
+          }
+        })
+        console.log("Booking whole facility - found conflicting bookings:", conflictingBookings.length)
       } else {
-        // Booking a specific part - check same part OR whole facility
-        if (resource.blockWholeWhenPartBooked) {
-          conflictingBookings = await prisma.booking.findMany({
-            where: {
-              resourceId,
-              status: { notIn: ["cancelled", "rejected"] },
-              OR: [
-                // Same part with time overlap
-                {
-                  resourcePartId: resourcePartId,
-                  OR: timeOverlapConditions
-                },
-                // Whole facility with time overlap
-                {
-                  resourcePartId: null,
-                  OR: timeOverlapConditions
-                }
-              ]
-            },
-            include: { resourcePart: true }
-          })
-        } else {
-          // Only check same part
-          conflictingBookings = await prisma.booking.findMany({
-            where: {
-              ...baseFilter,
-              resourcePartId: resourcePartId
-            },
-            include: { resourcePart: true }
-          })
+        // Booking a specific part
+        // Get the part to check its hierarchy
+        const bookingPart = await prisma.resourcePart.findUnique({
+          where: { id: resourcePartId },
+          include: {
+            parent: true,
+            children: true
+          }
+        })
+        
+        if (!bookingPart) {
+          return NextResponse.json(
+            { error: "Del ikke funnet" },
+            { status: 404 }
+          )
         }
+        
+        // Build list of part IDs to check:
+        // 1. The part itself
+        // 2. All children (if booking parent, children are blocked)
+        // 3. The parent (if booking child, parent is blocked)
+        const partIdsToCheck: (string | null)[] = [resourcePartId]
+        
+        // If this part has children, add all children IDs
+        if (bookingPart.children && bookingPart.children.length > 0) {
+          const childIds = bookingPart.children.map(c => c.id)
+          partIdsToCheck.push(...childIds)
+        }
+        
+        // If this part has a parent, add parent ID
+        if (bookingPart.parentId) {
+          partIdsToCheck.push(bookingPart.parentId)
+        }
+        
+        // Also check for whole facility bookings (resourcePartId = null)
+        partIdsToCheck.push(null)
+        
+        console.log("Booking part:", bookingPart.name, "Checking conflicts for parts:", partIdsToCheck)
+        
+        conflictingBookings = await prisma.booking.findMany({
+          where: {
+            resourceId,
+            status: { notIn: ["cancelled", "rejected"] },
+            resourcePartId: { in: partIdsToCheck },
+            OR: timeOverlapConditions
+          },
+          include: { 
+            resourcePart: {
+              include: {
+                parent: true
+              }
+            }
+          }
+        })
+        
+        console.log("Found conflicting bookings:", conflictingBookings.length, conflictingBookings.map(b => ({
+          id: b.id,
+          title: b.title,
+          status: b.status,
+          resourcePart: b.resourcePart?.name || "hele fasiliteten",
+          startTime: b.startTime,
+          endTime: b.endTime
+        })))
       }
 
       if (conflictingBookings.length > 0) {
