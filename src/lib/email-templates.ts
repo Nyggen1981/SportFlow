@@ -25,7 +25,12 @@ export async function getEmailTemplate(
       },
     })
     return template
-  } catch (error) {
+  } catch (error: any) {
+    // If table doesn't exist yet (P2021) or other Prisma errors, return null to use defaults
+    if (error?.code === "P2021" || error?.code === "P2001" || error?.message?.includes("does not exist")) {
+      console.warn(`EmailTemplate table not found, using default templates. Error: ${error.message}`)
+      return null
+    }
     console.error("Error fetching email template:", error)
     return null
   }

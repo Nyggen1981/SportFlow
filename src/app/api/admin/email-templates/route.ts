@@ -16,9 +16,20 @@ export async function GET() {
 
   try {
     // Get custom templates from database
-    const customTemplates = await prisma.emailTemplate.findMany({
-      where: { organizationId },
-    })
+    // If table doesn't exist yet, return empty array (will use defaults)
+    let customTemplates = []
+    try {
+      customTemplates = await prisma.emailTemplate.findMany({
+        where: { organizationId },
+      })
+    } catch (error: any) {
+      // If table doesn't exist (P2021), use empty array
+      if (error?.code === "P2021" || error?.code === "P2001" || error?.message?.includes("does not exist")) {
+        console.warn("EmailTemplate table not found, using default templates")
+      } else {
+        throw error
+      }
+    }
 
     // Get default templates
     const defaults = getDefaultEmailTemplates()
@@ -78,6 +89,8 @@ export async function PUT(request: Request) {
   }
 
   try {
+    // Try to upsert - if table doesn't exist, it will fail gracefully
+
     // Upsert template (create or update)
     const template = await prisma.emailTemplate.upsert({
       where: {
