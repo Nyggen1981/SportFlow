@@ -329,7 +329,13 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                         group.map((booking, index) => {
                           const start = parseISO(booking.startTime)
                           const end = parseISO(booking.endTime)
-                          const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+                          
+                          // Cap the end time to midnight of the same day to prevent overflow
+                          const endOfDay = new Date(start)
+                          endOfDay.setHours(23, 59, 59, 999)
+                          const cappedEnd = end > endOfDay ? endOfDay : end
+                          
+                          const durationHours = (cappedEnd.getTime() - start.getTime()) / (1000 * 60 * 60)
                           const isPending = booking.status === "pending"
                           
                           // Add minimal gap between bookings vertically
