@@ -318,6 +318,7 @@ export default function TimelinePage() {
                   <Calendar className="w-4 h-4 text-gray-500" />
                   <input
                     type="date"
+                    lang="no"
                     value={format(selectedDate, "yyyy-MM-dd")}
                     onChange={(e) => setSelectedDate(new Date(e.target.value))}
                     className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -371,24 +372,6 @@ export default function TimelinePage() {
                   </button>
                 </div>
               </div>
-              
-              {/* Selected Resources as Chips */}
-              {selectedResources.size > 0 && (
-                <div className="mb-3 flex flex-wrap gap-1.5">
-                  {timelineData?.resources
-                    .filter(r => selectedResources.has(r.id))
-                    .map((resource) => (
-                      <button
-                        key={resource.id}
-                        onClick={() => toggleResource(resource.id)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full hover:bg-blue-100 transition-colors"
-                      >
-                        {resource.name}
-                        <span className="text-blue-500">×</span>
-                      </button>
-                    ))}
-                </div>
-              )}
               
               {/* Compact Resource List */}
               <div className="space-y-2 max-h-64 overflow-y-auto">

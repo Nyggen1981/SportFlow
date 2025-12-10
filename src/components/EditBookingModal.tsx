@@ -155,6 +155,7 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
             </label>
             <input
               type="date"
+              lang="no"
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required

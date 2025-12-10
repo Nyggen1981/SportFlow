@@ -339,6 +339,7 @@ export default function BookResourcePage({ params }: Props) {
                 </label>
                 <input
                   type="date"
+                  lang="no"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   className="input"
@@ -435,6 +436,7 @@ export default function BookResourcePage({ params }: Props) {
                     </label>
                     <input
                       type="date"
+                      lang="no"
                       value={recurringEndDate}
                       onChange={(e) => setRecurringEndDate(e.target.value)}
                       className="input max-w-[200px]"
