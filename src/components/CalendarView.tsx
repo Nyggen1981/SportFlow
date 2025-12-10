@@ -352,7 +352,7 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
-                      {bookingsStartingThisHour.map((booking) => {
+                      {bookingsStartingThisHour.map((booking, index) => {
                         const start = parseISO(booking.startTime)
                         const end = parseISO(booking.endTime)
                         const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
@@ -364,28 +364,48 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                         const cellHeight = 48 // min-h-[48px]
                         const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
                         const heightPx = duration * cellHeight - (gapPx * 2)
+                        
+                        // If multiple bookings at same time, stack them with slight offset
+                        // Group by same resource and overlapping time
+                        const overlappingCount = bookingsStartingThisHour.filter(b => {
+                          const bStart = parseISO(b.startTime)
+                          const bEnd = parseISO(b.endTime)
+                          return b.resourceId === booking.resourceId && 
+                                 ((bStart <= start && bEnd > start) || (bStart < end && bEnd >= end) || (bStart >= start && bEnd <= end))
+                        }).length
+                        
+                        // Calculate offset for stacking (only if multiple bookings)
+                        const stackOffset = overlappingCount > 1 ? index * 2 : 0
+                        const leftOffset = stackOffset > 0 ? `${stackOffset}px` : '4px'
+                        const rightOffset = stackOffset > 0 ? `${stackOffset}px` : '4px'
+                        const zIndex = 10 + index
 
                         return (
                           <div
                             key={booking.id}
                             onClick={() => setSelectedBooking(booking)}
-                            className={`absolute left-1 right-1 rounded-md px-2 py-1 text-xs overflow-hidden z-10 cursor-pointer pointer-events-auto booking-event ${
+                            className={`absolute rounded-md px-2 py-1 text-xs overflow-hidden cursor-pointer pointer-events-auto booking-event ${
                               isPending ? 'border-2 border-dashed' : ''
                             }`}
                             style={{
                               top: `${topPx}px`,
+                              left: leftOffset,
+                              right: rightOffset,
                               height: `${Math.max(heightPx, 36)}px`,
                               backgroundColor: isPending 
                                 ? `${resourceColor}20`
                                 : resourceColor,
                               borderColor: isPending ? resourceColor : undefined,
                               color: isPending ? resourceColor : 'white',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                              zIndex: zIndex
                             }}
                             title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resourceName}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''} - Klikk for mer info`}
                           >
                             <p className="font-medium truncate">{booking.title}</p>
-                            <p className={`truncate text-[10px] ${isPending ? 'opacity-70' : 'opacity-80'}`}>{booking.resourceName}</p>
+                            <p className={`truncate text-[10px] ${isPending ? 'opacity-70' : 'opacity-80'}`}>
+                              {booking.resourcePartName || booking.resourceName}
+                            </p>
                           </div>
                         )
                       })}

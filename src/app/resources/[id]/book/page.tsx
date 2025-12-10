@@ -230,13 +230,6 @@ export default function BookResourcePage({ params }: Props) {
           <p className="text-gray-500 mb-8">Fyll ut skjemaet for å sende en bookingforespørsel</p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="p-4 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-700">
-                <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                <p className="text-sm">{error}</p>
-              </div>
-            )}
-
             {/* Title */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -502,30 +495,38 @@ export default function BookResourcePage({ params }: Props) {
             </div>
 
             {/* Submit */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="btn btn-primary flex-1 py-3 disabled:opacity-50"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Sender...
-                  </>
-                ) : (
-                  <>
-                    <Calendar className="w-5 h-5" />
-                    Send bookingforespørsel
-                  </>
-                )}
-              </button>
-              <Link
-                href={`/resources/${id}`}
-                className="btn btn-secondary py-3"
-              >
-                Avbryt
-              </Link>
+            <div className="space-y-3 pt-4">
+              {error && (
+                <div className="p-4 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3 text-red-700 animate-in slide-in-from-top-2">
+                  <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm font-medium">{error}</p>
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn btn-primary flex-1 py-3 disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Sender...
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="w-5 h-5" />
+                      Send bookingforespørsel
+                    </>
+                  )}
+                </button>
+                <Link
+                  href={`/resources/${id}`}
+                  className="btn btn-secondary py-3"
+                >
+                  Avbryt
+                </Link>
+              </div>
             </div>
 
             {resource.requiresApproval && (
