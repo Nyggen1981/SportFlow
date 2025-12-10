@@ -404,35 +404,36 @@ export function CalendarView({ resources, bookings: initialBookings }: Props) {
                           const rightOffset = stackOffset > 0 ? `${4 + stackOffset}px` : '4px'
                           const zIndex = 10 + groupIndex * 10 + bookingIndex
 
-                        return (
-                          <div
-                            key={booking.id}
-                            onClick={() => setSelectedBooking(booking)}
-                            className={`absolute rounded-md px-2 py-1 text-xs overflow-hidden cursor-pointer pointer-events-auto booking-event ${
-                              isPending ? 'border-2 border-dashed' : ''
-                            }`}
-                            style={{
-                              top: `${topPx}px`,
-                              left: leftOffset,
-                              right: rightOffset,
-                              height: `${Math.max(heightPx, 36)}px`,
-                              backgroundColor: isPending 
-                                ? `${resourceColor}20`
-                                : resourceColor,
-                              borderColor: isPending ? resourceColor : undefined,
-                              color: isPending ? resourceColor : 'white',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                              zIndex: zIndex
-                            }}
-                            title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resourceName}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''} - Klikk for mer info`}
-                          >
-                            <p className="font-medium truncate">{booking.title}</p>
-                            <p className={`truncate text-[10px] ${isPending ? 'opacity-70' : 'opacity-80'}`}>
-                              {booking.resourcePartName || booking.resourceName}
-                            </p>
-                          </div>
-                        )
-                      })}
+                          return (
+                            <div
+                              key={booking.id}
+                              onClick={() => setSelectedBooking(booking)}
+                              className={`absolute rounded-md px-2 py-1 text-xs overflow-hidden cursor-pointer pointer-events-auto booking-event ${
+                                isPending ? 'border-2 border-dashed' : ''
+                              }`}
+                              style={{
+                                top: `${topPx}px`,
+                                left: leftOffset,
+                                right: rightOffset,
+                                height: `${Math.max(heightPx, 36)}px`,
+                                backgroundColor: isPending 
+                                  ? `${resourceColor}20`
+                                  : resourceColor,
+                                borderColor: isPending ? resourceColor : undefined,
+                                color: isPending ? resourceColor : 'white',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                zIndex: zIndex
+                              }}
+                              title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resourceName}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''} - Klikk for mer info`}
+                            >
+                              <p className="font-medium truncate">{booking.title}</p>
+                              <p className={`truncate text-[10px] ${isPending ? 'opacity-70' : 'opacity-80'}`}>
+                                {booking.resourcePartName || booking.resourceName}
+                              </p>
+                            </div>
+                          )
+                        })
+                      )}
                     </div>
                   )
                 })}
