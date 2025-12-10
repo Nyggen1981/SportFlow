@@ -298,7 +298,8 @@ export async function POST(request: Request) {
 
       // Send email to each admin
       for (const admin of admins) {
-        const emailContent = getNewBookingRequestEmail(
+        const emailContent = await getNewBookingRequestEmail(
+          session.user.organizationId,
           title,
           resourceName,
           date,

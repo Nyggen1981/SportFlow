@@ -205,7 +205,8 @@ export async function PATCH(
         : updatedBooking.resource.name
 
       for (const admin of admins) {
-        const emailContent = getNewBookingRequestEmail(
+        const emailContent = await getNewBookingRequestEmail(
+          session.user.organizationId,
           `${updatedBooking.title} (Endret)`,
           resourceName,
           date,

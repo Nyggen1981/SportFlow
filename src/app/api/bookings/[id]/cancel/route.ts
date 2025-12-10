@@ -73,7 +73,8 @@ export async function POST(
       // Admin cancelled - notify the booker
       const userEmail = booking.contactEmail || booking.user.email
       if (userEmail) {
-        const emailContent = getBookingCancelledByAdminEmail(
+        const emailContent = await getBookingCancelledByAdminEmail(
+          booking.resource.organizationId,
           booking.title,
           resourceName,
           date,
@@ -95,7 +96,8 @@ export async function POST(
       })
 
       for (const admin of admins) {
-        const emailContent = getBookingCancelledByUserEmail(
+        const emailContent = await getBookingCancelledByUserEmail(
+          booking.resource.organizationId,
           booking.title,
           resourceName,
           date,

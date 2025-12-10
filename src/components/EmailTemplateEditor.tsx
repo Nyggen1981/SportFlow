@@ -1,0 +1,253 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Mail, Loader2, Save, RotateCcw, AlertCircle, CheckCircle2, Info } from "lucide-react"
+
+interface EmailTemplate {
+  templateType: string
+  subject: string
+  htmlBody: string
+  isCustom: boolean
+  customId: string | null
+}
+
+interface EmailTemplateEditorProps {
+  template: EmailTemplate
+  onSave: (template: EmailTemplate) => Promise<void>
+  onReset: () => Promise<void>
+}
+
+const templateLabels: Record<string, { name: string; description: string }> = {
+  new_booking: {
+    name: "Ny bookingforespørsel",
+    description: "Sendes til administratorer når en ny booking opprettes",
+  },
+  approved: {
+    name: "Booking godkjent",
+    description: "Sendes til brukeren når booking blir godkjent",
+  },
+  rejected: {
+    name: "Booking avslått",
+    description: "Sendes til brukeren når booking blir avslått",
+  },
+  cancelled_by_admin: {
+    name: "Booking kansellert (av admin)",
+    description: "Sendes til brukeren når admin kansellerer booking",
+  },
+  cancelled_by_user: {
+    name: "Booking kansellert (av bruker)",
+    description: "Sendes til administratorer når bruker kansellerer booking",
+  },
+}
+
+const availableVariables = [
+  { name: "bookingTitle", description: "Arrangementets navn" },
+  { name: "resourceName", description: "Navn på fasilitet" },
+  { name: "date", description: "Dato for booking" },
+  { name: "time", description: "Tidspunkt for booking" },
+  { name: "userName", description: "Navn på bruker" },
+  { name: "userEmail", description: "E-post til bruker" },
+  { name: "description", description: "Beskrivelse av booking (valgfritt)" },
+  { name: "reason", description: "Årsak til avslag/kansellering (valgfritt)" },
+]
+
+export function EmailTemplateEditor({ template, onSave, onReset }: EmailTemplateEditorProps) {
+  const [subject, setSubject] = useState(template.subject)
+  const [htmlBody, setHtmlBody] = useState(template.htmlBody)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [showVariables, setShowVariables] = useState(false)
+
+  useEffect(() => {
+    setSubject(template.subject)
+    setHtmlBody(template.htmlBody)
+  }, [template])
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    setMessage(null)
+    try {
+      await onSave({
+        ...template,
+        subject,
+        htmlBody,
+      })
+      setMessage({ type: "success", text: "E-postmal lagret!" })
+      setTimeout(() => setMessage(null), 3000)
+    } catch (error) {
+      setMessage({ type: "error", text: "Kunne ikke lagre e-postmal" })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleReset = async () => {
+    if (!confirm("Er du sikker på at du vil tilbakestille til standardmal?")) {
+      return
+    }
+    setIsResetting(true)
+    setMessage(null)
+    try {
+      await onReset()
+      setMessage({ type: "success", text: "E-postmal tilbakestilt til standard" })
+      setTimeout(() => setMessage(null), 3000)
+    } catch (error) {
+      setMessage({ type: "error", text: "Kunne ikke tilbakestille" })
+    } finally {
+      setIsResetting(false)
+    }
+  }
+
+  const insertVariable = (varName: string) => {
+    const textarea = document.getElementById(`htmlBody-${template.templateType}`) as HTMLTextAreaElement
+    if (textarea) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const text = textarea.value
+      const before = text.substring(0, start)
+      const after = text.substring(end)
+      const variable = `{{${varName}}}`
+      setHtmlBody(before + variable + after)
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(start + variable.length, start + variable.length)
+      }, 0)
+    }
+  }
+
+  const label = templateLabels[template.templateType] || {
+    name: template.templateType,
+    description: "",
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-xl p-5 bg-white">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1">
+          <h3 className="font-semibold text-gray-900 mb-1">{label.name}</h3>
+          <p className="text-sm text-gray-600">{label.description}</p>
+          {template.isCustom && (
+            <span className="inline-block mt-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">
+              Tilpasset mal
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {template.isCustom && (
+            <button
+              onClick={handleReset}
+              disabled={isResetting}
+              className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {isResetting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RotateCcw className="w-4 h-4" />
+              )}
+              Tilbakestill
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            Lagre
+          </button>
+        </div>
+      </div>
+
+      {message && (
+        <div
+          className={`mb-4 p-3 rounded-lg flex items-center gap-2 text-sm ${
+            message.type === "success"
+              ? "bg-green-50 text-green-700 border border-green-200"
+              : "bg-red-50 text-red-700 border border-red-200"
+          }`}
+        >
+          {message.type === "success" ? (
+            <CheckCircle2 className="w-4 h-4" />
+          ) : (
+            <AlertCircle className="w-4 h-4" />
+          )}
+          {message.text}
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            E-post emne *
+          </label>
+          <input
+            type="text"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            className="input w-full"
+            placeholder="F.eks. Booking godkjent: {{bookingTitle}}"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Bruk variabler som <code className="bg-gray-100 px-1 rounded">{"{{bookingTitle}}"}</code> for dynamisk innhold
+          </p>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              E-post innhold (HTML) *
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowVariables(!showVariables)}
+              className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+            >
+              <Info className="w-3 h-3" />
+              {showVariables ? "Skjul" : "Vis"} variabler
+            </button>
+          </div>
+
+          {showVariables && (
+            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs font-medium text-blue-900 mb-2">Tilgjengelige variabler:</p>
+              <div className="flex flex-wrap gap-2">
+                {availableVariables.map((variable) => (
+                  <button
+                    key={variable.name}
+                    type="button"
+                    onClick={() => insertVariable(variable.name)}
+                    className="px-2 py-1 text-xs bg-white border border-blue-300 text-blue-700 rounded hover:bg-blue-100 transition-colors"
+                    title={variable.description}
+                  >
+                    {"{{" + variable.name + "}}"}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-blue-700 mt-2">
+                Klikk på en variabel for å sette den inn i malen
+              </p>
+            </div>
+          )}
+
+          <textarea
+            id={`htmlBody-${template.templateType}`}
+            value={htmlBody}
+            onChange={(e) => setHtmlBody(e.target.value)}
+            className="input w-full font-mono text-sm"
+            rows={15}
+            placeholder="HTML-innhold for e-posten..."
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            HTML-format. Bruk variabler som <code className="bg-gray-100 px-1 rounded">{"{{variableName}}"}</code> for dynamisk innhold
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+

@@ -20,8 +20,10 @@ import {
   Download,
   Database,
   AlertCircle,
+  Mail,
 } from "lucide-react"
 import Image from "next/image"
+import { EmailTemplateEditor } from "@/components/EmailTemplateEditor"
 
 interface Organization {
   id: string
@@ -49,6 +51,9 @@ export default function AdminSettingsPage() {
   const [importMessage, setImportMessage] = useState("")
   const importFileRef = useRef<HTMLInputElement>(null)
 
+  // Email templates state
+  const [emailTemplates, setEmailTemplates] = useState<any[]>([])
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false)
 
   // Form state
   const [name, setName] = useState("")
@@ -82,8 +87,58 @@ export default function AdminSettingsPage() {
           setIsLoading(false)
         })
         .catch(() => setIsLoading(false))
+
+      // Load email templates
+      fetchEmailTemplates()
     }
   }, [session])
+
+  const fetchEmailTemplates = async () => {
+    setIsLoadingTemplates(true)
+    try {
+      const response = await fetch("/api/admin/email-templates")
+      const data = await response.json()
+      setEmailTemplates(data.templates || [])
+    } catch (error) {
+      console.error("Failed to fetch email templates:", error)
+    } finally {
+      setIsLoadingTemplates(false)
+    }
+  }
+
+  const handleSaveEmailTemplate = async (template: any) => {
+    const response = await fetch("/api/admin/email-templates", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        templateType: template.templateType,
+        subject: template.subject,
+        htmlBody: template.htmlBody,
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || "Kunne ikke lagre mal")
+    }
+
+    // Refresh templates
+    await fetchEmailTemplates()
+  }
+
+  const handleResetEmailTemplate = async (templateType: string) => {
+    const response = await fetch(`/api/admin/email-templates?templateType=${templateType}`, {
+      method: "DELETE",
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || "Kunne ikke tilbakestille")
+    }
+
+    // Refresh templates
+    await fetchEmailTemplates()
+  }
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -402,6 +457,36 @@ export default function AdminSettingsPage() {
               </button>
             </div>
           </form>
+        </div>
+
+        {/* Email Templates */}
+        <div className="card p-6 md:p-8 mt-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+              <Mail className="w-6 h-6 text-green-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">E-postmaler</h2>
+              <p className="text-gray-500 text-sm">Tilpass automatiske e-poster som sendes ved bookinger</p>
+            </div>
+          </div>
+
+          {isLoadingTemplates ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {emailTemplates.map((template) => (
+                <EmailTemplateEditor
+                  key={template.templateType}
+                  template={template}
+                  onSave={handleSaveEmailTemplate}
+                  onReset={() => handleResetEmailTemplate(template.templateType)}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Data Export/Import */}

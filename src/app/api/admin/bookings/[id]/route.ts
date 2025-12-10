@@ -81,7 +81,8 @@ export async function PATCH(
 
     if (action === "approve") {
       const count = bookingIdsToUpdate.length
-      const emailContent = getBookingApprovedEmail(
+      const emailContent = await getBookingApprovedEmail(
+        booking.organizationId,
         booking.title, 
         resourceName, 
         count > 1 ? `${date} (og ${count - 1} andre datoer)` : date, 
@@ -90,7 +91,8 @@ export async function PATCH(
       await sendEmail({ to: userEmail, ...emailContent })
     } else {
       const count = bookingIdsToUpdate.length
-      const emailContent = getBookingRejectedEmail(
+      const emailContent = await getBookingRejectedEmail(
+        booking.organizationId,
         booking.title, 
         resourceName, 
         count > 1 ? `${date} (og ${count - 1} andre datoer)` : date, 

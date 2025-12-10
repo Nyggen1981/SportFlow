@@ -26,6 +26,7 @@ model Organization {
   users     User[]
   resources Resource[]
   bookings  Booking[]
+  emailTemplates EmailTemplate[]
 }
 
 // User with role-based access
@@ -199,4 +200,21 @@ model Booking {
   @@index([organizationId])
   @@index([startTime])
   @@index([status])
+}
+
+// Email templates for customizing automated emails
+model EmailTemplate {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  templateType   String   // "new_booking", "approved", "rejected", "cancelled_by_admin", "cancelled_by_user"
+  subject        String   // Email subject (supports variables like {{bookingTitle}})
+  htmlBody       String   // HTML email body (supports variables)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, templateType])
+  @@index([organizationId])
 }

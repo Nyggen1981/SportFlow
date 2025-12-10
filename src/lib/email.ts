@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer"
+import { getEmailTemplate, getDefaultEmailTemplates, renderEmailTemplate } from "./email-templates"
 
 // Email configuration
 // Set these environment variables in Vercel:
@@ -60,223 +61,128 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   }
 }
 
-// Email templates
+// Email templates - now using database templates with fallback to defaults
 
-export function getBookingCancelledByAdminEmail(bookingTitle: string, resourceName: string, date: string, time: string, reason?: string) {
-  return {
-    subject: `Booking kansellert: ${bookingTitle}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 30px; border-radius: 12px 12px 0 0; }
-          .content { background: #f8fafc; padding: 30px; border-radius: 0 0 12px 12px; }
-          .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444; }
-          .footer { text-align: center; padding: 20px; color: #64748b; font-size: 14px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0;">Booking kansellert</h1>
-          </div>
-          <div class="content">
-            <p>Vi må dessverre informere deg om at følgende booking har blitt kansellert:</p>
-            
-            <div class="info-box">
-              <p><strong>Arrangement:</strong> ${bookingTitle}</p>
-              <p><strong>Fasilitet:</strong> ${resourceName}</p>
-              <p><strong>Dato:</strong> ${date}</p>
-              <p><strong>Tid:</strong> ${time}</p>
-              ${reason ? `<p><strong>Årsak:</strong> ${reason}</p>` : ''}
-            </div>
-            
-            <p>Ta kontakt hvis du har spørsmål.</p>
-          </div>
-          <div class="footer">
-            <p>Med vennlig hilsen,<br/>Arena Booking</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `
+export async function getBookingCancelledByAdminEmail(
+  organizationId: string,
+  bookingTitle: string,
+  resourceName: string,
+  date: string,
+  time: string,
+  reason?: string
+) {
+  const customTemplate = await getEmailTemplate(organizationId, "cancelled_by_admin")
+  const defaultTemplates = getDefaultEmailTemplates()
+  const template = customTemplate || {
+    subject: defaultTemplates.cancelled_by_admin.subject,
+    htmlBody: defaultTemplates.cancelled_by_admin.htmlBody,
   }
+
+  return renderEmailTemplate(template, {
+    bookingTitle,
+    resourceName,
+    date,
+    time,
+    reason,
+  })
 }
 
-export function getBookingCancelledByUserEmail(bookingTitle: string, resourceName: string, date: string, time: string, userName: string, userEmail: string) {
-  return {
-    subject: `Booking kansellert av bruker: ${bookingTitle}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 30px; border-radius: 12px 12px 0 0; }
-          .content { background: #f8fafc; padding: 30px; border-radius: 0 0 12px 12px; }
-          .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b; }
-          .footer { text-align: center; padding: 20px; color: #64748b; font-size: 14px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0;">Booking kansellert</h1>
-          </div>
-          <div class="content">
-            <p>En booking har blitt kansellert av brukeren:</p>
-            
-            <div class="info-box">
-              <p><strong>Arrangement:</strong> ${bookingTitle}</p>
-              <p><strong>Fasilitet:</strong> ${resourceName}</p>
-              <p><strong>Dato:</strong> ${date}</p>
-              <p><strong>Tid:</strong> ${time}</p>
-              <p><strong>Bruker:</strong> ${userName} (${userEmail})</p>
-            </div>
-          </div>
-          <div class="footer">
-            <p>Med vennlig hilsen,<br/>Arena Booking</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `
+export async function getBookingCancelledByUserEmail(
+  organizationId: string,
+  bookingTitle: string,
+  resourceName: string,
+  date: string,
+  time: string,
+  userName: string,
+  userEmail: string
+) {
+  const customTemplate = await getEmailTemplate(organizationId, "cancelled_by_user")
+  const defaultTemplates = getDefaultEmailTemplates()
+  const template = customTemplate || {
+    subject: defaultTemplates.cancelled_by_user.subject,
+    htmlBody: defaultTemplates.cancelled_by_user.htmlBody,
   }
+
+  return renderEmailTemplate(template, {
+    bookingTitle,
+    resourceName,
+    date,
+    time,
+    userName,
+    userEmail,
+  })
 }
 
-export function getNewBookingRequestEmail(bookingTitle: string, resourceName: string, date: string, time: string, userName: string, userEmail: string, description?: string) {
-  return {
-    subject: `Ny bookingforespørsel: ${bookingTitle}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 30px; border-radius: 12px 12px 0 0; }
-          .content { background: #f8fafc; padding: 30px; border-radius: 0 0 12px 12px; }
-          .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6; }
-          .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 20px; }
-          .footer { text-align: center; padding: 20px; color: #64748b; font-size: 14px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0;">Ny bookingforespørsel</h1>
-          </div>
-          <div class="content">
-            <p>En ny booking venter på godkjenning:</p>
-            
-            <div class="info-box">
-              <p><strong>Arrangement:</strong> ${bookingTitle}</p>
-              <p><strong>Fasilitet:</strong> ${resourceName}</p>
-              <p><strong>Dato:</strong> ${date}</p>
-              <p><strong>Tid:</strong> ${time}</p>
-              <p><strong>Booket av:</strong> ${userName} (${userEmail})</p>
-              ${description ? `<p><strong>Beskrivelse:</strong> ${description}</p>` : ''}
-            </div>
-            
-            <p>Logg inn i admin-panelet for å godkjenne eller avslå bookingen.</p>
-          </div>
-          <div class="footer">
-            <p>Med vennlig hilsen,<br/>Arena Booking</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `
+export async function getNewBookingRequestEmail(
+  organizationId: string,
+  bookingTitle: string,
+  resourceName: string,
+  date: string,
+  time: string,
+  userName: string,
+  userEmail: string,
+  description?: string
+) {
+  const customTemplate = await getEmailTemplate(organizationId, "new_booking")
+  const defaultTemplates = getDefaultEmailTemplates()
+  const template = customTemplate || {
+    subject: defaultTemplates.new_booking.subject,
+    htmlBody: defaultTemplates.new_booking.htmlBody,
   }
+
+  return renderEmailTemplate(template, {
+    bookingTitle,
+    resourceName,
+    date,
+    time,
+    userName,
+    userEmail,
+    description,
+  })
 }
 
-export function getBookingApprovedEmail(bookingTitle: string, resourceName: string, date: string, time: string) {
-  return {
-    subject: `Booking godkjent: ${bookingTitle}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; padding: 30px; border-radius: 12px 12px 0 0; }
-          .content { background: #f8fafc; padding: 30px; border-radius: 0 0 12px 12px; }
-          .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #22c55e; }
-          .footer { text-align: center; padding: 20px; color: #64748b; font-size: 14px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0;">✓ Booking godkjent!</h1>
-          </div>
-          <div class="content">
-            <p>Gode nyheter! Din booking har blitt godkjent:</p>
-            
-            <div class="info-box">
-              <p><strong>Arrangement:</strong> ${bookingTitle}</p>
-              <p><strong>Fasilitet:</strong> ${resourceName}</p>
-              <p><strong>Dato:</strong> ${date}</p>
-              <p><strong>Tid:</strong> ${time}</p>
-            </div>
-            
-            <p>Vi gleder oss til å se deg!</p>
-          </div>
-          <div class="footer">
-            <p>Med vennlig hilsen,<br/>Arena Booking</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `
+export async function getBookingApprovedEmail(
+  organizationId: string,
+  bookingTitle: string,
+  resourceName: string,
+  date: string,
+  time: string
+) {
+  const customTemplate = await getEmailTemplate(organizationId, "approved")
+  const defaultTemplates = getDefaultEmailTemplates()
+  const template = customTemplate || {
+    subject: defaultTemplates.approved.subject,
+    htmlBody: defaultTemplates.approved.htmlBody,
   }
+
+  return renderEmailTemplate(template, {
+    bookingTitle,
+    resourceName,
+    date,
+    time,
+  })
 }
 
-export function getBookingRejectedEmail(bookingTitle: string, resourceName: string, date: string, time: string, reason?: string) {
-  return {
-    subject: `Booking avslått: ${bookingTitle}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 30px; border-radius: 12px 12px 0 0; }
-          .content { background: #f8fafc; padding: 30px; border-radius: 0 0 12px 12px; }
-          .info-box { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ef4444; }
-          .footer { text-align: center; padding: 20px; color: #64748b; font-size: 14px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin: 0;">Booking avslått</h1>
-          </div>
-          <div class="content">
-            <p>Vi beklager, men din booking har blitt avslått:</p>
-            
-            <div class="info-box">
-              <p><strong>Arrangement:</strong> ${bookingTitle}</p>
-              <p><strong>Fasilitet:</strong> ${resourceName}</p>
-              <p><strong>Dato:</strong> ${date}</p>
-              <p><strong>Tid:</strong> ${time}</p>
-              ${reason ? `<p><strong>Årsak:</strong> ${reason}</p>` : ''}
-            </div>
-            
-            <p>Ta kontakt hvis du har spørsmål eller ønsker å booke en annen tid.</p>
-          </div>
-          <div class="footer">
-            <p>Med vennlig hilsen,<br/>Arena Booking</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `
+export async function getBookingRejectedEmail(
+  organizationId: string,
+  bookingTitle: string,
+  resourceName: string,
+  date: string,
+  time: string,
+  reason?: string
+) {
+  const customTemplate = await getEmailTemplate(organizationId, "rejected")
+  const defaultTemplates = getDefaultEmailTemplates()
+  const template = customTemplate || {
+    subject: defaultTemplates.rejected.subject,
+    htmlBody: defaultTemplates.rejected.htmlBody,
   }
+
+  return renderEmailTemplate(template, {
+    bookingTitle,
+    resourceName,
+    date,
+    time,
+    reason,
+  })
 }
