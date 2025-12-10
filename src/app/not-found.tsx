@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Navbar } from "@/components/Navbar"
 import { Footer } from "@/components/Footer"
-import { Home, ArrowLeft } from "lucide-react"
+import { Home } from "lucide-react"
 
 export default function NotFound() {
   return (
@@ -26,13 +26,6 @@ export default function NotFound() {
               <Home className="w-5 h-5" />
               Gå til forsiden
             </Link>
-            <button
-              onClick={() => window.history.back()}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              Gå tilbake
-            </button>
           </div>
         </div>
       </main>
