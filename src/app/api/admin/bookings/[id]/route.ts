@@ -23,29 +23,39 @@ export async function PATCH(
   console.log("Method:", request.method)
   console.log("URL:", request.url)
   console.log("Content-Type:", request.headers.get("content-type"))
-  console.log("Has body:", request.body !== null)
   
-  // Parse request body with error handling
+  // Parse request body - try request.json() first, fallback to text parsing
   let body: { action?: string; statusNote?: string; applyToAll?: boolean } = {}
   try {
-    const bodyText = await request.text()
-    console.log("Raw body text:", bodyText)
-    if (bodyText) {
-      body = JSON.parse(bodyText)
-      console.log("Parsed body:", body)
-    } else {
-      console.log("Body is empty")
+    // Try to get body as JSON directly
+    body = await request.json()
+    console.log("Parsed body (from json):", body)
+  } catch (jsonError) {
+    // If JSON parsing fails, try text parsing
+    try {
+      const bodyText = await request.text()
+      console.log("Raw body text:", bodyText)
+      if (bodyText && bodyText.trim()) {
+        body = JSON.parse(bodyText)
+        console.log("Parsed body (from text):", body)
+      } else {
+        console.log("Body is empty or whitespace")
+        return NextResponse.json({ 
+          error: "Request body is required",
+          details: "No body was sent with the request"
+        }, { status: 400 })
+      }
+    } catch (textError) {
+      console.error("Error parsing request body:", { jsonError, textError })
+      return NextResponse.json({ 
+        error: "Invalid request body", 
+        details: String(textError || jsonError)
+      }, { status: 400 })
     }
-  } catch (error) {
-    console.error("Error parsing request body:", error)
-    return NextResponse.json({ 
-      error: "Invalid request body", 
-      details: String(error) 
-    }, { status: 400 })
   }
 
   const { action, statusNote, applyToAll } = body
-  console.log("Extracted values:", { action, statusNote, applyToAll })
+  console.log("Extracted values:", { action, statusNote, applyToAll, actionType: typeof action })
 
   // Validate action
   if (!action || (action !== "approve" && action !== "reject")) {
