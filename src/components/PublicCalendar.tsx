@@ -356,9 +356,11 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                             return (bookingStart < bEnd && bookingEnd > bStart && 
                                     (bookingStart.getTime() !== bStart.getTime() || bookingEnd.getTime() !== bEnd.getTime()))
                           })
-                          const gapBetween = hasOverlap ? 2 : 0 // More gap between overlapping bookings in %
-                          const bookingWidthPercent = (100 - (gapBetween * (groupSize - 1))) / groupSize
-                          const leftPercent = index * (bookingWidthPercent + gapBetween)
+                          const gapBetweenPx = hasOverlap ? gapPx : 0 // Same gap as vertical (1px)
+                          const bookingWidthPercent = 100 / groupSize
+                          const leftPercent = index * bookingWidthPercent
+                          const marginLeft = index > 0 ? gapBetweenPx : 0
+                          const marginRight = index < groupSize - 1 ? gapBetweenPx : 0
 
                           return (
                             <button
@@ -376,7 +378,10 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                                 display: 'flex',
                                 flexDirection: 'column',
                                 justifyContent: 'flex-start',
-                                alignItems: 'flex-start'
+                                alignItems: 'flex-start',
+                                marginLeft: `${marginLeft}px`,
+                                marginRight: `${marginRight}px`,
+                                boxSizing: 'border-box'
                               }}
                             >
                               <p className="font-semibold truncate text-[11px]">{booking.title}</p>
