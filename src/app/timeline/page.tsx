@@ -319,8 +319,14 @@ export default function TimelinePage() {
                   <div className="relative group">
                     <div className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 min-w-[140px] cursor-pointer flex items-center justify-between"
                       onClick={() => {
-                        const input = document.getElementById('timeline-date-input')
-                        input?.showPicker?.() || input?.click()
+                        const input = document.getElementById('timeline-date-input') as HTMLInputElement
+                        if (input) {
+                          if ('showPicker' in input && typeof input.showPicker === 'function') {
+                            input.showPicker()
+                          } else {
+                            input.click()
+                          }
+                        }
                       }}
                     >
                       <span>{format(selectedDate, "d. MMM yyyy", { locale: nb })}</span>
