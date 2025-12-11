@@ -107,6 +107,7 @@ export async function POST(request: Request) {
         contactName,
         contactEmail,
         contactPhone,
+        organizationId: resource.organizationId,
         resourceId,
         resourcePartId: resourcePartId || null,
         userId,
