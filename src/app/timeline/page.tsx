@@ -451,18 +451,19 @@ export default function TimelinePage() {
               <div className="max-h-[70vh] overflow-y-auto overflow-x-auto rounded-xl">
                 {/* Time Header - sticky within scroll container */}
                 <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
-                  <div className="flex min-w-[800px]">
+                  <div className="flex" style={{ minWidth: '1200px' }}>
                     <div className="w-48 sm:w-64 flex-shrink-0 p-2 sm:p-3 font-medium text-gray-700 text-xs sm:text-sm border-r border-gray-200 bg-gray-50">
                       <span className="hidden sm:inline">Fasilitet / Del</span>
                       <span className="sm:hidden">Fasilitet</span>
                     </div>
-                    <div className="flex-1 flex min-w-0">
+                    <div className="flex-1 flex">
                       {timeSlots.map((time, index) => (
                         <div
                           key={index}
-                          className="flex-1 border-r border-gray-200 last:border-r-0 p-1 sm:p-2 text-center min-w-0 bg-gray-50"
+                          className="border-r border-gray-200 last:border-r-0 p-1 sm:p-2 text-center bg-gray-50"
+                          style={{ width: `${100 / 24}%` }}
                         >
-                          <div className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">
+                          <div className="text-[10px] sm:text-xs font-medium text-gray-600">
                             {format(time, "HH:mm")}
                           </div>
                         </div>
@@ -472,7 +473,7 @@ export default function TimelinePage() {
                 </div>
 
                 {/* Timeline Rows */}
-                <div className="min-w-[800px] divide-y divide-gray-100">
+                <div className="divide-y divide-gray-100" style={{ minWidth: '1200px' }}>
                     {groupedData.map(({ resource, parts }) => (
                       <div key={resource.id}>
                         {/* Resource Header */}
@@ -517,12 +518,12 @@ export default function TimelinePage() {
 
                             {/* Timeline Bar Area */}
                             <div className="flex-1 relative" style={{ minHeight: "60px" }}>
-                              {/* Time Grid Lines */}
+                              {/* Time Grid Lines - match header columns */}
                               {timeSlots.map((_, index) => (
                                 <div
                                   key={index}
                                   className="absolute top-0 bottom-0 border-r border-gray-200"
-                                  style={{ left: `${(index / 24) * 100}%` }}
+                                  style={{ left: `${((index + 1) / 24) * 100}%` }}
                                 />
                               ))}
 
