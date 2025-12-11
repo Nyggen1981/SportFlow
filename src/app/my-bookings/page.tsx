@@ -56,6 +56,8 @@ export default function MyBookingsPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
   const [unreadCounts, setUnreadCounts] = useState({ upcoming: 0, history: 0 })
+  const [selectedForDelete, setSelectedForDelete] = useState<Set<string>>(new Set())
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
 
   // Get unique resources from bookings
   const resources = useMemo(() => {
@@ -115,6 +117,7 @@ export default function MyBookingsPage() {
   // Mark bookings as seen when switching tabs
   const handleTabChange = useCallback(async (tab: Tab) => {
     setActiveTab(tab)
+    setSelectedForDelete(new Set()) // Clear selection when switching tabs
     
     // Mark bookings as seen for this tab
     if ((tab === "upcoming" && unreadCounts.upcoming > 0) || 
@@ -170,6 +173,50 @@ export default function MyBookingsPage() {
       setIsProcessing(false)
       setDeletingId(null)
     }
+  }, [])
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedForDelete.size === 0) return
+    setIsProcessing(true)
+    try {
+      // Delete all selected bookings in parallel
+      const deletePromises = Array.from(selectedForDelete).map(id =>
+        fetch(`/api/bookings/${id}`, { method: "DELETE" })
+      )
+      await Promise.all(deletePromises)
+      setBookings(prev => prev.filter(b => !selectedForDelete.has(b.id)))
+      setSelectedForDelete(new Set())
+    } catch (error) {
+      console.error("Failed to delete bookings:", error)
+    } finally {
+      setIsProcessing(false)
+      setShowBulkDeleteModal(false)
+    }
+  }, [selectedForDelete])
+
+  const toggleSelectBooking = useCallback((bookingId: string) => {
+    setSelectedForDelete(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(bookingId)) {
+        newSet.delete(bookingId)
+      } else {
+        newSet.add(bookingId)
+      }
+      return newSet
+    })
+  }, [])
+
+  const toggleSelectAll = useCallback((bookingIds: string[]) => {
+    setSelectedForDelete(prev => {
+      const allSelected = bookingIds.every(id => prev.has(id))
+      if (allSelected) {
+        // Deselect all
+        return new Set()
+      } else {
+        // Select all
+        return new Set(bookingIds)
+      }
+    })
   }, [])
 
   // Categorize and filter bookings
@@ -334,6 +381,30 @@ export default function MyBookingsPage() {
                 </div>
               </div>
 
+              {/* Bulk delete controls for history tab */}
+              {activeTab === "history" && history.length > 0 && (
+                <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={history.length > 0 && history.every(b => selectedForDelete.has(b.id))}
+                      onChange={() => toggleSelectAll(history.map(b => b.id))}
+                      className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                    />
+                    <span className="text-sm text-gray-600">Velg alle ({history.length})</span>
+                  </label>
+                  {selectedForDelete.size > 0 && (
+                    <button
+                      onClick={() => setShowBulkDeleteModal(true)}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Slett valgte ({selectedForDelete.size})
+                    </button>
+                  )}
+                </div>
+              )}
+
               {activeBookings.length === 0 ? (
                 <div className="card p-8 text-center">
                   {activeTab === "upcoming" ? (
@@ -364,6 +435,18 @@ export default function MyBookingsPage() {
                         }`}
                       >
                         <div className="flex">
+                          {/* Checkbox for history tab */}
+                          {activeTab === "history" && (
+                            <div className="flex items-center px-3 border-r border-gray-100">
+                              <input
+                                type="checkbox"
+                                checked={selectedForDelete.has(booking.id)}
+                                onChange={() => toggleSelectBooking(booking.id)}
+                                className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                              />
+                            </div>
+                          )}
+                          
                           {/* Color bar */}
                           <div 
                             className="w-1.5 flex-shrink-0"
@@ -533,6 +616,45 @@ export default function MyBookingsPage() {
                   <>
                     <Trash2 className="w-4 h-4" />
                     Ja, slett
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete modal */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl p-6 animate-fadeIn">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
+              Slett {selectedForDelete.size} bookinger?
+            </h3>
+            <p className="text-gray-600 text-center mb-6">
+              Er du sikker på at du vil slette {selectedForDelete.size} bookinger permanent? Denne handlingen kan ikke angres.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBulkDeleteModal(false)}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                disabled={isProcessing}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                {isProcessing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Ja, slett alle
                   </>
                 )}
               </button>
