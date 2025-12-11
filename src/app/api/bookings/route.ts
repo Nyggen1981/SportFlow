@@ -110,104 +110,125 @@ export async function POST(request: Request) {
     // 1. If booking whole facility (resourcePartId = null): conflicts with any part booking
     // 2. If booking a part: conflicts with whole facility booking OR same part booking
     
-    const getTimeOverlapConditions = (bookingStart: Date, bookingEnd: Date) => [
-      {
-        AND: [
-          { startTime: { lte: bookingStart } },
-          { endTime: { gt: bookingStart } }
-        ]
-      },
-      {
-        AND: [
-          { startTime: { lt: bookingEnd } },
-          { endTime: { gte: bookingEnd } }
-        ]
-      },
-      {
-        AND: [
-          { startTime: { gte: bookingStart } },
-          { endTime: { lte: bookingEnd } }
-        ]
-      }
-    ]
+    // Helper function to check if two time ranges overlap
+    const timeRangesOverlap = (start1: Date, end1: Date, start2: Date, end2: Date): boolean => {
+      return start1 < end2 && start2 < end1
+    }
 
+    // Get all booking dates time range for efficient query
+    const allBookingStarts = bookingDates.map(bd => bd.start)
+    const allBookingEnds = bookingDates.map(bd => bd.end)
+    const earliestStart = new Date(Math.min(...allBookingStarts.map(d => d.getTime())))
+    const latestEnd = new Date(Math.max(...allBookingEnds.map(d => d.getTime())))
+
+    // Get part hierarchy if booking a specific part (only once, not in loop)
+    let partIdsToCheck: string[] | null = null
+    if (resourcePartId) {
+      const bookingPart = await prisma.resourcePart.findUnique({
+        where: { id: resourcePartId },
+        include: {
+          parent: true,
+          children: true
+        }
+      })
+      
+      if (!bookingPart) {
+        return NextResponse.json(
+          { error: "Del ikke funnet" },
+          { status: 404 }
+        )
+      }
+      
+      // Build list of part IDs to check:
+      // 1. The part itself
+      // 2. All children (if booking parent, children are blocked)
+      // 3. The parent (if booking child, parent is blocked)
+      partIdsToCheck = [resourcePartId]
+      
+      if (bookingPart.children && bookingPart.children.length > 0) {
+        const childIds = bookingPart.children.map(c => c.id)
+        partIdsToCheck.push(...childIds)
+      }
+      
+      if (bookingPart.parentId) {
+        partIdsToCheck.push(bookingPart.parentId)
+      }
+    }
+
+    // Fetch ALL potentially conflicting bookings in ONE query (much faster)
+    // This covers the entire time range of all booking dates
+    const whereClause: any = {
+      resourceId,
+      status: { notIn: ["cancelled", "rejected"] },
+      // Time range that overlaps with any of our booking dates
+      OR: [
+        { startTime: { lt: latestEnd } },
+        { endTime: { gt: earliestStart } }
+      ]
+    }
+
+    // Add part filtering based on booking type
+    if (!resourcePartId) {
+      // Booking whole facility - check if ANY part is booked (or whole facility)
+      // No additional filter needed - we want to check all bookings
+    } else {
+      // Booking a specific part - check conflicts with:
+      // 1. Same parts (including parent/children)
+      // 2. Whole facility bookings
+      whereClause.OR = [
+        {
+          resourcePartId: { in: partIdsToCheck },
+          AND: [
+            { startTime: { lt: latestEnd } },
+            { endTime: { gt: earliestStart } }
+          ]
+        },
+        {
+          resourcePartId: null,
+          AND: [
+            { startTime: { lt: latestEnd } },
+            { endTime: { gt: earliestStart } }
+          ]
+        }
+      ]
+    }
+
+    const allPotentialConflicts = await prisma.booking.findMany({
+      where: whereClause,
+      select: { 
+        id: true, 
+        status: true, 
+        startTime: true,
+        endTime: true,
+        resourcePartId: true,
+        resourcePart: { select: { name: true } } 
+      }
+    })
+
+    // Now check each booking date against the fetched conflicts (in-memory check)
     for (const { start: bookingStart, end: bookingEnd } of bookingDates) {
-      // Time overlap conditions
-      const timeOverlapConditions = getTimeOverlapConditions(bookingStart, bookingEnd)
-      
-      // Base filter: same resource, not cancelled/rejected, overlapping time
-      const baseFilter = {
-        resourceId,
-        status: { notIn: ["cancelled", "rejected"] },
-        OR: timeOverlapConditions
-      }
-      
-      let conflictingBookings
-      
-      if (!resourcePartId) {
-        // Booking whole facility - check if ANY part is booked
-        conflictingBookings = await prisma.booking.findMany({
-          where: baseFilter,
-          select: { id: true, status: true, resourcePart: { select: { name: true } } }
-        })
-      } else {
-        // Booking a specific part
-        // Get the part to check its hierarchy
-        const bookingPart = await prisma.resourcePart.findUnique({
-          where: { id: resourcePartId },
-          include: {
-            parent: true,
-            children: true
-          }
-        })
-        
-        if (!bookingPart) {
-          return NextResponse.json(
-            { error: "Del ikke funnet" },
-            { status: 404 }
-          )
+      const conflicts = allPotentialConflicts.filter(existing => {
+        // Check time overlap
+        if (!timeRangesOverlap(bookingStart, bookingEnd, existing.startTime, existing.endTime)) {
+          return false
         }
-        
-        // Build list of part IDs to check:
-        // 1. The part itself
-        // 2. All children (if booking parent, children are blocked)
-        // 3. The parent (if booking child, parent is blocked)
-        const partIdsToCheck: string[] = [resourcePartId]
-        
-        // If this part has children, add all children IDs
-        if (bookingPart.children && bookingPart.children.length > 0) {
-          const childIds = bookingPart.children.map(c => c.id)
-          partIdsToCheck.push(...childIds)
-        }
-        
-        // If this part has a parent, add parent ID
-        if (bookingPart.parentId) {
-          partIdsToCheck.push(bookingPart.parentId)
-        }
-        
-        // Check for conflicts: same parts OR whole facility OR parent/children
-        conflictingBookings = await prisma.booking.findMany({
-          where: {
-            resourceId,
-            status: { notIn: ["cancelled", "rejected"] },
-            OR: [
-              {
-                resourcePartId: { in: partIdsToCheck },
-                AND: { OR: timeOverlapConditions }
-              },
-              {
-                resourcePartId: null,
-                AND: { OR: timeOverlapConditions }
-              }
-            ]
-          },
-          select: { id: true, status: true, resourcePart: { select: { name: true } } }
-        })
-      }
 
-      if (conflictingBookings.length > 0) {
+        // Check part conflict
+        if (!resourcePartId) {
+          // Booking whole facility - conflicts with ANY booking (part or whole)
+          return true
+        } else {
+          // Booking a specific part - conflicts with:
+          // 1. Same part or parent/children
+          // 2. Whole facility bookings
+          return existing.resourcePartId === null || 
+                 (partIdsToCheck && partIdsToCheck.includes(existing.resourcePartId))
+        }
+      })
+
+      if (conflicts.length > 0) {
         const conflictDate = bookingStart.toLocaleDateString("nb-NO")
-        const conflict = conflictingBookings[0]
+        const conflict = conflicts[0]
         const conflictInfo = conflict.resourcePart 
           ? `"${conflict.resourcePart.name}"` 
           : "hele fasiliteten"

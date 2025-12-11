@@ -208,6 +208,11 @@ model Booking {
   @@index([startTime])
   @@index([status])
   @@index([parentBookingId]) // For recurring bookings
+  
+  // Composite indexes for conflict checking (double booking detection)
+  @@index([resourceId, status, startTime, endTime]) // For whole facility bookings
+  @@index([resourceId, resourcePartId, status, startTime, endTime]) // For part bookings
+  @@index([resourceId, status, resourcePartId]) // For filtering by part
 }
 
 // Email templates for customizing automated emails

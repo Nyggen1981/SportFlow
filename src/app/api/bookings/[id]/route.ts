@@ -112,27 +112,8 @@ export async function PATCH(
     if (startTime || endTime || resourcePartId !== undefined) {
       const activeStatusFilter = { status: { notIn: ["cancelled", "rejected"] } }
       
-      const getTimeOverlapConditions = (bookingStart: Date, bookingEnd: Date) => [
-        {
-          AND: [
-            { startTime: { lte: bookingStart } },
-            { endTime: { gt: bookingStart } }
-          ]
-        },
-        {
-          AND: [
-            { startTime: { lt: bookingEnd } },
-            { endTime: { gte: bookingEnd } }
-          ]
-        },
-        {
-          AND: [
-            { startTime: { gte: bookingStart } },
-            { endTime: { lte: bookingEnd } }
-          ]
-        }
-      ]
-
+      // Optimized overlap check: bookings that start before our end AND end after our start
+      // This is more efficient than multiple OR conditions
       const newResourcePartId = resourcePartId !== undefined ? resourcePartId : booking.resourcePartId
 
       const conflictingBookings = await prisma.booking.findMany({
@@ -140,14 +121,16 @@ export async function PATCH(
           id: { not: id }, // Exclude current booking
           resourceId: booking.resourceId,
           ...activeStatusFilter,
+          // Time overlap: startTime < newEndTime && endTime > newStartTime
+          startTime: { lt: newEndTime },
+          endTime: { gt: newStartTime },
+          // Part conflict: same part OR whole facility
           OR: [
             { resourcePartId: newResourcePartId },
             { resourcePartId: null }
-          ],
-          AND: {
-            OR: getTimeOverlapConditions(newStartTime, newEndTime)
-          }
-        }
+          ]
+        },
+        select: { id: true } // Only need to know if conflict exists
       })
 
       if (conflictingBookings.length > 0) {
