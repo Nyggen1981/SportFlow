@@ -447,10 +447,10 @@ export default function TimelinePage() {
             </div>
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <div className="min-w-full">
-                  {/* Time Header */}
-                  <div className="flex border-b border-gray-200 bg-gray-50 sticky top-0 z-20">
+              {/* Time Header - sticky */}
+              <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
+                <div className="overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                  <div className="flex min-w-[800px]">
                     <div className="w-48 sm:w-64 flex-shrink-0 p-2 sm:p-3 font-medium text-gray-700 text-xs sm:text-sm border-r border-gray-200">
                       <span className="hidden sm:inline">Fasilitet / Del</span>
                       <span className="sm:hidden">Fasilitet</span>
@@ -468,9 +468,12 @@ export default function TimelinePage() {
                       ))}
                     </div>
                   </div>
+                </div>
+              </div>
 
-                  {/* Timeline Rows */}
-                  <div className="divide-y divide-gray-100">
+              {/* Timeline Rows */}
+              <div className="overflow-x-auto">
+                <div className="min-w-[800px] divide-y divide-gray-100">
                     {groupedData.map(({ resource, parts }) => (
                       <div key={resource.id}>
                         {/* Resource Header */}
