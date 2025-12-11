@@ -567,7 +567,6 @@ export default function TimelinePage() {
                   </div>
                 </div>
               </div>
-            </div>
           )}
         </div>
       </main>
