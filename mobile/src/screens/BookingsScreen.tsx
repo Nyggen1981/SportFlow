@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { format, parseISO, isAfter, isBefore } from 'date-fns'
 import { nb } from 'date-fns/locale'
 import { Booking } from '../types'
+import { useAuth } from '../context/AuthContext'
 
 // Using production URL for testing
 const API_BASE_URL = 'https://arena-booking.vercel.app'
@@ -21,6 +22,7 @@ const API_BASE_URL = 'https://arena-booking.vercel.app'
 type TabType = 'upcoming' | 'history'
 
 export default function BookingsScreen() {
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>('upcoming')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -28,10 +30,10 @@ export default function BookingsScreen() {
   const [cancellingId, setCancellingId] = useState<string | null>(null)
 
   const fetchBookings = useCallback(async () => {
+    if (!user?.id) return
+    
     try {
-      const response = await fetch(`${API_BASE_URL}/api/bookings`, {
-        credentials: 'include',
-      })
+      const response = await fetch(`${API_BASE_URL}/api/mobile/bookings?userId=${user.id}`)
       
       if (response.ok) {
         const data = await response.json()
@@ -43,11 +45,13 @@ export default function BookingsScreen() {
       setIsLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [user?.id])
 
   useEffect(() => {
-    fetchBookings()
-  }, [fetchBookings])
+    if (user?.id) {
+      fetchBookings()
+    }
+  }, [fetchBookings, user?.id])
 
   const onRefresh = useCallback(() => {
     setRefreshing(true)

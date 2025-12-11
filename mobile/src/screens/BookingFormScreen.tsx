@@ -18,6 +18,7 @@ import { format, addHours, setHours, setMinutes } from 'date-fns'
 import { nb } from 'date-fns/locale'
 import { Resource } from '../types'
 import { RootStackParamList } from '../navigation/AppNavigator'
+import { useAuth } from '../context/AuthContext'
 
 // Using production URL for testing
 const API_BASE_URL = 'https://arena-booking.vercel.app'
@@ -26,6 +27,7 @@ type RouteProps = RouteProp<RootStackParamList, 'BookingForm'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export default function BookingFormScreen() {
+  const { user } = useAuth()
   const route = useRoute<RouteProps>()
   const navigation = useNavigation<NavigationProp>()
   const { resourceId, resourcePartId } = route.params
@@ -83,11 +85,11 @@ export default function BookingFormScreen() {
       const endDateTime = new Date(date)
       endDateTime.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0)
 
-      const response = await fetch(`${API_BASE_URL}/api/bookings`, {
+      const response = await fetch(`${API_BASE_URL}/api/mobile/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
+          userId: user?.id,
           resourceId,
           resourcePartId: resourcePartId || null,
           title: title.trim(),

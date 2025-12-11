@@ -31,10 +31,11 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false)
 
   const fetchBookings = useCallback(async () => {
+    if (!user?.id) return
+    
     try {
-      const response = await fetch(`${API_BASE_URL}/api/bookings`, {
+      const response = await fetch(`${API_BASE_URL}/api/mobile/bookings?userId=${user.id}`, {
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
       })
       
       if (response.ok) {
@@ -55,11 +56,13 @@ export default function HomeScreen() {
       setIsLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [user?.id])
 
   useEffect(() => {
-    fetchBookings()
-  }, [fetchBookings])
+    if (user?.id) {
+      fetchBookings()
+    }
+  }, [fetchBookings, user?.id])
 
   const onRefresh = useCallback(() => {
     setRefreshing(true)
