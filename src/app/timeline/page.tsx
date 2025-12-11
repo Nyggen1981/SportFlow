@@ -446,12 +446,13 @@ export default function TimelinePage() {
               <p className="text-gray-500">Ingen bookinger for denne dagen</p>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-              {/* Time Header - sticky */}
-              <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
-                <div className="overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+              {/* Scrollable container with sticky header */}
+              <div className="max-h-[70vh] overflow-y-auto overflow-x-auto rounded-xl">
+                {/* Time Header - sticky within scroll container */}
+                <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                   <div className="flex min-w-[800px]">
-                    <div className="w-48 sm:w-64 flex-shrink-0 p-2 sm:p-3 font-medium text-gray-700 text-xs sm:text-sm border-r border-gray-200">
+                    <div className="w-48 sm:w-64 flex-shrink-0 p-2 sm:p-3 font-medium text-gray-700 text-xs sm:text-sm border-r border-gray-200 bg-gray-50">
                       <span className="hidden sm:inline">Fasilitet / Del</span>
                       <span className="sm:hidden">Fasilitet</span>
                     </div>
@@ -459,7 +460,7 @@ export default function TimelinePage() {
                       {timeSlots.map((time, index) => (
                         <div
                           key={index}
-                          className="flex-1 border-r border-gray-200 last:border-r-0 p-1 sm:p-2 text-center min-w-0"
+                          className="flex-1 border-r border-gray-200 last:border-r-0 p-1 sm:p-2 text-center min-w-0 bg-gray-50"
                         >
                           <div className="text-[10px] sm:text-xs font-medium text-gray-600 truncate">
                             {format(time, "HH:mm")}
@@ -469,10 +470,8 @@ export default function TimelinePage() {
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Timeline Rows */}
-              <div className="overflow-x-auto">
+                {/* Timeline Rows */}
                 <div className="min-w-[800px] divide-y divide-gray-100">
                     {groupedData.map(({ resource, parts }) => (
                       <div key={resource.id}>
