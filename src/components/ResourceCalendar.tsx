@@ -119,6 +119,61 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
     })
   }, [filteredBookings])
 
+  // Calculate overlap columns for all bookings in a day
+  const getBookingColumns = useCallback((dayBookings: Booking[]) => {
+    if (dayBookings.length === 0) return new Map<string, { column: number; totalColumns: number }>()
+    
+    // Sort by start time
+    const sorted = [...dayBookings].sort((a, b) => 
+      parseISO(a.startTime).getTime() - parseISO(b.startTime).getTime()
+    )
+    
+    // Track column assignments: bookingId -> { column, totalColumns }
+    const columns = new Map<string, { column: number; totalColumns: number }>()
+    
+    // Track active bookings in each column (column index -> end time)
+    const columnEndTimes: Date[] = []
+    
+    sorted.forEach(booking => {
+      const start = parseISO(booking.startTime)
+      const end = parseISO(booking.endTime)
+      
+      // Find first available column (where the booking has ended)
+      let column = 0
+      while (column < columnEndTimes.length && columnEndTimes[column] > start) {
+        column++
+      }
+      
+      // Assign column
+      columnEndTimes[column] = end
+      columns.set(booking.id, { column, totalColumns: 1 })
+    })
+    
+    // Calculate totalColumns for each booking by finding overlapping bookings
+    sorted.forEach(booking => {
+      const start = parseISO(booking.startTime)
+      const end = parseISO(booking.endTime)
+      
+      const overlapping = sorted.filter(b => {
+        const bStart = parseISO(b.startTime)
+        const bEnd = parseISO(b.endTime)
+        return start < bEnd && end > bStart
+      })
+      
+      const maxColumn = Math.max(...overlapping.map(b => columns.get(b.id)?.column || 0))
+      const totalColumns = maxColumn + 1
+      
+      overlapping.forEach(b => {
+        const current = columns.get(b.id)
+        if (current) {
+          columns.set(b.id, { ...current, totalColumns: Math.max(current.totalColumns, totalColumns) })
+        }
+      })
+    })
+    
+    return columns
+  }, [])
+
   // Scroll to bottom of week view on mount and when viewMode/date/part changes
   useEffect(() => {
     if (viewMode === "week" && weekViewScrollRef.current) {
@@ -282,40 +337,14 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                   {hour.toString().padStart(2, "0")}:00
                 </div>
                 {weekDays.map((day) => {
-                  const dayBookings = getBookingsForDayAndHour(day, hour)
+                  // Get all bookings for this day and calculate columns
+                  const allDayBookings = getBookingsForDay(day)
+                  const bookingColumns = getBookingColumns(allDayBookings)
                   
-                  // Filter to only bookings that start in this hour
-                  const bookingsStartingThisHour = dayBookings.filter(booking => {
+                  // Only render bookings that START in this hour (to avoid duplicates)
+                  const bookingsStartingThisHour = allDayBookings.filter(booking => {
                     const start = parseISO(booking.startTime)
                     return start.getHours() === hour
-                  })
-                  
-                  // Group overlapping bookings
-                  const bookingGroups: Booking[][] = []
-                  bookingsStartingThisHour.forEach(booking => {
-                    const bookingStart = parseISO(booking.startTime)
-                    const bookingEnd = parseISO(booking.endTime)
-                    
-                    // Find a group this booking overlaps with
-                    let addedToGroup = false
-                    for (const group of bookingGroups) {
-                      const overlaps = group.some(b => {
-                        const bStart = parseISO(b.startTime)
-                        const bEnd = parseISO(b.endTime)
-                        return (bookingStart < bEnd && bookingEnd > bStart)
-                      })
-                      
-                      if (overlaps) {
-                        group.push(booking)
-                        addedToGroup = true
-                        break
-                      }
-                    }
-                    
-                    // If no overlap found, create new group
-                    if (!addedToGroup) {
-                      bookingGroups.push([booking])
-                    }
                   })
                   
                   return (
@@ -325,8 +354,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
-                      {bookingGroups.flatMap((group) =>
-                        group.map((booking, index) => {
+                      {bookingsStartingThisHour.map((booking) => {
                           const start = parseISO(booking.startTime)
                           const end = parseISO(booking.endTime)
                           
@@ -344,18 +372,20 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                           const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
                           const heightPx = durationHours * cellHeight - (gapPx * 2)
                           
-                          // Calculate width and position for overlapping bookings
-                          const groupSize = group.length
-                          const isSingleBox = groupSize === 1
+                          // Get column info for this booking
+                          const columnInfo = bookingColumns.get(booking.id) || { column: 0, totalColumns: 1 }
+                          const { column, totalColumns } = columnInfo
+                          const isSingleBox = totalColumns === 1
                           
                           // Side by side layout for multiple bookings
-                          const gapPxHorizontal = 2 // Gap between side-by-side bookings
-                          const leftPercent = index * (100 / groupSize)
+                          const gapPxHorizontal = 2
+                          const widthPercent = 100 / totalColumns
+                          const leftPercent = column * widthPercent
                           
                           // For single box: full width with margin. For multiple: side by side
                           const boxWidth = isSingleBox 
                             ? 'calc(100% - 4px)' 
-                            : `calc(${100 / groupSize}% - ${gapPxHorizontal}px)`
+                            : `calc(${widthPercent}% - ${gapPxHorizontal}px)`
 
                           return (
                             <div
@@ -366,7 +396,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                               }`}
                               style={{
                                 top: `${topPx}px`,
-                                left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${index * gapPxHorizontal}px)`,
+                                left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${gapPxHorizontal / 2}px)`,
                                 width: boxWidth,
                                 height: `${Math.max(heightPx, 36)}px`,
                                 backgroundColor: isPending ? '#dcfce7' : '#22c55e',
@@ -387,8 +417,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                               )}
                             </div>
                           )
-                        })
-                      )}
+                        })}
                     </div>
                   )
                 })}
