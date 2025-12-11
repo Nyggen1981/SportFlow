@@ -17,8 +17,6 @@ try {
   }
 } catch (error) {
   console.error('Failed to initialize Prisma Client:', error)
-  // Create a minimal Prisma Client instance as fallback
-  // This should rarely happen, but prevents app from crashing
   prismaInstance = new PrismaClient({
     log: ['error'],
   })
