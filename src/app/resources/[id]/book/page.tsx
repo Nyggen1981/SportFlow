@@ -702,7 +702,8 @@ export default function BookResourcePage({ params }: Props) {
             )}
 
             {/* Fixed Price Packages selection (if available) OR hourly pricing access */}
-            {pricingEnabled && (
+            {/* Only show when a part is selected OR whole facility booking is allowed */}
+            {pricingEnabled && (selectedParts.length > 0 || resource?.allowWholeBooking) && (
               <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium text-gray-900">Velg type booking</h3>

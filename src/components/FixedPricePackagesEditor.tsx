@@ -334,6 +334,9 @@ export default function FixedPricePackagesEditor({
               // View mode
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-100">
+                    <DollarSign className="w-4 h-4 text-blue-600" />
+                  </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-900">{pkg.name}</span>
                     {pkg.description && (
