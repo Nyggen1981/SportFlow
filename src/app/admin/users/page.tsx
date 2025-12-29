@@ -627,11 +627,6 @@ function UserCard({
                   Deg
                 </span>
               )}
-              {user.isMember && (
-                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                  Medlem
-                </span>
-              )}
             </div>
             
             <div className="space-y-1.5">
@@ -673,9 +668,13 @@ function UserCard({
                     {user.customRole.name}
                     {user.customRole.hasModeratorAccess && " (Moderator)"}
                   </span>
+                ) : user.isMember ? (
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                    Medlem
+                  </span>
                 ) : (
                   <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
-                    Bruker
+                    Ikke medlem
                   </span>
                 )}
               </div>

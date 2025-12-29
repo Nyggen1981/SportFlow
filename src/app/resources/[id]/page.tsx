@@ -293,25 +293,19 @@ export default async function ResourcePage({ params }: Props) {
             }
           }).map(({ forRoles, ...p }) => ({ ...p, price: Number(p.price) }))
           
-          if (partPricingConfig?.rules) {
-            const partRule = await findPricingRuleForUser(session.user.id, partPricingConfig.rules)
-            if (partRule?.rule) {
-              partsPricing.push({
-                partId: part.id,
-                partName: part.name,
-                parentId: part.parentId || null,
-                rule: partRule.rule,
-                reason: partRule.reason,
-                fixedPackages: fixedPackages
-              })
-            }
-          } else if (fixedPackages.length > 0) {
-            // Hvis ingen prisregler men har fastprispakker, vis dem likevel
+          // Hent prisregel for brukeren (hvis det finnes regler)
+          const partRule = partPricingConfig?.rules 
+            ? await findPricingRuleForUser(session.user.id, partPricingConfig.rules)
+            : null
+          
+          // Vis delen hvis brukeren har enten prisregel ELLER fastprispakker tilgjengelig
+          if (partRule?.rule || fixedPackages.length > 0) {
             partsPricing.push({
               partId: part.id,
               partName: part.name,
               parentId: part.parentId || null,
-              rule: null,
+              rule: partRule?.rule || null,
+              reason: partRule?.reason,
               fixedPackages: fixedPackages
             })
           }

@@ -134,6 +134,18 @@ export async function hasPricingRules(
   resourceId: string,
   resourcePartId: string
 ): Promise<boolean> {
+  // Sjekk først om det finnes fastprispakker for denne delen
+  const fixedPackagesCount = await prisma.fixedPricePackage.count({
+    where: { 
+      resourcePartId: resourcePartId,
+      isActive: true
+    }
+  })
+  
+  if (fixedPackagesCount > 0) {
+    return true
+  }
+  
   const config = await getPricingConfig(resourceId, resourcePartId)
   if (!config || config.rules.length === 0) {
     return false
@@ -369,11 +381,14 @@ export async function findPricingRuleForUser(
     // "user" = ikke-verifisert bruker (isMember: false)
     
     // 1. Sjekk om brukeren er admin og admin er i listen
+    // VIKTIG: Admin skal KUN se priser der "admin" er eksplisitt valgt - ingen fallback til standardregel
     if (roleInfo.isAdmin) {
       const adminRule = rules.find(r => r.forRoles.includes("admin"))
       if (adminRule) {
         return { rule: adminRule }
       }
+      // Admin har ingen spesifikk regel - ikke fall tilbake til standardregel
+      return { rule: null }
     }
     
     // 2. Sjekk om brukeren er verifisert medlem og "member" er i listen
