@@ -254,7 +254,7 @@ export default function FixedPricePackagesEditor({
                       />
                       <span className="text-sm text-gray-700">Administrator</span>
                     </label>
-                    <label className="flex items-center gap-2" title="Innloggede brukere med verifisert medlemskap">
+                    <label className="flex items-center gap-2" title="Godkjente medlemmer av organisasjonen">
                       <input
                         type="checkbox"
                         checked={editForm.forRoles?.includes("member") ?? false}
@@ -268,9 +268,9 @@ export default function FixedPricePackagesEditor({
                         }}
                         className="w-4 h-4"
                       />
-                      <span className="text-sm text-gray-700">Medlem <span className="text-xs text-gray-500">(verifisert)</span></span>
+                      <span className="text-sm text-gray-700">Medlem</span>
                     </label>
-                    <label className="flex items-center gap-2" title="Innloggede brukere uten verifisert medlemskap">
+                    <label className="flex items-center gap-2" title="Innloggede brukere som ikke er godkjent som medlemmer">
                       <input
                         type="checkbox"
                         checked={editForm.forRoles?.includes("user") ?? false}
@@ -284,7 +284,7 @@ export default function FixedPricePackagesEditor({
                         }}
                         className="w-4 h-4"
                       />
-                      <span className="text-sm text-gray-700">Bruker <span className="text-xs text-gray-500">(ikke verifisert)</span></span>
+                      <span className="text-sm text-gray-700">Ikke medlem</span>
                     </label>
                     {customRoles.map(role => (
                       <label key={role.id} className="flex items-center gap-2">
@@ -343,8 +343,8 @@ export default function FixedPricePackagesEditor({
                       <span className="text-xs text-blue-600">
                         Kun for: {pkg.forRoles.map(r => {
                           if (r === "admin") return "Administrator"
-                          if (r === "member") return "Medlem (verifisert)"
-                          if (r === "user") return "Bruker (ikke verifisert)"
+                          if (r === "member") return "Medlem"
+                          if (r === "user") return "Ikke medlem"
                           const role = customRoles.find(cr => cr.id === r)
                           return role?.name || r
                         }).join(", ")}
@@ -485,7 +485,7 @@ export default function FixedPricePackagesEditor({
                 />
                 <span className="text-sm text-gray-700">Administrator</span>
               </label>
-              <label className="flex items-center gap-2" title="Innloggede brukere med verifisert medlemskap">
+              <label className="flex items-center gap-2" title="Godkjente medlemmer av organisasjonen">
                 <input
                   type="checkbox"
                   checked={newPackage.forRoles?.includes("member") ?? false}
@@ -499,9 +499,9 @@ export default function FixedPricePackagesEditor({
                   }}
                   className="w-4 h-4"
                 />
-                <span className="text-sm text-gray-700">Medlem <span className="text-xs text-gray-500">(verifisert)</span></span>
+                <span className="text-sm text-gray-700">Medlem</span>
               </label>
-              <label className="flex items-center gap-2" title="Innloggede brukere uten verifisert medlemskap">
+              <label className="flex items-center gap-2" title="Innloggede brukere som ikke er godkjent som medlemmer">
                 <input
                   type="checkbox"
                   checked={newPackage.forRoles?.includes("user") ?? false}
@@ -515,7 +515,7 @@ export default function FixedPricePackagesEditor({
                   }}
                   className="w-4 h-4"
                 />
-                <span className="text-sm text-gray-700">Bruker <span className="text-xs text-gray-500">(ikke verifisert)</span></span>
+                <span className="text-sm text-gray-700">Ikke medlem</span>
               </label>
               {customRoles.map(role => (
                 <label key={role.id} className="flex items-center gap-2">

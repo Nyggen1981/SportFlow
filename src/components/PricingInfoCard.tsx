@@ -4,13 +4,17 @@ import { FixedPricePackagesList } from "./FixedPricePackagesList"
 
 interface PricingRule {
   model: "FREE" | "HOURLY" | "DAILY" | "FIXED_DURATION"
+  pricePerHour?: number | null
+  pricePerDay?: number | null
+  fixedPrice?: number | null
+  fixedPriceDuration?: number | null
+  // Legacy fields for backwards compatibility
   memberPricePerHour?: number | null
   nonMemberPricePerHour?: number | null
   memberPricePerDay?: number | null
   nonMemberPricePerDay?: number | null
   memberFixedPrice?: number | null
   nonMemberFixedPrice?: number | null
-  fixedPriceDuration?: number | null
 }
 
 interface FixedPackage {
@@ -32,40 +36,40 @@ interface PartPricing {
 interface PricingInfoCardProps {
   resourceName: string
   allowWholeBooking: boolean
-  isMember: boolean
   relevantRule: PricingRule | null
   resourceFixedPackages: FixedPackage[]
   partsPricing: PartPricing[]
 }
 
-function getPricingDescription(rule: PricingRule, isMember: boolean): string {
+function getPricingDescription(rule: PricingRule): string {
+  // Helper: få pris fra regel (støtter nytt og legacy format)
+  const getHourlyPrice = (): number | null => 
+    rule.pricePerHour ?? rule.memberPricePerHour ?? rule.nonMemberPricePerHour ?? null
+  
+  const getDailyPrice = (): number | null => 
+    rule.pricePerDay ?? rule.memberPricePerDay ?? rule.nonMemberPricePerDay ?? null
+  
+  const getFixedPrice = (): number | null => 
+    rule.fixedPrice ?? rule.memberFixedPrice ?? rule.nonMemberFixedPrice ?? null
+
   switch (rule.model) {
     case "FREE":
       return "Gratis"
     case "HOURLY":
-      const hourlyPrice = isMember 
-        ? (rule.memberPricePerHour ?? rule.nonMemberPricePerHour)
-        : (rule.nonMemberPricePerHour ?? rule.memberPricePerHour)
-      
-      if (hourlyPrice === null || hourlyPrice === undefined || hourlyPrice === 0) {
+      const hourlyPrice = getHourlyPrice()
+      if (hourlyPrice === null || hourlyPrice === 0) {
         return "Per time"
       }
       return `${Math.round(Number(hourlyPrice))} kr/time`
     case "DAILY":
-      const dailyPrice = isMember
-        ? (rule.memberPricePerDay ?? rule.nonMemberPricePerDay)
-        : (rule.nonMemberPricePerDay ?? rule.memberPricePerDay)
-      
-      if (dailyPrice === null || dailyPrice === undefined || dailyPrice === 0) {
+      const dailyPrice = getDailyPrice()
+      if (dailyPrice === null || dailyPrice === 0) {
         return "Per døgn"
       }
       return `${Math.round(Number(dailyPrice))} kr/døgn`
     case "FIXED_DURATION":
-      const fixedPrice = isMember
-        ? (rule.memberFixedPrice ?? rule.nonMemberFixedPrice)
-        : (rule.nonMemberFixedPrice ?? rule.memberFixedPrice)
-      
-      if (fixedPrice === null || fixedPrice === undefined || fixedPrice === 0) {
+      const fixedPrice = getFixedPrice()
+      if (fixedPrice === null || fixedPrice === 0) {
         return "Fast pris"
       }
       
@@ -82,7 +86,6 @@ function getPricingDescription(rule: PricingRule, isMember: boolean): string {
 export function PricingInfoCard({
   resourceName,
   allowWholeBooking,
-  isMember,
   relevantRule,
   resourceFixedPackages,
   partsPricing
@@ -109,7 +112,7 @@ export function PricingInfoCard({
               <span className="text-sm font-medium text-gray-900">Hele {resourceName}</span>
               {relevantRule && (
                 <span className="text-sm font-semibold text-blue-600">
-                  {getPricingDescription(relevantRule, isMember)}
+                  {getPricingDescription(relevantRule)}
                 </span>
               )}
             </div>
@@ -150,7 +153,7 @@ export function PricingInfoCard({
                     </span>
                     {rule && (
                       <span className="text-sm font-semibold text-blue-600">
-                        {getPricingDescription(rule, isMember)}
+                        {getPricingDescription(rule)}
                       </span>
                     )}
                   </div>

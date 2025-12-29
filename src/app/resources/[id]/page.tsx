@@ -562,7 +562,6 @@ export default async function ResourcePage({ params }: Props) {
               <PricingInfoCard
                 resourceName={resource.name}
                 allowWholeBooking={resource.allowWholeBooking}
-                isMember={session?.user?.isMember ?? false}
                 relevantRule={relevantRule?.rule || null}
                 resourceFixedPackages={resourceFixedPackages}
                 partsPricing={sortedPartsPricing.map(p => ({

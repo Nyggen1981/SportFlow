@@ -5,18 +5,18 @@ import { getUserRoleInfo } from "./roles"
 export type PricingModel = "FREE" | "HOURLY" | "DAILY" | "FIXED_DURATION"
 
 export interface PricingRule {
-  forRoles: string[] // Array av role IDs, "admin", "member", eller "user". Tom array = standard for alle som ikke dekkes av andre regler
+  forRoles: string[] // Array av role IDs: "admin", "member", "user", eller custom role IDs. Tom array = standard for alle som ikke dekkes av andre regler
   model: PricingModel
-  fixedPriceDuration?: number | null // minutter (kun for FIXED_DURATION)
-  // Legacy fields (for backwards compatibility when converting from old pricing)
+  // Enkle prisfelter - én pris per regel
   pricePerHour?: number | null
   pricePerDay?: number | null
   fixedPrice?: number | null
-  // Medlemspriser (valgfritt - hvis satt, brukes for medlemmer)
+  fixedPriceDuration?: number | null // minutter (kun for FIXED_DURATION)
+  // DEPRECATED: Legacy member/non-member fields for backwards compatibility during migration
+  // These will be converted to separate rules on load
   memberPricePerHour?: number | null
   memberPricePerDay?: number | null
   memberFixedPrice?: number | null
-  // Ikke-medlemspriser (valgfritt - hvis satt, brukes for ikke-medlemmer)
   nonMemberPricePerHour?: number | null
   nonMemberPricePerDay?: number | null
   nonMemberFixedPrice?: number | null
@@ -24,6 +24,54 @@ export interface PricingRule {
 
 export interface PricingConfig {
   rules: PricingRule[] // Array av pris-regler
+}
+
+/**
+ * Konverterer legacy format (member/nonMember priser på samme regel) til nytt format (separate regler)
+ * Dette kjøres automatisk når prisregler lastes fra databasen
+ */
+export function migratePricingRulesToNewFormat(rules: PricingRule[]): PricingRule[] {
+  const migratedRules: PricingRule[] = []
+  
+  for (const rule of rules) {
+    // Sjekk om regelen bruker legacy format (har member/nonMember priser)
+    const hasMemberPrice = rule.memberPricePerHour != null || rule.memberPricePerDay != null || rule.memberFixedPrice != null
+    const hasNonMemberPrice = rule.nonMemberPricePerHour != null || rule.nonMemberPricePerDay != null || rule.nonMemberFixedPrice != null
+    const hasNewFormatPrice = rule.pricePerHour != null || rule.pricePerDay != null || rule.fixedPrice != null
+    
+    // Hvis regelen allerede bruker nytt format, behold den som den er
+    if (hasNewFormatPrice || (!hasMemberPrice && !hasNonMemberPrice)) {
+      migratedRules.push(rule)
+      continue
+    }
+    
+    // Konverter legacy format til separate regler
+    // Regel for medlemmer
+    if (hasMemberPrice) {
+      migratedRules.push({
+        forRoles: ["member"],
+        model: rule.model,
+        pricePerHour: rule.memberPricePerHour ?? null,
+        pricePerDay: rule.memberPricePerDay ?? null,
+        fixedPrice: rule.memberFixedPrice ?? null,
+        fixedPriceDuration: rule.fixedPriceDuration ?? null
+      })
+    }
+    
+    // Regel for ikke-medlemmer (bruker)
+    if (hasNonMemberPrice) {
+      migratedRules.push({
+        forRoles: ["user"],
+        model: rule.model,
+        pricePerHour: rule.nonMemberPricePerHour ?? null,
+        pricePerDay: rule.nonMemberPricePerDay ?? null,
+        fixedPrice: rule.nonMemberFixedPrice ?? null,
+        fixedPriceDuration: rule.fixedPriceDuration ?? null
+      })
+    }
+  }
+  
+  return migratedRules
 }
 
 export interface BookingPriceCalculation {
@@ -94,7 +142,7 @@ export async function hasPricingRules(
   // Sjekk om det faktisk er noen pris satt (ikke bare FREE modell uten faktiske priser)
   // En regel teller som "har prisregler" hvis:
   // 1. Den har en pris satt (pricePerHour, pricePerDay, eller fixedPrice)
-  // 2. ELLER den har member/nonMember priser satt
+  // 2. ELLER den har legacy member/nonMember priser satt (for bakoverkompatibilitet)
   // 3. ELLER den har freeForRoles satt (gratis for spesifikke roller)
   const hasActualPricing = config.rules.some(rule => {
     // Hvis modellen er FREE og det ikke er noen spesifikke roller, teller det ikke som "har prisregler"
@@ -102,24 +150,27 @@ export async function hasPricingRules(
       return false
     }
     
-    // Sjekk om det er noen faktiske priser satt
-    const hasPrice = 
-      rule.pricePerHour !== null && rule.pricePerHour !== undefined ||
-      rule.pricePerDay !== null && rule.pricePerDay !== undefined ||
-      rule.fixedPrice !== null && rule.fixedPrice !== undefined ||
-      rule.memberPricePerHour !== null && rule.memberPricePerHour !== undefined ||
-      rule.memberPricePerDay !== null && rule.memberPricePerDay !== undefined ||
-      rule.memberFixedPrice !== null && rule.memberFixedPrice !== undefined ||
-      rule.nonMemberPricePerHour !== null && rule.nonMemberPricePerHour !== undefined ||
-      rule.nonMemberPricePerDay !== null && rule.nonMemberPricePerDay !== undefined ||
-      rule.nonMemberFixedPrice !== null && rule.nonMemberFixedPrice !== undefined
+    // Sjekk om det er noen faktiske priser satt (nytt format)
+    const hasNewPrice = 
+      (rule.pricePerHour !== null && rule.pricePerHour !== undefined) ||
+      (rule.pricePerDay !== null && rule.pricePerDay !== undefined) ||
+      (rule.fixedPrice !== null && rule.fixedPrice !== undefined)
+    
+    // Sjekk legacy format for bakoverkompatibilitet
+    const hasLegacyPrice = 
+      (rule.memberPricePerHour !== null && rule.memberPricePerHour !== undefined) ||
+      (rule.memberPricePerDay !== null && rule.memberPricePerDay !== undefined) ||
+      (rule.memberFixedPrice !== null && rule.memberFixedPrice !== undefined) ||
+      (rule.nonMemberPricePerHour !== null && rule.nonMemberPricePerHour !== undefined) ||
+      (rule.nonMemberPricePerDay !== null && rule.nonMemberPricePerDay !== undefined) ||
+      (rule.nonMemberFixedPrice !== null && rule.nonMemberFixedPrice !== undefined)
     
     // Hvis det er gratis for spesifikke roller, teller det som "har prisregler"
     if (rule.model === "FREE" && rule.forRoles.length > 0) {
       return true
     }
     
-    return hasPrice
+    return hasNewPrice || hasLegacyPrice
   })
   
   return hasActualPricing
@@ -353,7 +404,7 @@ export async function findPricingRuleForUser(
       if (userRule) {
         return { 
           rule: userRule, 
-          reason: userRule.model === "FREE" ? "Gratis for brukere" : undefined 
+          reason: userRule.model === "FREE" ? "Gratis for ikke-medlemmer" : undefined 
         }
       }
     }
@@ -466,13 +517,6 @@ export async function calculateBookingPrice(
     }
   }
 
-  // Hent brukerens medlemsstatus
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { isMember: true }
-  })
-  const isMember = user?.isMember ?? false
-
   // Beregn varighet
   const durationMs = endTime.getTime() - startTime.getTime()
   const durationMinutes = Math.ceil(durationMs / (1000 * 60))
@@ -482,14 +526,27 @@ export async function calculateBookingPrice(
   let price = 0
   let breakdown: BookingPriceCalculation["breakdown"] | undefined
 
+  // Helper: hent pris fra regel (støtter både nytt og legacy format)
+  const getHourlyPrice = (r: PricingRule): number | null => {
+    // Nytt format: enkelt prisfelt
+    if (r.pricePerHour != null) return r.pricePerHour
+    // Legacy fallback: bruk første tilgjengelige
+    return r.memberPricePerHour ?? r.nonMemberPricePerHour ?? null
+  }
+  
+  const getDailyPrice = (r: PricingRule): number | null => {
+    if (r.pricePerDay != null) return r.pricePerDay
+    return r.memberPricePerDay ?? r.nonMemberPricePerDay ?? null
+  }
+  
+  const getFixedPrice = (r: PricingRule): number | null => {
+    if (r.fixedPrice != null) return r.fixedPrice
+    return r.memberFixedPrice ?? r.nonMemberFixedPrice ?? null
+  }
+
   switch (rule.model) {
     case "HOURLY":
-      // Bruk medlemspris eller ikke-medlemspris
-      // Hvis medlem: bruk medlemspris, ellers ikke-medlemspris som fallback
-      // Hvis ikke-medlem: bruk ikke-medlemspris, ellers medlemspris som fallback
-      const hourlyPrice = isMember 
-        ? (rule.memberPricePerHour ?? rule.nonMemberPricePerHour)
-        : (rule.nonMemberPricePerHour ?? rule.memberPricePerHour)
+      const hourlyPrice = getHourlyPrice(rule)
       
       if (!hourlyPrice) {
         return {
@@ -507,12 +564,7 @@ export async function calculateBookingPrice(
       break
 
     case "DAILY":
-      // Bruk medlemspris eller ikke-medlemspris
-      // Hvis medlem: bruk medlemspris, ellers ikke-medlemspris som fallback
-      // Hvis ikke-medlem: bruk ikke-medlemspris, ellers medlemspris som fallback
-      const dailyPrice = isMember
-        ? (rule.memberPricePerDay ?? rule.nonMemberPricePerDay)
-        : (rule.nonMemberPricePerDay ?? rule.memberPricePerDay)
+      const dailyPrice = getDailyPrice(rule)
       
       if (!dailyPrice) {
         return {
@@ -530,12 +582,7 @@ export async function calculateBookingPrice(
       break
 
     case "FIXED_DURATION":
-      // Bruk medlemspris eller ikke-medlemspris
-      // Hvis medlem: bruk medlemspris, ellers ikke-medlemspris som fallback
-      // Hvis ikke-medlem: bruk ikke-medlemspris, ellers medlemspris som fallback
-      const fixedPriceForDuration = isMember
-        ? (rule.memberFixedPrice ?? rule.nonMemberFixedPrice)
-        : (rule.nonMemberFixedPrice ?? rule.memberFixedPrice)
+      const fixedPriceForDuration = getFixedPrice(rule)
       
       if (!fixedPriceForDuration || !rule.fixedPriceDuration) {
         return {
@@ -555,10 +602,7 @@ export async function calculateBookingPrice(
         }
       } else {
         // Hvis lengre enn fast pris-varighet, beregn timepris for hele perioden
-        // Bruk samme fallback-logikk for timepris
-        const hourlyPriceForDuration = isMember
-          ? (rule.memberPricePerHour ?? rule.nonMemberPricePerHour)
-          : (rule.nonMemberPricePerHour ?? rule.memberPricePerHour)
+        const hourlyPriceForDuration = getHourlyPrice(rule)
         
         if (hourlyPriceForDuration) {
           price = hourlyPriceForDuration * durationHours

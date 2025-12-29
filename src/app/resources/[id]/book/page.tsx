@@ -232,6 +232,9 @@ export default function BookResourcePage({ params }: Props) {
   const [availablePackages, setAvailablePackages] = useState<FixedPricePackage[]>([])
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null)
   const [usePackage, setUsePackage] = useState(false)
+  
+  // Pricing access state - tracks if user has hourly/daily pricing access
+  const [hasHourlyAccess, setHasHourlyAccess] = useState(false)
 
   const fetchResource = useCallback(async () => {
     try {
@@ -253,6 +256,42 @@ export default function BookResourcePage({ params }: Props) {
       .then(data => setPricingEnabled(data.enabled || false))
       .catch(() => setPricingEnabled(false))
   }, [fetchResource])
+  
+  // Sjekk om brukeren har tilgang til timepris for valgt ressurs/del
+  useEffect(() => {
+    if (!pricingEnabled || !resource) {
+      setHasHourlyAccess(true) // No pricing = all access
+      return
+    }
+    
+    const checkAccess = async () => {
+      try {
+        const partId = selectedParts.length > 0 ? selectedParts[0] : null
+        const url = partId 
+          ? `/api/pricing/access?resourceId=${id}&resourcePartId=${partId}`
+          : `/api/pricing/access?resourceId=${id}`
+        
+        const res = await fetch(url)
+        if (res.ok) {
+          const data = await res.json()
+          setHasHourlyAccess(data.hasHourlyAccess || false)
+          
+          // Hvis brukeren ikke har timepris-tilgang og det er pakker, velg automatisk første pakke
+          if (!data.hasHourlyAccess && availablePackages.length > 0 && !selectedPackageId) {
+            setUsePackage(true)
+            setSelectedPackageId(availablePackages[0].id)
+          }
+        } else {
+          setHasHourlyAccess(false)
+        }
+      } catch (error) {
+        console.error("Error checking pricing access:", error)
+        setHasHourlyAccess(false)
+      }
+    }
+    
+    checkAccess()
+  }, [pricingEnabled, resource, selectedParts, id, availablePackages, selectedPackageId])
 
   // Load fixed price packages when resource/parts change
   useEffect(() => {
@@ -670,38 +709,40 @@ export default function BookResourcePage({ params }: Props) {
               </div>
             )}
 
-            {/* Fixed Price Packages selection (if available) */}
-            {pricingEnabled && availablePackages.length > 0 && (
+            {/* Fixed Price Packages selection (if available) OR hourly pricing access */}
+            {pricingEnabled && (availablePackages.length > 0 || hasHourlyAccess) && (
               <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium text-gray-900">Velg type booking</h3>
                 </div>
                 
                 <div className="space-y-2">
-                  {/* Option: Manual time selection */}
-                  <label className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                    !usePackage ? 'border-blue-500 bg-white' : 'border-gray-200 bg-white hover:bg-gray-50'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="bookingType"
-                      checked={!usePackage}
-                      onChange={() => {
-                        setUsePackage(false)
-                        setSelectedPackageId(null)
-                        setEndDate("")
-                        setEndTime("")
-                        setCalculatedPrice(null)
-                      }}
-                      className="mt-1 w-4 h-4 text-blue-600"
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">Timeleie</div>
-                      <div className="text-sm text-gray-500">
-                        Velg varighet selv - pris beregnes per time
+                  {/* Option: Manual time selection - only show if user has hourly access */}
+                  {hasHourlyAccess && (
+                    <label className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                      !usePackage ? 'border-blue-500 bg-white' : 'border-gray-200 bg-white hover:bg-gray-50'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="bookingType"
+                        checked={!usePackage}
+                        onChange={() => {
+                          setUsePackage(false)
+                          setSelectedPackageId(null)
+                          setEndDate("")
+                          setEndTime("")
+                          setCalculatedPrice(null)
+                        }}
+                        className="mt-1 w-4 h-4 text-blue-600"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">Timeleie</div>
+                        <div className="text-sm text-gray-500">
+                          Velg varighet selv - pris beregnes per time
+                        </div>
                       </div>
-                    </div>
-                  </label>
+                    </label>
+                  )}
                   
                   {/* Package options */}
                   {availablePackages.map(pkg => (
@@ -730,6 +771,15 @@ export default function BookResourcePage({ params }: Props) {
                       </div>
                     </label>
                   ))}
+                  
+                  {/* Message when user has no options */}
+                  {!hasHourlyAccess && availablePackages.length === 0 && (
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        Du har ikke tilgang til å booke denne fasiliteten med din nåværende rolle.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
