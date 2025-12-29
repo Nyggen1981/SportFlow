@@ -87,6 +87,7 @@ export async function getInvoiceEmailPreview(
           <div class="invoice-details">
             <h3 style="margin-top: 0;">Fakturaoversikt</h3>
             <table>
+              ${Number(invoice.taxRate) > 0 ? `
               <tr>
                 <td>Beløp eks. MVA:</td>
                 <td>${Number(invoice.subtotal).toFixed(2)} kr</td>
@@ -99,6 +100,12 @@ export async function getInvoiceEmailPreview(
                 <td>Totalt inkl. MVA:</td>
                 <td>${Number(invoice.totalAmount).toFixed(2)} kr</td>
               </tr>
+              ` : `
+              <tr class="total-row">
+                <td>Totalt:</td>
+                <td>${Number(invoice.totalAmount).toFixed(2)} kr</td>
+              </tr>
+              `}
             </table>
             <p style="margin-top: 20px; color: #64748b; font-size: 14px;">
               <strong>Forfallsdato:</strong> ${dueDateFormatted}

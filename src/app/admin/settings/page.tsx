@@ -55,6 +55,7 @@ interface Organization {
   invoiceOrgNumber?: string | null
   invoiceBankAccount?: string | null
   invoiceNotes?: string | null
+  isMvaRegistered?: boolean
 }
 
 export default function AdminSettingsPage() {
@@ -119,6 +120,7 @@ export default function AdminSettingsPage() {
   const [invoiceOrgNumber, setInvoiceOrgNumber] = useState("")
   const [invoiceBankAccount, setInvoiceBankAccount] = useState("")
   const [invoiceNotes, setInvoiceNotes] = useState("")
+  const [isMvaRegistered, setIsMvaRegistered] = useState(false)
   const [licenseInfo, setLicenseInfo] = useState<{
     valid: boolean
     status: string
@@ -183,6 +185,7 @@ export default function AdminSettingsPage() {
           setInvoiceOrgNumber(orgData.invoiceOrgNumber || "")
           setInvoiceBankAccount(orgData.invoiceBankAccount || "")
           setInvoiceNotes(orgData.invoiceNotes || "")
+          setIsMvaRegistered(orgData.isMvaRegistered || false)
           
           setIsLoading(false)
           
@@ -450,6 +453,7 @@ export default function AdminSettingsPage() {
           invoiceOrgNumber: invoiceOrgNumber || null,
           invoiceBankAccount: invoiceBankAccount || null,
           invoiceNotes: invoiceNotes || null,
+          isMvaRegistered: isMvaRegistered,
         }),
       })
 
@@ -1149,6 +1153,25 @@ export default function AdminSettingsPage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
+            </div>
+
+            {/* MVA Checkbox */}
+            <div className="border border-gray-200 rounded-lg p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isMvaRegistered}
+                  onChange={(e) => setIsMvaRegistered(e.target.checked)}
+                  className="mt-1 w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500"
+                />
+                <div>
+                  <span className="font-medium text-gray-900">Organisasjonen er MVA-registrert</span>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Aktiver dette hvis organisasjonen er registrert i Merverdiavgiftsregisteret. 
+                    MVA (25%) vil da legges til på fakturaer og vises i betalingsoversikter.
+                  </p>
+                </div>
+              </label>
             </div>
 
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">

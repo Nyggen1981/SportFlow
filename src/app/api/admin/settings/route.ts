@@ -45,6 +45,7 @@ export async function GET() {
           invoiceOrgNumber: true,
           invoiceBankAccount: true,
           invoiceNotes: true,
+          isMvaRegistered: true,
           createdAt: true,
           updatedAt: true,
           isActive: true,
@@ -123,7 +124,8 @@ export async function PUT(request: Request) {
       invoiceEmail,
       invoiceOrgNumber,
       invoiceBankAccount,
-      invoiceNotes
+      invoiceNotes,
+      isMvaRegistered
     } = await request.json()
 
     // Check if slug is already taken by another org
@@ -165,6 +167,7 @@ export async function PUT(request: Request) {
         invoiceOrgNumber: invoiceOrgNumber || null,
         invoiceBankAccount: invoiceBankAccount || null,
         invoiceNotes: invoiceNotes || null,
+        isMvaRegistered: isMvaRegistered === true,
       }
     })
 

@@ -294,27 +294,38 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
   doc.setFontSize(10)
   doc.setTextColor(...darkGray)
   doc.setFont("helvetica", "normal")
-  doc.text("Sum eks. mva:", totalsLabelX, totalsY)
-  doc.text(`${data.subtotal.toFixed(2)} kr`, totalsValueX, totalsY, { align: "right" })
+  
+  // Vis MVA-detaljer kun hvis MVA er satt
+  if (data.taxRate > 0) {
+    doc.text("Sum eks. mva:", totalsLabelX, totalsY)
+    doc.text(`${data.subtotal.toFixed(2)} kr`, totalsValueX, totalsY, { align: "right" })
 
-  // Tax
-  totalsY += 6
-  doc.text(`MVA (${(data.taxRate * 100).toFixed(0)}%):`, totalsLabelX, totalsY)
-  doc.text(`${data.taxAmount.toFixed(2)} kr`, totalsValueX, totalsY, { align: "right" })
+    // Tax
+    totalsY += 6
+    doc.text(`MVA (${(data.taxRate * 100).toFixed(0)}%):`, totalsLabelX, totalsY)
+    doc.text(`${data.taxAmount.toFixed(2)} kr`, totalsValueX, totalsY, { align: "right" })
 
-  // Total line
-  totalsY += 4
-  doc.setDrawColor(...lightGray)
-  doc.setLineWidth(0.3)
-  doc.line(totalsLabelX, totalsY, totalsValueX, totalsY)
+    // Total line
+    totalsY += 4
+    doc.setDrawColor(...lightGray)
+    doc.setLineWidth(0.3)
+    doc.line(totalsLabelX, totalsY, totalsValueX, totalsY)
 
-  // Total amount
-  totalsY += 8
-  doc.setFontSize(12)
-  doc.setFont("helvetica", "bold")
-  doc.setTextColor(...primaryColor)
-  doc.text("Å betale:", totalsLabelX, totalsY)
-  doc.text(`${data.totalAmount.toFixed(2)} kr`, totalsValueX, totalsY, { align: "right" })
+    // Total amount
+    totalsY += 8
+    doc.setFontSize(12)
+    doc.setFont("helvetica", "bold")
+    doc.setTextColor(...primaryColor)
+    doc.text("Å betale (inkl. MVA):", totalsLabelX, totalsY)
+    doc.text(`${data.totalAmount.toFixed(2)} kr`, totalsValueX, totalsY, { align: "right" })
+  } else {
+    // Ingen MVA - vis bare totalen
+    doc.setFontSize(12)
+    doc.setFont("helvetica", "bold")
+    doc.setTextColor(...primaryColor)
+    doc.text("Å betale:", totalsLabelX, totalsY)
+    doc.text(`${data.totalAmount.toFixed(2)} kr`, totalsValueX, totalsY, { align: "right" })
+  }
 
   // === PAYMENT INFO ===
   if (data.organization.invoiceBankAccount) {

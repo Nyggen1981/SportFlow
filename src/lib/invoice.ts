@@ -21,7 +21,13 @@ export async function createInvoiceForBooking(
       user: true,
       resource: true,
       resourcePart: true,
-      organization: true
+      organization: {
+        select: {
+          id: true,
+          name: true,
+          isMvaRegistered: true
+        }
+      }
     }
   })
 
@@ -32,6 +38,9 @@ export async function createInvoiceForBooking(
   if (!booking.totalAmount || Number(booking.totalAmount) <= 0) {
     throw new Error("Booking has no amount to invoice")
   }
+  
+  // Sjekk om organisasjonen er MVA-registrert
+  const isMvaRegistered = booking.organization?.isMvaRegistered ?? false
 
   // Generer fakturanummer (YYYY-NNNN format)
   const year = new Date().getFullYear()
@@ -55,11 +64,11 @@ export async function createInvoiceForBooking(
     invoiceNumber = `${year}-0001`
   }
 
-  // Beregn MVA (25% standard for Norge)
-  const taxRate = 0.25
-  const subtotal = Number(booking.totalAmount) / (1 + taxRate)
-  const taxAmount = Number(booking.totalAmount) - subtotal
+  // Beregn MVA kun hvis organisasjonen er MVA-registrert
+  const taxRate = isMvaRegistered ? 0.25 : 0
   const totalAmount = Number(booking.totalAmount)
+  const subtotal = isMvaRegistered ? totalAmount / (1 + taxRate) : totalAmount
+  const taxAmount = isMvaRegistered ? totalAmount - subtotal : 0
 
   // Sett forfallsdato (standard 14 dager)
   const dueDate = new Date()
@@ -246,6 +255,7 @@ export async function sendInvoiceEmail(
           <div class="invoice-details">
             <h3 style="margin-top: 0;">Fakturaoversikt</h3>
             <table>
+              ${Number(invoice.taxRate) > 0 ? `
               <tr>
                 <td>Beløp eks. MVA:</td>
                 <td>${Number(invoice.subtotal).toFixed(2)} kr</td>
@@ -258,6 +268,12 @@ export async function sendInvoiceEmail(
                 <td>Totalt inkl. MVA:</td>
                 <td>${Number(invoice.totalAmount).toFixed(2)} kr</td>
               </tr>
+              ` : `
+              <tr class="total-row">
+                <td>Totalt:</td>
+                <td>${Number(invoice.totalAmount).toFixed(2)} kr</td>
+              </tr>
+              `}
             </table>
             <p style="margin-top: 20px; color: #64748b; font-size: 14px;">
               <strong>Forfallsdato:</strong> ${dueDateFormatted}

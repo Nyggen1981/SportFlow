@@ -62,6 +62,7 @@ model Organization {
   invoiceOrgNumber  String?  // Organisasjonsnummer
   invoiceBankAccount String?  // Kontonummer for betaling
   invoiceNotes      String?  // Standard notater på faktura
+  isMvaRegistered   Boolean  @default(false)  // Er organisasjonen MVA-registrert?
 }
 
 // Egendefinerte roller per organisasjon
