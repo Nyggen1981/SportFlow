@@ -703,17 +703,35 @@ export default function MyBookingsPage() {
                                   {format(parseISO(booking.startTime), "d. MMM yyyy", { locale: nb })}
                                 </p>
                                 <p className="text-xs text-gray-500">
-                                  {format(parseISO(booking.startTime), "HH:mm")} - {format(parseISO(booking.endTime), "HH:mm")}
+                                  {(() => {
+                                    const start = parseISO(booking.startTime)
+                                    const end = parseISO(booking.endTime)
+                                    const startDateStr = format(start, "d. MMM yyyy", { locale: nb })
+                                    const endDateStr = format(end, "d. MMM yyyy", { locale: nb })
+                                    const isSameDay = startDateStr === endDateStr
+                                    
+                                    if (isSameDay) {
+                                      return `${format(start, "HH:mm")} - ${format(end, "HH:mm")}`
+                                    } else {
+                                      return `${format(start, "d. MMM HH:mm", { locale: nb })} - ${format(end, "d. MMM HH:mm", { locale: nb })}`
+                                    }
+                                  })()}
                                 </p>
                                 <p className="text-xs text-gray-400 mt-0.5">
                                   {(() => {
                                     const start = parseISO(booking.startTime)
                                     const end = parseISO(booking.endTime)
-                                    let durationMs = end.getTime() - start.getTime()
-                                    if (durationMs < 0) {
-                                      durationMs += 24 * 60 * 60 * 1000
+                                    const durationMs = end.getTime() - start.getTime()
+                                    const hours = Math.floor(durationMs / (1000 * 60 * 60))
+                                    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60))
+                                    
+                                    if (hours === 0) {
+                                      return `${minutes} min`
+                                    } else if (minutes === 0) {
+                                      return `${hours} ${hours === 1 ? "time" : "timer"}`
+                                    } else {
+                                      return `${hours} ${hours === 1 ? "time" : "timer"} ${minutes} min`
                                     }
-                                    return `${Math.round((durationMs / (1000 * 60 * 60)) * 10) / 10} timer`
                                   })()}
                                 </p>
                               </div>

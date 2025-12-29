@@ -116,10 +116,14 @@ export default function BookResourcePage({ params }: Props) {
   // Form state
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
-  const [date, setDate] = useState("")
+  const [startDate, setStartDate] = useState("")
   const [startTime, setStartTime] = useState("")
+  const [endDate, setEndDate] = useState("")
   const [endTime, setEndTime] = useState("")
   const [selectedParts, setSelectedParts] = useState<string[]>([])
+  
+  // Keep date for backward compatibility with recurring bookings
+  const date = startDate
   
   // Generate time options with 15-minute intervals
   const timeOptions = useMemo(() => {
@@ -294,16 +298,20 @@ export default function BookResourcePage({ params }: Props) {
     loadPackages()
   }, [pricingEnabled, resource, selectedParts, id])
 
-  // When a package is selected, auto-calculate end time
+  // When a package is selected, auto-calculate end time and date
   useEffect(() => {
-    if (!usePackage || !selectedPackageId || !date || !startTime) return
+    if (!usePackage || !selectedPackageId || !startDate || !startTime) return
 
     const selectedPackage = availablePackages.find(p => p.id === selectedPackageId)
     if (!selectedPackage) return
 
     // Calculate end time based on package duration
-    const startDateTime = new Date(`${date}T${startTime}`)
+    const startDateTime = new Date(`${startDate}T${startTime}`)
     const endDateTime = new Date(startDateTime.getTime() + selectedPackage.durationMinutes * 60 * 1000)
+    
+    // Format end date
+    const endDateStr = endDateTime.toISOString().split("T")[0]
+    setEndDate(endDateStr)
     
     // Format end time as HH:MM
     const hours = endDateTime.getHours().toString().padStart(2, '0')
@@ -316,7 +324,7 @@ export default function BookResourcePage({ params }: Props) {
       isFree: selectedPackage.price === 0,
       reason: `${selectedPackage.name} (${formatDuration(selectedPackage.durationMinutes)})`
     })
-  }, [usePackage, selectedPackageId, date, startTime, availablePackages])
+  }, [usePackage, selectedPackageId, startDate, startTime, availablePackages])
 
   useEffect(() => {
     if (session?.user) {
@@ -334,18 +342,24 @@ export default function BookResourcePage({ params }: Props) {
 
   // Beregn pris når dato/tid/deler endres (kun hvis pricing er aktivert)
   useEffect(() => {
-    if (!pricingEnabled || !session?.user?.id || !date || !startTime || !endTime || !resource) {
+    if (!pricingEnabled || !session?.user?.id || !startDate || !startTime || !endDate || !endTime || !resource) {
       setCalculatedPrice(null)
       return
     }
     
     const calculatePrice = async () => {
       try {
-        const startDateTime = new Date(`${date}T${startTime}`)
-        const endDateTime = new Date(`${date}T${endTime}`)
+        const startDateTime = new Date(`${startDate}T${startTime}`)
+        const endDateTime = new Date(`${endDate}T${endTime}`)
         
         // Valider at datoene er gyldige
         if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+          setCalculatedPrice(null)
+          return
+        }
+        
+        // Valider at sluttidspunkt er etter starttidspunkt
+        if (endDateTime <= startDateTime) {
           setCalculatedPrice(null)
           return
         }
@@ -376,7 +390,7 @@ export default function BookResourcePage({ params }: Props) {
     }
     
     calculatePrice()
-  }, [pricingEnabled, date, startTime, endTime, selectedParts, id, resource, session?.user?.id])
+  }, [pricingEnabled, startDate, startTime, endDate, endTime, selectedParts, id, resource, session?.user?.id])
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
@@ -390,9 +404,30 @@ export default function BookResourcePage({ params }: Props) {
       return
     }
 
+    // Validate that end date/time is after start date/time
+    if (!startDate || !startTime || !endDate || !endTime) {
+      setError("Du må fylle ut både start- og sluttidspunkt")
+      setIsSubmitting(false)
+      return
+    }
+
     try {
-      const startDateTime = new Date(`${date}T${startTime}`)
-      const endDateTime = new Date(`${date}T${endTime}`)
+      const startDateTime = new Date(`${startDate}T${startTime}`)
+      const endDateTime = new Date(`${endDate}T${endTime}`)
+      
+      // Validate dates
+      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+        setError("Ugyldig dato eller tid")
+        setIsSubmitting(false)
+        return
+      }
+      
+      // Validate that end is after start
+      if (endDateTime <= startDateTime) {
+        setError("Sluttidspunkt må være etter starttidspunkt")
+        setIsSubmitting(false)
+        return
+      }
 
       const response = await fetch("/api/bookings", {
         method: "POST",
@@ -435,7 +470,7 @@ export default function BookResourcePage({ params }: Props) {
     } finally {
       setIsSubmitting(false)
     }
-  }, [resource, selectedParts, id, date, startTime, endTime, title, description, contactName, contactEmail, contactPhone, isRecurring, recurringType, recurringEndDate, pricingEnabled, calculatedPrice, preferredPaymentMethod, usePackage, selectedPackageId])
+  }, [resource, selectedParts, id, startDate, startTime, endDate, endTime, title, description, contactName, contactEmail, contactPhone, isRecurring, recurringType, recurringEndDate, pricingEnabled, calculatedPrice, preferredPaymentMethod, usePackage, selectedPackageId])
 
   if (status === "loading" || isLoading) {
     return (
@@ -654,6 +689,7 @@ export default function BookResourcePage({ params }: Props) {
                       onChange={() => {
                         setUsePackage(false)
                         setSelectedPackageId(null)
+                        setEndDate("")
                         setEndTime("")
                         setCalculatedPrice(null)
                       }}
@@ -699,97 +735,139 @@ export default function BookResourcePage({ params }: Props) {
             )}
 
             {/* Date and time */}
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Calendar className="w-4 h-4 inline mr-1" />
-                  Dato *
-                </label>
-                <input
-                  type="date"
-                  lang="no"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="input cursor-pointer w-full"
-                  min={new Date().toISOString().split("T")[0]}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Clock className="w-4 h-4 inline mr-1" />
-                  Fra kl. *
-                </label>
-                <select
-                value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  onMouseDown={(e) => {
-                    // Scroll to bottom when clicking to open dropdown
-                    const select = e.target as HTMLSelectElement
-                    setTimeout(() => {
-                      if (select.options.length > 0) {
-                        select.selectedIndex = select.options.length - 1
-                        // Reset to actual value after a brief moment
-                        setTimeout(() => {
-                          const selectedIndex = Array.from(select.options).findIndex(opt => opt.value === startTime)
-                          if (selectedIndex > 0) {
-                            select.selectedIndex = selectedIndex
-                          }
-                        }, 50)
-                      }
-                    }, 0)
-                  }}
-                  className="input cursor-pointer w-full"
-                required
-                >
-                  <option value="">Velg tid</option>
-                  {timeOptions.map(({ value, label }) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Clock className="w-4 h-4 inline mr-1" />
-                  Til kl. *
-                </label>
-                {usePackage && selectedPackageId ? (
-                  // When using a package, end time is calculated automatically
-                  <div className="input bg-gray-100 flex items-center justify-between">
-                    <span className={endTime ? "text-gray-900" : "text-gray-400"}>
-                      {endTime || "Velg starttid"}
-                    </span>
-                    <span className="text-xs text-gray-500">(automatisk)</span>
-                  </div>
-                ) : (
-                  <select
-                value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    onMouseDown={(e) => {
-                      // Scroll to bottom when clicking to open dropdown
-                      const select = e.target as HTMLSelectElement
-                      setTimeout(() => {
-                        if (select.options.length > 0) {
-                          select.selectedIndex = select.options.length - 1
-                          // Reset to actual value after a brief moment
-                          setTimeout(() => {
-                            const selectedIndex = Array.from(select.options).findIndex(opt => opt.value === endTime)
-                            if (selectedIndex > 0) {
-                              select.selectedIndex = selectedIndex
-                            }
-                          }, 50)
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Fra</h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Calendar className="w-4 h-4 inline mr-1" />
+                      Dato *
+                    </label>
+                    <input
+                      type="date"
+                      lang="no"
+                      value={startDate}
+                      onChange={(e) => {
+                        setStartDate(e.target.value)
+                        // Auto-set end date to same date if not set or if end date is before start date
+                        if (!endDate || (endDate && new Date(e.target.value) > new Date(endDate))) {
+                          setEndDate(e.target.value)
                         }
-                      }, 0)
-                    }}
-                    className="input cursor-pointer w-full"
-                required
-                  >
-                    <option value="">Velg tid</option>
-                    {timeOptions.map(({ value, label }) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                )}
+                      }}
+                      className="input cursor-pointer w-full"
+                      min={new Date().toISOString().split("T")[0]}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Clock className="w-4 h-4 inline mr-1" />
+                      Klokkeslett *
+                    </label>
+                    <select
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      onMouseDown={(e) => {
+                        // Scroll to bottom when clicking to open dropdown
+                        const select = e.target as HTMLSelectElement
+                        setTimeout(() => {
+                          if (select.options.length > 0) {
+                            select.selectedIndex = select.options.length - 1
+                            // Reset to actual value after a brief moment
+                            setTimeout(() => {
+                              const selectedIndex = Array.from(select.options).findIndex(opt => opt.value === startTime)
+                              if (selectedIndex > 0) {
+                                select.selectedIndex = selectedIndex
+                              }
+                            }, 50)
+                          }
+                        }, 0)
+                      }}
+                      className="input cursor-pointer w-full"
+                      required
+                    >
+                      <option value="">Velg tid</option>
+                      {timeOptions.map(({ value, label }) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Til</h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Calendar className="w-4 h-4 inline mr-1" />
+                      Dato *
+                    </label>
+                    {usePackage && selectedPackageId ? (
+                      // When using a package, end date is calculated automatically
+                      <div className="input bg-gray-100 flex items-center justify-between">
+                        <span className={endDate ? "text-gray-900" : "text-gray-400"}>
+                          {endDate ? new Date(endDate).toLocaleDateString("nb-NO") : "Velg startdato"}
+                        </span>
+                        <span className="text-xs text-gray-500">(automatisk)</span>
+                      </div>
+                    ) : (
+                      <input
+                        type="date"
+                        lang="no"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="input cursor-pointer w-full"
+                        min={startDate || new Date().toISOString().split("T")[0]}
+                        required
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Clock className="w-4 h-4 inline mr-1" />
+                      Klokkeslett *
+                    </label>
+                    {usePackage && selectedPackageId ? (
+                      // When using a package, end time is calculated automatically
+                      <div className="input bg-gray-100 flex items-center justify-between">
+                        <span className={endTime ? "text-gray-900" : "text-gray-400"}>
+                          {endTime || "Velg starttid"}
+                        </span>
+                        <span className="text-xs text-gray-500">(automatisk)</span>
+                      </div>
+                    ) : (
+                      <select
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                        onMouseDown={(e) => {
+                          // Scroll to bottom when clicking to open dropdown
+                          const select = e.target as HTMLSelectElement
+                          setTimeout(() => {
+                            if (select.options.length > 0) {
+                              select.selectedIndex = select.options.length - 1
+                              // Reset to actual value after a brief moment
+                              setTimeout(() => {
+                                const selectedIndex = Array.from(select.options).findIndex(opt => opt.value === endTime)
+                                if (selectedIndex > 0) {
+                                  select.selectedIndex = selectedIndex
+                                }
+                              }, 50)
+                            }
+                          }, 0)
+                        }}
+                        className="input cursor-pointer w-full"
+                        required
+                      >
+                        <option value="">Velg tid</option>
+                        {timeOptions.map(({ value, label }) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -844,13 +922,13 @@ export default function BookResourcePage({ params }: Props) {
                       value={recurringEndDate}
                       onChange={(e) => setRecurringEndDate(e.target.value)}
                       className="input cursor-pointer max-w-[200px]"
-                      min={date || new Date().toISOString().split("T")[0]}
+                      min={startDate || new Date().toISOString().split("T")[0]}
                       required={isRecurring}
                     />
                   </div>
-                  {date && recurringEndDate && (
+                  {startDate && recurringEndDate && (
                     <p className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
-                      Dette vil opprette flere bookinger fra {new Date(date).toLocaleDateString("nb-NO")} til {new Date(recurringEndDate).toLocaleDateString("nb-NO")}
+                      Dette vil opprette flere bookinger fra {new Date(startDate).toLocaleDateString("nb-NO")} til {new Date(recurringEndDate).toLocaleDateString("nb-NO")}
                     </p>
                   )}
                 </div>

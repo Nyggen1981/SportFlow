@@ -1064,17 +1064,35 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       {format(new Date(booking.startTime), "d. MMM yyyy", { locale: nb })}
                       </p>
                       <p className="text-xs text-gray-500">
-                      {format(new Date(booking.startTime), "HH:mm")} - {format(new Date(booking.endTime), "HH:mm")}
+                      {(() => {
+                        const start = new Date(booking.startTime)
+                        const end = new Date(booking.endTime)
+                        const startDateStr = format(start, "d. MMM yyyy", { locale: nb })
+                        const endDateStr = format(end, "d. MMM yyyy", { locale: nb })
+                        const isSameDay = startDateStr === endDateStr
+                        
+                        if (isSameDay) {
+                          return `${format(start, "HH:mm")} - ${format(end, "HH:mm")}`
+                        } else {
+                          return `${format(start, "d. MMM HH:mm", { locale: nb })} - ${format(end, "d. MMM HH:mm", { locale: nb })}`
+                        }
+                      })()}
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {(() => {
                           const start = new Date(booking.startTime)
                           const end = new Date(booking.endTime)
-                          let durationMs = end.getTime() - start.getTime()
-                          if (durationMs < 0) {
-                            durationMs += 24 * 60 * 60 * 1000
+                          const durationMs = end.getTime() - start.getTime()
+                          const hours = Math.floor(durationMs / (1000 * 60 * 60))
+                          const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60))
+                          
+                          if (hours === 0) {
+                            return `${minutes} min`
+                          } else if (minutes === 0) {
+                            return `${hours} ${hours === 1 ? "time" : "timer"}`
+                          } else {
+                            return `${hours} ${hours === 1 ? "time" : "timer"} ${minutes} min`
                           }
-                          return `${Math.round((durationMs / (1000 * 60 * 60)) * 10) / 10} timer`
                         })()}
                       </p>
                     </div>
@@ -1136,10 +1154,10 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                 </span>
                                 <span className="text-xs text-gray-500">
                                   {Math.round(Number(payment.amount))} kr
-                                </span>
-                </div>
+                    </span>
+                  </div>
                             ))}
-                          </div>
+                </div>
                         ) : booking.invoice && booking.preferredPaymentMethod === "INVOICE" ? (
                           <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
                             booking.invoice.status === "PAID" 

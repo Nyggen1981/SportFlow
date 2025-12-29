@@ -874,7 +874,19 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
                   <Clock className="w-4 h-4 text-gray-400" />
-                  {format(parseISO(selectedBooking.startTime), "HH:mm")} - {format(parseISO(selectedBooking.endTime), "HH:mm")}
+                  {(() => {
+                    const start = parseISO(selectedBooking.startTime)
+                    const end = parseISO(selectedBooking.endTime)
+                    const startDateStr = format(start, "d. MMM yyyy", { locale: nb })
+                    const endDateStr = format(end, "d. MMM yyyy", { locale: nb })
+                    const isSameDay = startDateStr === endDateStr
+                    
+                    if (isSameDay) {
+                      return `${format(start, "HH:mm")} - ${format(end, "HH:mm")}`
+                    } else {
+                      return `${format(start, "d. MMM HH:mm", { locale: nb })} - ${format(end, "d. MMM HH:mm", { locale: nb })}`
+                    }
+                  })()}
                 </div>
               </div>
             </div>
