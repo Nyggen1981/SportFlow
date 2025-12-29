@@ -45,6 +45,7 @@ export async function GET() {
           invoiceOrgNumber: true,
           invoiceBankAccount: true,
           invoiceNotes: true,
+          isMvaRegistered: true,
           createdAt: true,
           updatedAt: true,
           isActive: true,
@@ -166,8 +167,7 @@ export async function PUT(request: Request) {
         invoiceOrgNumber: invoiceOrgNumber || null,
         invoiceBankAccount: invoiceBankAccount || null,
         invoiceNotes: invoiceNotes || null,
-        // isMvaRegistered legges til etter Prisma regenerering
-        ...(isMvaRegistered !== undefined ? { isMvaRegistered: isMvaRegistered === true } : {}),
+        isMvaRegistered: isMvaRegistered === true,
       }
     })
 
