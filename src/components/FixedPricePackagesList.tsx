@@ -13,64 +13,36 @@ interface FixedPricePackage {
 
 interface FixedPricePackagesListProps {
   packages: FixedPricePackage[]
-  compact?: boolean
 }
 
 function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
-  if (h > 0 && m > 0) return `${h}t ${m}m`
+  if (h > 0 && m > 0) return `${h} timer ${m} min`
   if (h > 0) return `${h} ${h === 1 ? 'time' : 'timer'}`
   return `${m} min`
 }
 
-function formatDurationShort(minutes: number): string {
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (h > 0 && m > 0) return `${h}t${m}m`
-  if (h > 0) return `${h}t`
-  return `${m}m`
-}
-
-export function FixedPricePackagesList({ packages, compact = true }: FixedPricePackagesListProps) {
+export function FixedPricePackagesList({ packages }: FixedPricePackagesListProps) {
   const [selectedPackage, setSelectedPackage] = useState<FixedPricePackage | null>(null)
 
   if (packages.length === 0) return null
 
   return (
     <>
-      {compact ? (
-        <div className="flex flex-wrap gap-1.5">
-          {packages.map(pkg => (
-            <button
-              key={pkg.id}
-              onClick={() => setSelectedPackage(pkg)}
-              className="inline-flex items-center gap-1 text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full hover:bg-purple-200 transition-colors cursor-pointer"
-              title="Klikk for mer info"
-            >
-              <span className="font-medium">{pkg.name}</span>
-              <span className="text-purple-600">{Math.round(pkg.price)}kr/{formatDurationShort(pkg.durationMinutes)}</span>
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div className="grid gap-1.5">
-          {packages.map(pkg => (
-            <button
-              key={pkg.id}
-              onClick={() => setSelectedPackage(pkg)}
-              className="flex items-center justify-between text-sm bg-purple-50 px-3 py-1.5 rounded-md hover:bg-purple-100 transition-colors cursor-pointer text-left w-full"
-              title="Klikk for mer info"
-            >
-              <span className="text-purple-800">{pkg.name}</span>
-              <span className="text-purple-900 font-medium">
-                {Math.round(pkg.price)} kr 
-                <span className="text-purple-600 font-normal"> / {formatDuration(pkg.durationMinutes)}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-1.5">
+        {packages.map(pkg => (
+          <button
+            key={pkg.id}
+            onClick={() => setSelectedPackage(pkg)}
+            className="inline-flex items-center text-xs bg-purple-100 text-purple-800 px-2.5 py-1 rounded-full hover:bg-purple-200 transition-colors cursor-pointer"
+            title="Klikk for mer info"
+          >
+            <span className="font-medium">{pkg.name}:</span>
+            <span className="ml-1 text-purple-900 font-semibold">{Math.round(pkg.price)} kr</span>
+          </button>
+        ))}
+      </div>
 
       {/* Modal for package details */}
       {selectedPackage && (
@@ -95,7 +67,7 @@ export function FixedPricePackagesList({ packages, compact = true }: FixedPriceP
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg">
                 <Tag className="w-5 h-5 text-purple-600" />
                 <div>

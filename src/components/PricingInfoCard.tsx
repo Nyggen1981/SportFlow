@@ -116,7 +116,7 @@ export function PricingInfoCard({
             
             {resourceFixedPackages.length > 0 && (
               <div className="mt-2">
-                <FixedPricePackagesList packages={resourceFixedPackages} compact={true} />
+                <FixedPricePackagesList packages={resourceFixedPackages} />
               </div>
             )}
           </div>
@@ -156,7 +156,7 @@ export function PricingInfoCard({
                   
                   {fixedPackages && fixedPackages.length > 0 && (
                     <div className="mt-2">
-                      <FixedPricePackagesList packages={fixedPackages} compact={true} />
+                      <FixedPricePackagesList packages={fixedPackages} />
                     </div>
                   )}
                 </div>
