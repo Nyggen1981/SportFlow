@@ -223,7 +223,7 @@ export default async function ResourcePage({ params }: Props) {
       if (resource.allowWholeBooking) {
         const packages = await prisma.fixedPricePackage.findMany({
           where: { resourceId: id, resourcePartId: null, isActive: true },
-          select: { id: true, name: true, durationMinutes: true, price: true },
+          select: { id: true, name: true, description: true, durationMinutes: true, price: true },
           orderBy: { sortOrder: "asc" }
         })
         resourceFixedPackages = packages.map(p => ({ ...p, price: Number(p.price) }))
@@ -243,7 +243,7 @@ export default async function ResourcePage({ params }: Props) {
           // Hent fastprispakker for delen
           const fixedPackages = await prisma.fixedPricePackage.findMany({
             where: { resourcePartId: part.id, isActive: true },
-            select: { id: true, name: true, durationMinutes: true, price: true },
+            select: { id: true, name: true, description: true, durationMinutes: true, price: true },
             orderBy: { sortOrder: "asc" }
           })
           
