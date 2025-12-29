@@ -312,10 +312,7 @@ export async function findPricingRuleForUser(
     if (roleInfo.isAdmin) {
       const adminRule = rules.find(r => r.forRoles.includes("admin"))
       if (adminRule) {
-        return { 
-          rule: adminRule, 
-          reason: adminRule.model === "FREE" ? "Gratis for administrator" : undefined 
-        }
+        return { rule: adminRule }
       }
     }
     

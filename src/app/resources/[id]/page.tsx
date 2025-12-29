@@ -629,7 +629,7 @@ export default async function ResourcePage({ params }: Props) {
                   {/* Vis priser for hoveddeler og underdeler */}
                   {sortedPartsPricing.length > 0 && (
                     <div className="space-y-2">
-                      {sortedPartsPricing.map(({ partId, partName, parentId, rule, reason, fixedPackages }) => {
+                      {sortedPartsPricing.map(({ partId, partName, parentId, rule, fixedPackages }) => {
                         const isMember = session?.user?.isMember ?? false
                         
                         const getPricingDescription = (model: PricingModel) => {
@@ -721,11 +721,6 @@ export default async function ResourcePage({ params }: Props) {
                               </div>
                             )}
                             
-                            {reason && (
-                              <p className="text-xs text-gray-500 mt-2 italic">
-                                {reason}
-                              </p>
-                            )}
                           </div>
                         )
                       })}
