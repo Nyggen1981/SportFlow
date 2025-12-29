@@ -564,41 +564,43 @@ export default function AdminBookingsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{formatDateLabel(booking.startTime)}</p>
-                          <p className="text-xs text-gray-500">
-                            {(() => {
-                              const start = parseISO(booking.startTime)
-                              const end = parseISO(booking.endTime)
-                              const startDateStr = format(start, "d. MMM yyyy", { locale: nb })
-                              const endDateStr = format(end, "d. MMM yyyy", { locale: nb })
-                              const isSameDay = startDateStr === endDateStr
-                              
-                              if (isSameDay) {
-                                return `${format(start, "HH:mm")} - ${format(end, "HH:mm")}`
-                              } else {
-                                return `${format(start, "d. MMM HH:mm", { locale: nb })} - ${format(end, "d. MMM HH:mm", { locale: nb })}`
-                              }
-                            })()}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {(() => {
-                              const start = parseISO(booking.startTime)
-                              const end = parseISO(booking.endTime)
-                              const durationMs = end.getTime() - start.getTime()
-                              const hours = Math.floor(durationMs / (1000 * 60 * 60))
-                              const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60))
-                              
-                              if (hours === 0) {
-                                return `${minutes} min`
-                              } else if (minutes === 0) {
-                                return `${hours} ${hours === 1 ? "time" : "timer"}`
-                              } else {
-                                return `${hours} ${hours === 1 ? "time" : "timer"} ${minutes} min`
-                              }
-                            })()}
-                          </p>
-                        </div>
+                        {(() => {
+                          const start = parseISO(booking.startTime)
+                          const end = parseISO(booking.endTime)
+                          const startDateStr = format(start, "d. MMM yyyy", { locale: nb })
+                          const endDateStr = format(end, "d. MMM yyyy", { locale: nb })
+                          const isSameDay = startDateStr === endDateStr
+                          const durationMs = end.getTime() - start.getTime()
+                          const hours = Math.floor(durationMs / (1000 * 60 * 60))
+                          const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60))
+                          
+                          let durationStr = ""
+                          if (hours === 0) {
+                            durationStr = `${minutes} min`
+                          } else if (minutes === 0) {
+                            durationStr = `${hours} ${hours === 1 ? "time" : "timer"}`
+                          } else {
+                            durationStr = `${hours} ${hours === 1 ? "time" : "timer"} ${minutes} min`
+                          }
+                          
+                          if (isSameDay) {
+                            return (
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{formatDateLabel(booking.startTime)}</p>
+                                <p className="text-xs text-gray-500">{format(start, "HH:mm")} - {format(end, "HH:mm")}</p>
+                                <p className="text-xs text-gray-400 mt-0.5">{durationStr}</p>
+                              </div>
+                            )
+                          } else {
+                            return (
+                              <div>
+                                <p className="text-xs text-gray-500">Fra: {format(start, "d. MMM", { locale: nb })} kl. {format(start, "HH:mm")}</p>
+                                <p className="text-xs text-gray-500">Til: {format(end, "d. MMM", { locale: nb })} kl. {format(end, "HH:mm")}</p>
+                                <p className="text-xs text-gray-400 mt-0.5">{durationStr}</p>
+                              </div>
+                            )
+                          }
+                        })()}
                       </td>
                       <td className="px-4 py-4">
                         <div>
@@ -1122,18 +1124,24 @@ export default function AdminBookingsPage() {
               {/* Date and time */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Dato</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Fra</h4>
                   <div className="flex items-center gap-2 text-gray-600">
                     <Calendar className="w-4 h-4 text-gray-400" />
-                    <span>{format(parseISO(selectedBooking.startTime), "EEEE d. MMMM yyyy", { locale: nb })}</span>
+                    <span>
+                      {format(parseISO(selectedBooking.startTime), "EEEE d. MMMM yyyy", { locale: nb })}
+                      {" kl. "}
+                      {format(parseISO(selectedBooking.startTime), "HH:mm")}
+                    </span>
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Tid</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Til</h4>
                   <div className="flex items-center gap-2 text-gray-600">
-                    <Clock className="w-4 h-4 text-gray-400" />
+                    <Calendar className="w-4 h-4 text-gray-400" />
                     <span>
-                      {format(parseISO(selectedBooking.startTime), "HH:mm")} - {format(parseISO(selectedBooking.endTime), "HH:mm")}
+                      {format(parseISO(selectedBooking.endTime), "EEEE d. MMMM yyyy", { locale: nb })}
+                      {" kl. "}
+                      {format(parseISO(selectedBooking.endTime), "HH:mm")}
                     </span>
                   </div>
                 </div>
