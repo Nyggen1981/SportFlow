@@ -1014,7 +1014,7 @@ export default function EditResourcePage({ params }: Props) {
                       const partType = isTopLevel ? "Hoveddel" : "Underdel"
                     
                       return (
-                        <div key={part.id || part.tempId || partIndex} className="p-4 bg-white border border-gray-200 rounded-lg space-y-4">
+                        <div key={part.id || part.tempId || partIndex} className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4">
                           <div className="border-b border-gray-200 pb-2">
                             <h4 className="font-medium text-gray-900">{part.name}</h4>
                             <p className="text-xs text-gray-500">{partType}</p>

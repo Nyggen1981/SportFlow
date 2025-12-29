@@ -43,13 +43,11 @@ export function PartsList({ parts, sortedParts }: PartsListProps) {
               <div 
                 key={part.id} 
                 onClick={() => setSelectedPart(part)}
-                className={`p-2 rounded-lg border cursor-pointer transition-colors ${
-                  isChild 
-                    ? 'ml-4 bg-gray-50 border-gray-200 hover:bg-gray-100' 
-                    : 'bg-white border-gray-300 hover:bg-gray-50'
+                className={`p-2 rounded-lg border cursor-pointer transition-colors bg-gray-50 border-gray-200 hover:bg-gray-100 ${
+                  isChild ? 'ml-4' : ''
                 }`}
               >
-                <span className={`text-sm font-medium ${isChild ? 'text-gray-700' : 'text-gray-900'}`}>
+                <span className="text-sm font-medium text-gray-700">
                   {part.name}
                 </span>
               </div>

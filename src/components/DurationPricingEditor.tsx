@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Trash2, Edit2, X, Clock, DollarSign } from "lucide-react"
+import { Plus, Trash2, Edit2, X, DollarSign } from "lucide-react"
 
 export interface PricingRule {
   forRoles: string[]
@@ -312,8 +312,7 @@ export default function DurationPricingEditor({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-gray-700 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-blue-600" />
+        <h4 className="text-sm font-medium text-gray-700">
           Varighetspriser
         </h4>
         {!disabled && !showAddForm && editingIndex === null && (
