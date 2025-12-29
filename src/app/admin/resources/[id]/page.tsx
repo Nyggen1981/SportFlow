@@ -29,6 +29,7 @@ import {
 import { MapEditor } from "@/components/MapEditor"
 import { PartsHierarchyEditor, HierarchicalPart } from "@/components/PartsHierarchyEditor"
 import FixedPricePackagesEditor from "@/components/FixedPricePackagesEditor"
+import DurationPricingEditor, { PricingRule } from "@/components/DurationPricingEditor"
 
 interface FixedPricePackage {
   id?: string
@@ -58,14 +59,7 @@ interface Part {
   image?: string | null
   parentId?: string | null
   isNew?: boolean
-  pricingRules?: Array<{
-    forRoles: string[]
-    model: "FREE" | "HOURLY" | "DAILY" | "FIXED_DURATION"
-    pricePerHour?: string
-    pricePerDay?: string
-    fixedPrice?: string
-    fixedPriceDuration?: string
-  }>
+  pricingRules?: PricingRule[]
 }
 
 interface Props {
@@ -110,14 +104,7 @@ export default function EditResourcePage({ params }: Props) {
   
   // Pricing state (kun aktiv hvis lisensserver tillater det)
   const [pricingEnabled, setPricingEnabled] = useState(false)
-  const [pricingRules, setPricingRules] = useState<Array<{
-    forRoles: string[]
-    model: "FREE" | "HOURLY" | "DAILY" | "FIXED_DURATION"
-    pricePerHour?: string
-    pricePerDay?: string
-    fixedPrice?: string
-    fixedPriceDuration?: string
-  }>>([])
+  const [pricingRules, setPricingRules] = useState<PricingRule[]>([])
   const [customRoles, setCustomRoles] = useState<Array<{ id: string; name: string }>>([])
   
   // Moderators state
@@ -988,280 +975,21 @@ export default function EditResourcePage({ params }: Props) {
                   </label>
                 </div>
 
-                {/* Fasilitet prislogikk - kun hvis allowWholeBooking er true */}
+                {/* Hele fasiliteten - Prising */}
                 {allowWholeBooking && (
-            <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+                  <div className="space-y-6">
+                    <div className="border-b border-gray-200 pb-2">
                       <h3 className="font-semibold text-gray-900">Hele fasiliteten</h3>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPricingRules([...pricingRules, {
-                          forRoles: [],
-                          model: "FREE"
-                        }])
-                      }}
-                      className="btn btn-secondary text-sm py-1.5 flex items-center gap-1"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Legg til regel
-                    </button>
-                  </div>
-                  
-                  {pricingRules.length === 0 && (
-                    <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500 text-sm">
-                      Ingen pris-regler satt. Klikk "Legg til regel" for å begynne.
                     </div>
-                  )}
-
-                  {pricingRules.map((rule, index) => {
-                    const isDefaultRule = rule.forRoles.length === 0
-                    const hasNoPrices = !rule.pricePerHour && !rule.pricePerDay && !rule.fixedPrice
-                    const isFreeButShouldHavePrice = rule.model === "FREE" && isDefaultRule
                     
-                    return (
-                    <div key={index} className="p-4 bg-white border-2 border-gray-200 rounded-lg space-y-4">
-                      {isFreeButShouldHavePrice && (
-                        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                          <p className="text-sm text-yellow-800">
-                            <strong>Tips:</strong> Standardregelen (ingen roller valgt) er satt til "Gratis". 
-                            Dette betyr at alle som ikke matcher andre regler får gratis tilgang.
-                          </p>
-                        </div>
-                      )}
-                      {rule.model !== "FREE" && hasNoPrices && (
-                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                          <p className="text-sm text-red-800">
-                            <strong>Feil:</strong> Du har valgt en pris-modell, men ingen pris er satt. 
-                            Sett en pris for at regelen skal fungere.
-                          </p>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between border-b pb-2">
-                        <h3 className="font-semibold text-gray-900">Regel {index + 1}</h3>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPricingRules(pricingRules.filter((_, i) => i !== index))
-                          }}
-                          className="text-red-600 hover:text-red-700 p-1 hover:bg-red-50 rounded"
-                          title="Fjern regel"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
+                    {/* Varighetspriser (timepris, døgnpris, gratis) */}
+                    <DurationPricingEditor
+                      rules={pricingRules}
+                      onChange={setPricingRules}
+                      customRoles={customRoles}
+                    />
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Gjelder for roller
-                      </label>
-                      <div className="space-y-2 p-3 bg-gray-50 rounded-lg">
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={rule.forRoles.includes("admin")}
-                            onChange={(e) => {
-                              const newRules = [...pricingRules]
-                              if (e.target.checked) {
-                                newRules[index].forRoles = [...newRules[index].forRoles, "admin"]
-                              } else {
-                                newRules[index].forRoles = newRules[index].forRoles.filter(r => r !== "admin")
-                              }
-                              setPricingRules(newRules)
-                            }}
-                            className="w-4 h-4"
-                          />
-                          <span className="text-sm text-gray-700">Administrator</span>
-                        </label>
-                        <label className="flex items-center gap-2" title="Godkjente medlemmer av organisasjonen">
-                          <input
-                            type="checkbox"
-                            checked={rule.forRoles.includes("member")}
-                            onChange={(e) => {
-                              const newRules = [...pricingRules]
-                              if (e.target.checked) {
-                                newRules[index].forRoles = [...newRules[index].forRoles, "member"]
-                              } else {
-                                newRules[index].forRoles = newRules[index].forRoles.filter(r => r !== "member")
-                              }
-                              setPricingRules(newRules)
-                            }}
-                            className="w-4 h-4"
-                          />
-                          <span className="text-sm text-gray-700">Medlem</span>
-                        </label>
-                        {customRoles.map(role => (
-                          <label key={role.id} className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={rule.forRoles.includes(role.id)}
-                              onChange={(e) => {
-                                const newRules = [...pricingRules]
-                                if (e.target.checked) {
-                                  newRules[index].forRoles = [...newRules[index].forRoles, role.id]
-                                } else {
-                                  newRules[index].forRoles = newRules[index].forRoles.filter(r => r !== role.id)
-                                }
-                                setPricingRules(newRules)
-                              }}
-                              className="w-4 h-4"
-                            />
-                            <span className="text-sm text-gray-700">{role.name}</span>
-                          </label>
-                        ))}
-                        <label className="flex items-center gap-2" title="Innloggede brukere som ikke er godkjent som medlemmer">
-                          <input
-                            type="checkbox"
-                            checked={rule.forRoles.includes("user")}
-                            onChange={(e) => {
-                              const newRules = [...pricingRules]
-                              if (e.target.checked) {
-                                newRules[index].forRoles = [...newRules[index].forRoles, "user"]
-                              } else {
-                                newRules[index].forRoles = newRules[index].forRoles.filter(r => r !== "user")
-                              }
-                              setPricingRules(newRules)
-                            }}
-                            className="w-4 h-4"
-                          />
-                          <span className="text-sm text-gray-700">Ikke medlem</span>
-                        </label>
-                        {rule.forRoles.length === 0 && (
-                          <p className="text-xs text-gray-500 italic">
-                            Ingen roller valgt = standard for alle som ikke dekkes av andre regler
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Pris-modell
-                      </label>
-                      <select
-                        value={rule.model}
-                        onChange={(e) => {
-                          const newRules = [...pricingRules]
-                          newRules[index].model = e.target.value as typeof rule.model
-                          setPricingRules(newRules)
-                        }}
-                        className="input"
-                      >
-                        <option value="FREE">Gratis</option>
-                        <option value="HOURLY">Per time</option>
-                        <option value="DAILY">Per døgn</option>
-                        <option value="FIXED_DURATION">Fast pris (med varighet)</option>
-                      </select>
-                    </div>
-
-                    {rule.model === "HOURLY" && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Pris per time (NOK)
-                        </label>
-                        <input
-                          type="number"
-                          value={rule.pricePerHour || ""}
-                          onChange={(e) => {
-                            const newRules = [...pricingRules]
-                            newRules[index].pricePerHour = e.target.value
-                            setPricingRules(newRules)
-                          }}
-                          className="input max-w-[200px]"
-                          placeholder="500"
-                          min="0"
-                          step="1"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Vil du ha ulik pris for medlemmer og ikke-medlemmer? Lag separate regler for hver.
-                        </p>
-                      </div>
-                    )}
-
-                    {rule.model === "DAILY" && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Pris per døgn (NOK)
-                        </label>
-                        <input
-                          type="number"
-                          value={rule.pricePerDay || ""}
-                          onChange={(e) => {
-                            const newRules = [...pricingRules]
-                            newRules[index].pricePerDay = e.target.value
-                            setPricingRules(newRules)
-                          }}
-                          className="input max-w-[200px]"
-                          placeholder="2000"
-                          min="0"
-                          step="1"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Vil du ha ulik pris for medlemmer og ikke-medlemmer? Lag separate regler for hver.
-                        </p>
-                      </div>
-                    )}
-
-                    {rule.model === "FIXED_DURATION" && (
-                      <>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Fast pris (NOK)
-                            </label>
-                            <input
-                              type="number"
-                              value={rule.fixedPrice || ""}
-                              onChange={(e) => {
-                                const newRules = [...pricingRules]
-                                newRules[index].fixedPrice = e.target.value
-                                setPricingRules(newRules)
-                              }}
-                              className="input"
-                              placeholder="1000"
-                              min="0"
-                              step="1"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Varighet (minutter)
-                            </label>
-                            <input
-                              type="number"
-                              value={rule.fixedPriceDuration || ""}
-                              onChange={(e) => {
-                                const newRules = [...pricingRules]
-                                newRules[index].fixedPriceDuration = e.target.value
-                                setPricingRules(newRules)
-                              }}
-                              className="input"
-                              placeholder="120"
-                              min="1"
-                            />
-                          </div>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Vil du ha ulik pris for medlemmer og ikke-medlemmer? Lag separate regler for hver.
-                        </p>
-                      </>
-                    )}
-                  </div>
-                    )
-                  })}
-                  </div>
-                )}
-
-                {/* Fastprispakker for hele fasiliteten */}
-                {allowWholeBooking && (
-                  <div className="space-y-4 pt-6 border-t-2 border-gray-200">
-                    <div className="flex items-center justify-between border-b border-gray-200 pb-2">
-                      <h3 className="font-semibold text-gray-900">Fastprispakker (hele fasiliteten)</h3>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Fastprispakker gir brukere mulighet til å velge en forhåndsdefinert pakke med fast varighet og pris.
-                      Når en bruker velger en pakke, angir de kun starttidspunkt - sluttid beregnes automatisk.
-                    </p>
+                    {/* Fastprispakker */}
                     <FixedPricePackagesEditor
                       resourceId={id}
                       packages={fixedPricePackages}
@@ -1282,40 +1010,29 @@ export default function EditResourcePage({ params }: Props) {
                     </p>
                     
                     {parts.map((part, partIndex) => {
-                    const partPricingRules = part.pricingRules || []
-                    const isTopLevel = !part.parentId
-                    const partType = isTopLevel ? "Hoveddel" : "Underdel"
+                      const isTopLevel = !part.parentId
+                      const partType = isTopLevel ? "Hoveddel" : "Underdel"
                     
-                    return (
-                      <div key={part.id || part.tempId || partIndex} className="p-4 bg-white border border-gray-200 rounded-lg space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div>
+                      return (
+                        <div key={part.id || part.tempId || partIndex} className="p-4 bg-white border border-gray-200 rounded-lg space-y-4">
+                          <div className="border-b border-gray-200 pb-2">
                             <h4 className="font-medium text-gray-900">{part.name}</h4>
                             <p className="text-xs text-gray-500">{partType}</p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
+                        
+                          {/* Varighetspriser for denne delen */}
+                          <DurationPricingEditor
+                            rules={part.pricingRules || []}
+                            onChange={(newRules) => {
                               const newParts = [...parts]
-                              if (!newParts[partIndex].pricingRules) {
-                                newParts[partIndex].pricingRules = []
-                              }
-                              newParts[partIndex].pricingRules!.push({
-                                forRoles: [],
-                                model: "FREE"
-                              })
+                              newParts[partIndex].pricingRules = newRules
                               setParts(newParts)
                             }}
-                            className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                          >
-                            <Plus className="w-4 h-4" />
-                            Legg til pris-regel
-                          </button>
-                        </div>
+                            customRoles={customRoles}
+                          />
                         
-                        {/* Fastprispakker for denne delen */}
-                        {part.id && (
-                          <div className="mt-4 pt-4 border-t border-gray-200">
+                          {/* Fastprispakker for denne delen */}
+                          {part.id ? (
                             <FixedPricePackagesEditor
                               resourcePartId={part.id}
                               packages={partFixedPricePackages[part.id] || []}
@@ -1327,243 +1044,14 @@ export default function EditResourcePage({ params }: Props) {
                               }}
                               customRoles={customRoles}
                             />
-                          </div>
-                        )}
-                        {!part.id && (
-                          <p className="text-xs text-gray-500 italic mt-2">
-                            Lagre fasiliteten først for å kunne legge til fastprispakker på denne delen.
-                          </p>
-                        )}
-
-                        {partPricingRules.length === 0 ? (
-                          <p className="text-xs text-gray-500 italic">
-                            Ingen prislogikk satt. Bruker fasilitetens prislogikk.
-                          </p>
-                        ) : (
-                          <div className="space-y-3">
-                            {partPricingRules.map((rule, ruleIndex) => (
-                              <div key={ruleIndex} className="p-3 bg-gray-50 rounded-lg space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium text-gray-700">Regel {ruleIndex + 1}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newParts = [...parts]
-                                      newParts[partIndex].pricingRules = partPricingRules.filter((_, i) => i !== ruleIndex)
-                                      setParts(newParts)
-                                    }}
-                                    className="text-red-600 hover:text-red-700"
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </button>
-                                </div>
-                                
-                                {/* Same pricing rule UI as for resource - simplified version */}
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                                    Gjelder for roller
-                                  </label>
-                                  <div className="space-y-1 p-2 bg-white rounded border border-gray-200">
-                                    <label className="flex items-center gap-2">
-                                      <input
-                                        type="checkbox"
-                                        checked={rule.forRoles.includes("admin")}
-                                        onChange={(e) => {
-                                          const newParts = [...parts]
-                                          const newRules = [...partPricingRules]
-                                          if (e.target.checked) {
-                                            newRules[ruleIndex].forRoles = [...newRules[ruleIndex].forRoles, "admin"]
-                                          } else {
-                                            newRules[ruleIndex].forRoles = newRules[ruleIndex].forRoles.filter(r => r !== "admin")
-                                          }
-                                          newParts[partIndex].pricingRules = newRules
-                                          setParts(newParts)
-                                        }}
-                                        className="w-3.5 h-3.5"
-                                      />
-                                      <span className="text-xs text-gray-700">Administrator</span>
-                                    </label>
-                                    <label className="flex items-center gap-2" title="Godkjente medlemmer av organisasjonen">
-                                      <input
-                                        type="checkbox"
-                                        checked={rule.forRoles.includes("member")}
-                                        onChange={(e) => {
-                                          const newParts = [...parts]
-                                          const newRules = [...partPricingRules]
-                                          if (e.target.checked) {
-                                            newRules[ruleIndex].forRoles = [...newRules[ruleIndex].forRoles, "member"]
-                                          } else {
-                                            newRules[ruleIndex].forRoles = newRules[ruleIndex].forRoles.filter(r => r !== "member")
-                                          }
-                                          newParts[partIndex].pricingRules = newRules
-                                          setParts(newParts)
-                                        }}
-                                        className="w-3.5 h-3.5"
-                                      />
-                                      <span className="text-xs text-gray-700">Medlem</span>
-                                    </label>
-                                    <label className="flex items-center gap-2" title="Innloggede brukere som ikke er godkjent som medlemmer">
-                                      <input
-                                        type="checkbox"
-                                        checked={rule.forRoles.includes("user")}
-                                        onChange={(e) => {
-                                          const newParts = [...parts]
-                                          const newRules = [...partPricingRules]
-                                          if (e.target.checked) {
-                                            newRules[ruleIndex].forRoles = [...newRules[ruleIndex].forRoles, "user"]
-                                          } else {
-                                            newRules[ruleIndex].forRoles = newRules[ruleIndex].forRoles.filter(r => r !== "user")
-                                          }
-                                          newParts[partIndex].pricingRules = newRules
-                                          setParts(newParts)
-                                        }}
-                                        className="w-3.5 h-3.5"
-                                      />
-                                      <span className="text-xs text-gray-700">Ikke medlem</span>
-                                    </label>
-                                    {customRoles.map(role => (
-                                      <label key={role.id} className="flex items-center gap-2">
-                                        <input
-                                          type="checkbox"
-                                          checked={rule.forRoles.includes(role.id)}
-                                          onChange={(e) => {
-                                            const newParts = [...parts]
-                                            const newRules = [...partPricingRules]
-                                            if (e.target.checked) {
-                                              newRules[ruleIndex].forRoles = [...newRules[ruleIndex].forRoles, role.id]
-                                            } else {
-                                              newRules[ruleIndex].forRoles = newRules[ruleIndex].forRoles.filter(r => r !== role.id)
-                                            }
-                                            newParts[partIndex].pricingRules = newRules
-                                            setParts(newParts)
-                                          }}
-                                          className="w-3.5 h-3.5"
-                                        />
-                                        <span className="text-xs text-gray-700">{role.name}</span>
-                                      </label>
-                                    ))}
-                                  </div>
-                                </div>
-                                
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                                    Pris-modell
-                                  </label>
-                                  <select
-                                    value={rule.model}
-                                    onChange={(e) => {
-                                      const newParts = [...parts]
-                                      const newRules = [...partPricingRules]
-                                      newRules[ruleIndex].model = e.target.value as typeof rule.model
-                                      newParts[partIndex].pricingRules = newRules
-                                      setParts(newParts)
-                                    }}
-                                    className="input text-sm"
-                                  >
-                                    <option value="FREE">Gratis</option>
-                                    <option value="HOURLY">Per time</option>
-                                    <option value="DAILY">Per døgn</option>
-                                    <option value="FIXED_DURATION">Fast pris (med varighet)</option>
-                                  </select>
-                                </div>
-                                
-                                {/* Simplified price inputs - one price per rule */}
-                                {rule.model === "HOURLY" && (
-                                  <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                                      Pris per time (NOK)
-                                    </label>
-                                    <input
-                                      type="number"
-                                      value={rule.pricePerHour || ""}
-                                      onChange={(e) => {
-                                        const newParts = [...parts]
-                                        const newRules = [...partPricingRules]
-                                        newRules[ruleIndex].pricePerHour = e.target.value
-                                        newParts[partIndex].pricingRules = newRules
-                                        setParts(newParts)
-                                      }}
-                                      className="input text-sm max-w-[150px]"
-                                      placeholder="500"
-                                      min="0"
-                                      step="1"
-                                    />
-                                  </div>
-                                )}
-                                
-                                {rule.model === "DAILY" && (
-                                  <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                                      Pris per døgn (NOK)
-                                    </label>
-                                    <input
-                                      type="number"
-                                      value={rule.pricePerDay || ""}
-                                      onChange={(e) => {
-                                        const newParts = [...parts]
-                                        const newRules = [...partPricingRules]
-                                        newRules[ruleIndex].pricePerDay = e.target.value
-                                        newParts[partIndex].pricingRules = newRules
-                                        setParts(newParts)
-                                      }}
-                                      className="input text-sm max-w-[150px]"
-                                      placeholder="2000"
-                                      min="0"
-                                      step="1"
-                                    />
-                                  </div>
-                                )}
-                                
-                                {rule.model === "FIXED_DURATION" && (
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                                        Fast pris (NOK)
-                                      </label>
-                                      <input
-                                        type="number"
-                                        value={rule.fixedPrice || ""}
-                                        onChange={(e) => {
-                                          const newParts = [...parts]
-                                          const newRules = [...partPricingRules]
-                                          newRules[ruleIndex].fixedPrice = e.target.value
-                                          newParts[partIndex].pricingRules = newRules
-                                          setParts(newParts)
-                                        }}
-                                        className="input text-sm"
-                                        placeholder="1000"
-                                        min="0"
-                                        step="1"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                                        Varighet (min)
-                                      </label>
-                                      <input
-                                        type="number"
-                                        value={rule.fixedPriceDuration || ""}
-                                        onChange={(e) => {
-                                          const newParts = [...parts]
-                                          const newRules = [...partPricingRules]
-                                          newRules[ruleIndex].fixedPriceDuration = e.target.value
-                                          newParts[partIndex].pricingRules = newRules
-                                          setParts(newParts)
-                                        }}
-                                        className="input text-sm"
-                                        placeholder="120"
-                                        min="1"
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
+                          ) : (
+                            <p className="text-xs text-gray-500 italic">
+                              Lagre fasiliteten først for å kunne legge til fastprispakker på denne delen.
+                            </p>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
