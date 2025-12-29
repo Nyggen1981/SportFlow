@@ -281,6 +281,8 @@ export async function sendVippsPaymentEmail(
   const { sendEmail } = await import("./email")
   const { format } = await import("date-fns")
   const { nb } = await import("date-fns/locale")
+  const { formatInTimeZone } = await import("date-fns-tz")
+  const TIMEZONE = "Europe/Oslo"
 
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
@@ -309,8 +311,8 @@ export async function sendVippsPaymentEmail(
     ? `${booking.resource.name} → ${booking.resourcePart.name}`
     : booking.resource.name
 
-  const date = format(new Date(booking.startTime), "EEEE d. MMMM yyyy", { locale: nb })
-  const time = `${format(new Date(booking.startTime), "HH:mm")} - ${format(new Date(booking.endTime), "HH:mm")}`
+  const date = formatInTimeZone(new Date(booking.startTime), TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb })
+  const time = `${formatInTimeZone(new Date(booking.startTime), TIMEZONE, "HH:mm")} - ${formatInTimeZone(new Date(booking.endTime), TIMEZONE, "HH:mm")}`
 
   const billingEmail = booking.contactEmail || booking.user.email
   if (!billingEmail) {

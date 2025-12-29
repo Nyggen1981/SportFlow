@@ -2,7 +2,10 @@ import { prisma } from "./prisma"
 import { sendEmail } from "./email"
 import { format } from "date-fns"
 import { nb } from "date-fns/locale"
+import { formatInTimeZone } from "date-fns-tz"
 import { generateInvoicePDF } from "./invoice-pdf"
+
+const TIMEZONE = "Europe/Oslo"
 
 /**
  * Oppretter en faktura for en booking
@@ -181,7 +184,7 @@ export async function sendInvoiceEmail(
       const bookingResourceName = b.resourcePart 
         ? `${b.resource.name} - ${b.resourcePart.name}` 
         : b.resource.name;
-      const dateTime = `${format(new Date(b.startTime), "d. MMM yyyy HH:mm", { locale: nb })} - ${format(new Date(b.endTime), "HH:mm", { locale: nb })}`;
+      const dateTime = `${formatInTimeZone(new Date(b.startTime), TIMEZONE, "d. MMM yyyy HH:mm", { locale: nb })} - ${formatInTimeZone(new Date(b.endTime), TIMEZONE, "HH:mm", { locale: nb })}`;
       
       return {
         description: cleanTitle,
@@ -199,8 +202,8 @@ export async function sendInvoiceEmail(
     notes: invoice.notes,
   })
 
-  const date = format(new Date(booking.startTime), "EEEE d. MMMM yyyy", { locale: nb })
-  const time = `${format(new Date(booking.startTime), "HH:mm")} - ${format(new Date(booking.endTime), "HH:mm")}`
+  const date = formatInTimeZone(new Date(booking.startTime), TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb })
+  const time = `${formatInTimeZone(new Date(booking.startTime), TIMEZONE, "HH:mm")} - ${formatInTimeZone(new Date(booking.endTime), TIMEZONE, "HH:mm")}`
   const dueDateFormatted = format(new Date(invoice.dueDate), "d. MMMM yyyy", { locale: nb })
 
   const html = `
