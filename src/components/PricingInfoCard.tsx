@@ -143,8 +143,8 @@ export function PricingInfoCard({
               return (
                 <div 
                   key={partId} 
-                  className={`p-3 rounded-lg border shadow-sm ${
-                    isChildPart ? 'ml-4 bg-gray-50 border-gray-200' : 'bg-white border-gray-200'
+                  className={`p-3 rounded-lg border shadow-sm bg-gray-50 border-gray-200 ${
+                    isChildPart ? 'ml-4' : ''
                   }`}
                 >
                   <div className="flex items-center justify-between">

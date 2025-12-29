@@ -235,6 +235,7 @@ export default function BookResourcePage({ params }: Props) {
   
   // Pricing access state - tracks if user has hourly/daily pricing access
   const [hasHourlyAccess, setHasHourlyAccess] = useState(false)
+  const [isPricingLoading, setIsPricingLoading] = useState(false)
 
   const fetchResource = useCallback(async () => {
     try {
@@ -257,85 +258,76 @@ export default function BookResourcePage({ params }: Props) {
       .catch(() => setPricingEnabled(false))
   }, [fetchResource])
   
-  // Sjekk om brukeren har tilgang til timepris for valgt ressurs/del
+  // Last både fastprispakker og sjekk tilgang i samme effect for å unngå "hopping"
   useEffect(() => {
     if (!pricingEnabled || !resource) {
       setHasHourlyAccess(true) // No pricing = all access
-      return
-    }
-    
-    const checkAccess = async () => {
-      try {
-        const partId = selectedParts.length > 0 ? selectedParts[0] : null
-        const url = partId 
-          ? `/api/pricing/access?resourceId=${id}&resourcePartId=${partId}`
-          : `/api/pricing/access?resourceId=${id}`
-        
-        const res = await fetch(url)
-        if (res.ok) {
-          const data = await res.json()
-          setHasHourlyAccess(data.hasHourlyAccess || false)
-          
-          // Hvis brukeren ikke har timepris-tilgang og det er pakker, velg automatisk første pakke
-          if (!data.hasHourlyAccess && availablePackages.length > 0 && !selectedPackageId) {
-            setUsePackage(true)
-            setSelectedPackageId(availablePackages[0].id)
-          }
-        } else {
-          setHasHourlyAccess(false)
-        }
-      } catch (error) {
-        console.error("Error checking pricing access:", error)
-        setHasHourlyAccess(false)
-      }
-    }
-    
-    checkAccess()
-  }, [pricingEnabled, resource, selectedParts, id, availablePackages, selectedPackageId])
-
-  // Load fixed price packages when resource/parts change
-  useEffect(() => {
-    if (!pricingEnabled || !resource) {
       setAvailablePackages([])
+      setIsPricingLoading(false)
       return
     }
 
-    const loadPackages = async () => {
+    const loadPricingData = async () => {
+      setIsPricingLoading(true)
+      
       try {
-        // Determine what to load packages for
-        // Priority: selected part > whole resource
         const partId = selectedParts.length > 0 ? selectedParts[0] : null
         
-        // Fetch packages for the selected part or whole resource
-        const url = partId 
-          ? `/api/fixed-price-packages?resourcePartId=${partId}`
-          : `/api/fixed-price-packages?resourceId=${id}`
+        // Hent både pakker og tilgang parallelt
+        const [packagesRes, accessRes] = await Promise.all([
+          fetch(partId 
+            ? `/api/fixed-price-packages?resourcePartId=${partId}`
+            : `/api/fixed-price-packages?resourceId=${id}`
+          ),
+          fetch(partId 
+            ? `/api/pricing/access?resourceId=${id}&resourcePartId=${partId}`
+            : `/api/pricing/access?resourceId=${id}`
+          )
+        ])
         
-        const res = await fetch(url)
-        if (res.ok) {
-          const data = await res.json()
-          // Only show active packages
-          const activePackages = (Array.isArray(data) ? data : [])
+        // Behandle pakker
+        let activePackages: FixedPricePackage[] = []
+        if (packagesRes.ok) {
+          const data = await packagesRes.json()
+          activePackages = (Array.isArray(data) ? data : [])
             .filter((p: FixedPricePackage) => p.isActive)
             .map((p: any) => ({ ...p, price: Number(p.price) }))
-          setAvailablePackages(activePackages)
-          
-          // If no packages available, reset package selection
-          if (activePackages.length === 0) {
-            setSelectedPackageId(null)
-            setUsePackage(false)
-          }
-        } else {
-          setAvailablePackages([])
         }
-      } catch (e) {
-        console.error("Error loading fixed price packages:", e)
+        
+        // Behandle tilgang
+        let hourlyAccess = false
+        if (accessRes.ok) {
+          const accessData = await accessRes.json()
+          hourlyAccess = accessData.hasHourlyAccess || false
+        }
+        
+        // Oppdater alle state samtidig for å unngå "hopping"
+        setAvailablePackages(activePackages)
+        setHasHourlyAccess(hourlyAccess)
+        
+        // Hvis brukeren ikke har timepris-tilgang og det er pakker, velg automatisk første pakke
+        if (!hourlyAccess && activePackages.length > 0 && !selectedPackageId) {
+          setUsePackage(true)
+          setSelectedPackageId(activePackages[0].id)
+        }
+        
+        // Hvis ingen pakker tilgjengelig, reset valg
+        if (activePackages.length === 0) {
+          setSelectedPackageId(null)
+          setUsePackage(false)
+        }
+        
+      } catch (error) {
+        console.error("Error loading pricing data:", error)
         setAvailablePackages([])
+        setHasHourlyAccess(false)
+      } finally {
+        setIsPricingLoading(false)
       }
     }
 
-    loadPackages()
-  }, [pricingEnabled, resource, selectedParts, id])
+    loadPricingData()
+  }, [pricingEnabled, resource, selectedParts, id, selectedPackageId])
 
   // When a package is selected, auto-calculate end time and date
   useEffect(() => {
@@ -710,77 +702,84 @@ export default function BookResourcePage({ params }: Props) {
             )}
 
             {/* Fixed Price Packages selection (if available) OR hourly pricing access */}
-            {pricingEnabled && (availablePackages.length > 0 || hasHourlyAccess) && (
+            {pricingEnabled && (
               <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200 rounded-xl space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium text-gray-900">Velg type booking</h3>
                 </div>
                 
-                <div className="space-y-2">
-                  {/* Option: Manual time selection - only show if user has hourly access */}
-                  {hasHourlyAccess && (
-                    <label className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                      !usePackage ? 'border-blue-500 bg-white' : 'border-gray-200 bg-white hover:bg-gray-50'
-                    }`}>
-                      <input
-                        type="radio"
-                        name="bookingType"
-                        checked={!usePackage}
-                        onChange={() => {
-                          setUsePackage(false)
-                          setSelectedPackageId(null)
-                          setEndDate("")
-                          setEndTime("")
-                          setCalculatedPrice(null)
-                        }}
-                        className="mt-1 w-4 h-4 text-blue-600"
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">Timeleie</div>
-                        <div className="text-sm text-gray-500">
-                          Velg varighet selv - pris beregnes per time
+                {isPricingLoading ? (
+                  <div className="p-4 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+                    <span className="ml-2 text-sm text-gray-600">Laster priser...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {/* Option: Manual time selection - only show if user has hourly access */}
+                    {hasHourlyAccess && (
+                      <label className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                        !usePackage ? 'border-blue-500 bg-white' : 'border-gray-200 bg-white hover:bg-gray-50'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="bookingType"
+                          checked={!usePackage}
+                          onChange={() => {
+                            setUsePackage(false)
+                            setSelectedPackageId(null)
+                            setEndDate("")
+                            setEndTime("")
+                            setCalculatedPrice(null)
+                          }}
+                          className="mt-1 w-4 h-4 text-blue-600"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">Timeleie</div>
+                          <div className="text-sm text-gray-500">
+                            Velg varighet selv - pris beregnes per time
+                          </div>
                         </div>
+                      </label>
+                    )}
+                    
+                    {/* Package options */}
+                    {availablePackages.map(pkg => (
+                      <label key={pkg.id} className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+                        usePackage && selectedPackageId === pkg.id ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-white hover:bg-gray-50'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="bookingType"
+                          checked={usePackage && selectedPackageId === pkg.id}
+                          onChange={() => {
+                            setUsePackage(true)
+                            setSelectedPackageId(pkg.id)
+                          }}
+                          className="mt-1 w-4 h-4 text-purple-600"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-gray-900">{pkg.name}</span>
+                            <span className="font-bold text-purple-700">{pkg.price.toFixed(0)} kr</span>
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            Varighet: {formatDuration(pkg.durationMinutes)}
+                            {pkg.description && ` - ${pkg.description}`}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                    
+                    {/* Message when user has no options */}
+                    {!hasHourlyAccess && availablePackages.length === 0 && (
+                      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-sm text-yellow-800">
+                          Du har ikke tilgang til å booke denne fasiliteten med din nåværende rolle.
+                        </p>
                       </div>
-                    </label>
-                  )}
-                  
-                  {/* Package options */}
-                  {availablePackages.map(pkg => (
-                    <label key={pkg.id} className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                      usePackage && selectedPackageId === pkg.id ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-white hover:bg-gray-50'
-                    }`}>
-                      <input
-                        type="radio"
-                        name="bookingType"
-                        checked={usePackage && selectedPackageId === pkg.id}
-                        onChange={() => {
-                          setUsePackage(true)
-                          setSelectedPackageId(pkg.id)
-                        }}
-                        className="mt-1 w-4 h-4 text-purple-600"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-gray-900">{pkg.name}</span>
-                          <span className="font-bold text-purple-700">{pkg.price.toFixed(0)} kr</span>
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Varighet: {formatDuration(pkg.durationMinutes)}
-                          {pkg.description && ` - ${pkg.description}`}
-                        </div>
-                      </div>
-                    </label>
-                  ))}
-                  
-                  {/* Message when user has no options */}
-                  {!hasHourlyAccess && availablePackages.length === 0 && (
-                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <p className="text-sm text-yellow-800">
-                        Du har ikke tilgang til å booke denne fasiliteten med din nåværende rolle.
-                      </p>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
