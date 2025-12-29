@@ -15,7 +15,8 @@ export async function GET() {
       return NextResponse.json({ error: "Organization ID missing" }, { status: 400 })
     }
 
-    // First try with all fields, fall back to basic fields if some don't exist
+    // First try with all fields including isMvaRegistered
+    // If that fails, try without isMvaRegistered (column might not exist in DB yet)
     let org
     try {
       org = await prisma.organization.findUnique({
@@ -54,22 +55,61 @@ export async function GET() {
         }
       })
     } catch (selectError: any) {
-      // If some fields don't exist, try with basic fields only
-      console.warn("Full select failed, trying basic fields:", selectError.message)
-      org = await prisma.organization.findUnique({
-        where: { id: session.user.organizationId },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          logo: true,
-          tagline: true,
-          primaryColor: true,
-          secondaryColor: true,
-          createdAt: true,
-          updatedAt: true
-        }
-      })
+      // isMvaRegistered might not exist in DB yet, try without it
+      console.warn("Full select failed, trying without isMvaRegistered:", selectError.message)
+      try {
+        org = await prisma.organization.findUnique({
+          where: { id: session.user.organizationId },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logo: true,
+            tagline: true,
+            primaryColor: true,
+            secondaryColor: true,
+            requireUserApproval: true,
+            smtpHost: true,
+            smtpPort: true,
+            smtpUser: true,
+            smtpPass: true,
+            smtpFrom: true,
+            licenseKey: true,
+            vippsClientId: true,
+            vippsClientSecret: true,
+            vippsSubscriptionKey: true,
+            vippsTestMode: true,
+            invoiceAddress: true,
+            invoicePhone: true,
+            invoiceEmail: true,
+            invoiceOrgNumber: true,
+            invoiceBankAccount: true,
+            invoiceNotes: true,
+            createdAt: true,
+            updatedAt: true,
+            isActive: true,
+            subscriptionEndsAt: true,
+            graceEndsAt: true
+          }
+        })
+      } catch (fallbackError: any) {
+        // Last resort - basic fields only
+        console.warn("Fallback select also failed, using basic fields:", fallbackError.message)
+        org = await prisma.organization.findUnique({
+          where: { id: session.user.organizationId },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logo: true,
+            tagline: true,
+            primaryColor: true,
+            secondaryColor: true,
+            createdAt: true,
+            updatedAt: true
+          }
+        })
+      }
     }
 
     if (!org) {
@@ -141,35 +181,51 @@ export async function PUT(request: Request) {
       }
     }
 
-    const updated = await prisma.organization.update({
-      where: { id: session.user.organizationId },
-      data: {
-        name,
-        slug,
-        logo,
-        tagline,
-        primaryColor,
-        secondaryColor,
-        requireUserApproval: requireUserApproval !== undefined ? requireUserApproval : true,
-        smtpHost: smtpHost || null,
-        smtpPort: smtpPort ? parseInt(smtpPort) : null,
-        smtpUser: smtpUser || null,
-        smtpPass: smtpPass || null,
-        smtpFrom: smtpFrom || null,
-        licenseKey: licenseKey || null,
-        vippsClientId: vippsClientId || null,
-        vippsClientSecret: vippsClientSecret || null,
-        vippsSubscriptionKey: vippsSubscriptionKey || null,
-        vippsTestMode: vippsTestMode !== undefined ? vippsTestMode : true,
-        invoiceAddress: invoiceAddress || null,
-        invoicePhone: invoicePhone || null,
-        invoiceEmail: invoiceEmail || null,
-        invoiceOrgNumber: invoiceOrgNumber || null,
-        invoiceBankAccount: invoiceBankAccount || null,
-        invoiceNotes: invoiceNotes || null,
-        isMvaRegistered: isMvaRegistered === true,
-      }
-    })
+    // Build update data - isMvaRegistered might not exist in DB yet
+    const baseData = {
+      name,
+      slug,
+      logo,
+      tagline,
+      primaryColor,
+      secondaryColor,
+      requireUserApproval: requireUserApproval !== undefined ? requireUserApproval : true,
+      smtpHost: smtpHost || null,
+      smtpPort: smtpPort ? parseInt(smtpPort) : null,
+      smtpUser: smtpUser || null,
+      smtpPass: smtpPass || null,
+      smtpFrom: smtpFrom || null,
+      licenseKey: licenseKey || null,
+      vippsClientId: vippsClientId || null,
+      vippsClientSecret: vippsClientSecret || null,
+      vippsSubscriptionKey: vippsSubscriptionKey || null,
+      vippsTestMode: vippsTestMode !== undefined ? vippsTestMode : true,
+      invoiceAddress: invoiceAddress || null,
+      invoicePhone: invoicePhone || null,
+      invoiceEmail: invoiceEmail || null,
+      invoiceOrgNumber: invoiceOrgNumber || null,
+      invoiceBankAccount: invoiceBankAccount || null,
+      invoiceNotes: invoiceNotes || null,
+    }
+
+    let updated
+    try {
+      // Try with isMvaRegistered first
+      updated = await prisma.organization.update({
+        where: { id: session.user.organizationId },
+        data: {
+          ...baseData,
+          isMvaRegistered: isMvaRegistered === true,
+        }
+      })
+    } catch (updateError: any) {
+      // If isMvaRegistered column doesn't exist, update without it
+      console.warn("Update with isMvaRegistered failed, trying without:", updateError.message)
+      updated = await prisma.organization.update({
+        where: { id: session.user.organizationId },
+        data: baseData
+      })
+    }
 
     return NextResponse.json(updated)
   } catch (error) {
