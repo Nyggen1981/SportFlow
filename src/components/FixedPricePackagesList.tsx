@@ -30,16 +30,15 @@ export function FixedPricePackagesList({ packages }: FixedPricePackagesListProps
 
   return (
     <>
-      <div className="flex flex-wrap gap-x-3 gap-y-1">
-        {packages.map((pkg, index) => (
+      <div className="flex flex-col gap-1">
+        {packages.map((pkg) => (
           <button
             key={pkg.id}
             onClick={() => setSelectedPackage(pkg)}
-            className="text-xs text-purple-700 hover:text-purple-900 hover:underline transition-colors cursor-pointer"
+            className="text-sm text-purple-700 hover:text-purple-900 hover:underline transition-colors cursor-pointer text-left"
             title="Klikk for mer info"
           >
-            <span>{pkg.name}: {Math.round(pkg.price)}kr</span>
-            {index < packages.length - 1 && <span className="sr-only">,</span>}
+            {pkg.name}: {Math.round(pkg.price)}kr
           </button>
         ))}
       </div>
