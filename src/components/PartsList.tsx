@@ -33,26 +33,26 @@ export function PartsList({ parts, sortedParts }: PartsListProps) {
   return (
     <>
       <div className="card p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
           Mer informasjon
-        </h3>
-        <div className="space-y-2">
+        </h2>
+        <div className="space-y-1">
           {partsWithInfo.map((part) => {
             const isChild = part.parentId !== null
             return (
-              <div 
+              <button 
                 key={part.id} 
                 onClick={() => setSelectedPart(part)}
-                className={`p-2 rounded-lg border cursor-pointer transition-colors ${
+                className={`block text-left w-full py-1 transition-colors ${
                   isChild 
-                    ? 'ml-4 bg-gray-50 border-gray-200 hover:bg-gray-100' 
-                    : 'bg-white border-gray-300 hover:bg-gray-50'
-                }`}
+                    ? 'ml-4 text-gray-600 hover:text-gray-900' 
+                    : 'text-gray-700 hover:text-gray-900'
+                } hover:underline cursor-pointer`}
               >
-                <span className={`text-sm font-medium ${isChild ? 'text-gray-700' : 'text-gray-900'}`}>
+                <span className={`font-medium ${isChild ? '' : ''}`}>
                   {part.name}
                 </span>
-              </div>
+              </button>
             )
           })}
         </div>
