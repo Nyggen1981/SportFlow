@@ -17,7 +17,8 @@ import {
 import { ResourceCalendar } from "@/components/ResourceCalendar"
 import { MapViewer } from "@/components/MapViewer"
 import { PartsList } from "@/components/PartsList"
-import { getPricingConfig, isPricingEnabled, PricingModel, findPricingRuleForUser, hasPricingRules } from "@/lib/pricing"
+import { PricingInfoCard } from "@/components/PricingInfoCard"
+import { getPricingConfig, isPricingEnabled, findPricingRuleForUser, hasPricingRules } from "@/lib/pricing"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getUserRoleInfo } from "@/lib/roles"
@@ -484,258 +485,20 @@ export default async function ResourcePage({ params }: Props) {
 
             {/* Pricing Logic (kun hvis "pris & betaling" modul er aktivert og visPrislogikk er true) */}
             {pricingEnabled && resource.visPrislogikk && (
-              <div className="card p-6">
-                <h3 className="font-semibold text-gray-900 mb-4">
-                  Prisinfo
-                </h3>
-                <div className="space-y-3">
-                  {/* Vis fasilitetspris kun hvis allowWholeBooking er true */}
-                  {resource.allowWholeBooking && relevantRule && relevantRule.rule ? (
-                    (() => {
-                      const rule = relevantRule.rule
-                      const isMember = session?.user?.isMember ?? false
-                      const isDefaultRule = rule.forRoles.length === 0
-                      
-                      console.log("[Facility Page] Displaying pricing rule:", {
-                        model: rule.model,
-                        isMember,
-                        isDefaultRule,
-                        memberPricePerHour: rule.memberPricePerHour,
-                        nonMemberPricePerHour: rule.nonMemberPricePerHour,
-                        memberPricePerDay: rule.memberPricePerDay,
-                        nonMemberPricePerDay: rule.nonMemberPricePerDay,
-                        memberFixedPrice: rule.memberFixedPrice,
-                        nonMemberFixedPrice: rule.nonMemberFixedPrice,
-                        forRoles: rule.forRoles
-                      })
-                      
-                      const getPricingDescription = (model: PricingModel) => {
-                        switch (model) {
-                          case "FREE":
-                            if (isDefaultRule) {
-                              return "Gratis"
-                            }
-                            return "Gratis"
-                          case "HOURLY":
-                            const hourlyPrice = isMember 
-                              ? (rule.memberPricePerHour ?? rule.nonMemberPricePerHour)
-                              : (rule.nonMemberPricePerHour ?? rule.memberPricePerHour)
-                            
-                            if (hourlyPrice === null || hourlyPrice === undefined || hourlyPrice === 0) {
-                              return "Per time"
-                            }
-                            
-                            if (isMember && rule.memberPricePerHour !== null && rule.memberPricePerHour !== undefined) {
-                              return `${Math.round(Number(rule.memberPricePerHour))} kr/time`
-                            } else if (!isMember && rule.nonMemberPricePerHour !== null && rule.nonMemberPricePerHour !== undefined) {
-                              return `${Math.round(Number(rule.nonMemberPricePerHour))} kr/time`
-                            } else {
-                              return `${Math.round(Number(hourlyPrice))} kr/time`
-                            }
-                        case "DAILY":
-                          const dailyPrice = isMember
-                            ? (rule.memberPricePerDay ?? rule.nonMemberPricePerDay)
-                            : (rule.nonMemberPricePerDay ?? rule.memberPricePerDay)
-                          
-                          if (dailyPrice === null || dailyPrice === undefined || dailyPrice === 0) {
-                            return "Per døgn"
-                          }
-                          
-                          if (isMember && rule.memberPricePerDay !== null && rule.memberPricePerDay !== undefined) {
-                            return `${Math.round(Number(rule.memberPricePerDay))} kr/døgn`
-                          } else if (!isMember && rule.nonMemberPricePerDay !== null && rule.nonMemberPricePerDay !== undefined) {
-                            return `${Math.round(Number(rule.nonMemberPricePerDay))} kr/døgn`
-                          } else {
-                            return `${Math.round(Number(dailyPrice))} kr/døgn`
-                          }
-                        case "FIXED_DURATION":
-                          const fixedPriceForDuration = isMember
-                            ? (rule.memberFixedPrice ?? rule.nonMemberFixedPrice)
-                            : (rule.nonMemberFixedPrice ?? rule.memberFixedPrice)
-                          
-                          if (fixedPriceForDuration === null || fixedPriceForDuration === undefined || fixedPriceForDuration === 0) {
-                            return "Fast pris"
-                          }
-                          
-                          const h = Math.floor((rule.fixedPriceDuration || 0) / 60)
-                          const m = (rule.fixedPriceDuration || 0) % 60
-                          const durationStr = h > 0 && m > 0 ? `${h}t ${m}m` : h > 0 ? `${h}t` : `${m}m`
-                          
-                          return `${Math.round(Number(fixedPriceForDuration))} kr/${durationStr}`
-                        default:
-                          return "Ukjent"
-                      }
-                    }
-
-                      return (
-                        <div className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-gray-900">Hele {resource.name}</span>
-                            <span className="text-sm font-semibold text-blue-600">{getPricingDescription(rule.model)}</span>
-                          </div>
-                          {/* Vis fastprispakker som egen seksjon under timepris */}
-                          {resourceFixedPackages.length > 0 && (
-                            <div className="mt-3 pt-3 border-t border-gray-100">
-                              <p className="text-xs font-medium text-gray-500 mb-2">Fastprispakker:</p>
-                              <div className="grid gap-1.5">
-                                {resourceFixedPackages.map(pkg => {
-                                  const h = Math.floor(pkg.durationMinutes / 60)
-                                  const m = pkg.durationMinutes % 60
-                                  const duration = h > 0 && m > 0 ? `${h}t ${m}m` : h > 0 ? `${h} ${h === 1 ? 'time' : 'timer'}` : `${m} min`
-                                  return (
-                                    <div key={pkg.id} className="flex items-center justify-between text-sm bg-purple-50 px-3 py-1.5 rounded-md">
-                                      <span className="text-purple-800">{pkg.name}</span>
-                                      <span className="text-purple-900 font-medium">{Math.round(pkg.price)} kr <span className="text-purple-600 font-normal">/ {duration}</span></span>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })()
-                  ) : resource.allowWholeBooking && resourceFixedPackages.length > 0 ? (
-                    // Vis kun fastprispakker hvis ingen timepris
-                    <div className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-900">Hele {resource.name}</span>
-                      </div>
-                      <p className="text-xs font-medium text-gray-500 mb-2">Fastprispakker:</p>
-                      <div className="grid gap-1.5">
-                        {resourceFixedPackages.map(pkg => {
-                          const h = Math.floor(pkg.durationMinutes / 60)
-                          const m = pkg.durationMinutes % 60
-                          const duration = h > 0 && m > 0 ? `${h}t ${m}m` : h > 0 ? `${h} ${h === 1 ? 'time' : 'timer'}` : `${m} min`
-                          return (
-                            <div key={pkg.id} className="flex items-center justify-between text-sm bg-purple-50 px-3 py-1.5 rounded-md">
-                              <span className="text-purple-800">{pkg.name}</span>
-                              <span className="text-purple-900 font-medium">{Math.round(pkg.price)} kr <span className="text-purple-600 font-normal">/ {duration}</span></span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ) : null}
-                  
-                  {resource.allowWholeBooking && !relevantRule && resourceFixedPackages.length === 0 ? (
-                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-600">
-                        Ingen prisregel funnet for din rolle.
-                      </p>
-                    </div>
-                  ) : null}
-                  
-                  {/* Vis priser for hoveddeler og underdeler */}
-                  {sortedPartsPricing.length > 0 && (
-                    <div className="space-y-2">
-                      {sortedPartsPricing.map(({ partId, partName, parentId, rule, fixedPackages }) => {
-                        const isMember = session?.user?.isMember ?? false
-                        
-                        const getPricingDescription = (model: PricingModel) => {
-                          switch (model) {
-                            case "FREE":
-                              return "Gratis"
-                            case "HOURLY":
-                              const hourlyPrice = isMember 
-                                ? (rule.memberPricePerHour ?? rule.nonMemberPricePerHour)
-                                : (rule.nonMemberPricePerHour ?? rule.memberPricePerHour)
-                              
-                              if (hourlyPrice === null || hourlyPrice === undefined || hourlyPrice === 0) {
-                                return "Per time"
-                              }
-                              
-                              if (isMember && rule.memberPricePerHour !== null && rule.memberPricePerHour !== undefined) {
-                                return `${Math.round(Number(rule.memberPricePerHour))} kr/time`
-                              } else if (!isMember && rule.nonMemberPricePerHour !== null && rule.nonMemberPricePerHour !== undefined) {
-                                return `${Math.round(Number(rule.nonMemberPricePerHour))} kr/time`
-                              } else {
-                                return `${Math.round(Number(hourlyPrice))} kr/time`
-                              }
-                            case "DAILY":
-                              const dailyPrice = isMember
-                                ? (rule.memberPricePerDay ?? rule.nonMemberPricePerDay)
-                                : (rule.nonMemberPricePerDay ?? rule.memberPricePerDay)
-                              
-                              if (dailyPrice === null || dailyPrice === undefined || dailyPrice === 0) {
-                                return "Per døgn"
-                              }
-                              
-                              if (isMember && rule.memberPricePerDay !== null && rule.memberPricePerDay !== undefined) {
-                                return `${Math.round(Number(rule.memberPricePerDay))} kr/døgn`
-                              } else if (!isMember && rule.nonMemberPricePerDay !== null && rule.nonMemberPricePerDay !== undefined) {
-                                return `${Math.round(Number(rule.nonMemberPricePerDay))} kr/døgn`
-                              } else {
-                                return `${Math.round(Number(dailyPrice))} kr/døgn`
-                              }
-                            case "FIXED_DURATION":
-                              const fixedPriceForDuration = isMember
-                                ? (rule.memberFixedPrice ?? rule.nonMemberFixedPrice)
-                                : (rule.nonMemberFixedPrice ?? rule.memberFixedPrice)
-                              
-                              if (fixedPriceForDuration === null || fixedPriceForDuration === undefined || fixedPriceForDuration === 0) {
-                                return "Fast pris"
-                              }
-                              
-                              const h = Math.floor((rule.fixedPriceDuration || 0) / 60)
-                              const m = (rule.fixedPriceDuration || 0) % 60
-                              const durationStr = h > 0 && m > 0 ? `${h}t ${m}m` : h > 0 ? `${h}t` : `${m}m`
-                              
-                              return `${Math.round(Number(fixedPriceForDuration))} kr/${durationStr}`
-                            default:
-                              return "Ukjent"
-                          }
-                        }
-                        
-                        const isChildPart = !!parentId
-                        
-                        const formatDuration = (minutes: number) => {
-                          const h = Math.floor(minutes / 60)
-                          const m = minutes % 60
-                          if (h > 0 && m > 0) return `${h}t ${m}m`
-                          if (h > 0) return `${h} ${h === 1 ? 'time' : 'timer'}`
-                          return `${m} min`
-                        }
-                        
-                        return (
-                          <div key={partId} className={`p-3 rounded-lg border shadow-sm ${isChildPart ? 'ml-4 bg-gray-50 border-gray-200' : 'bg-white border-gray-200'}`}>
-                            <div className="flex items-center justify-between">
-                              <span className={`text-sm font-medium ${isChildPart ? 'text-gray-700' : 'text-gray-900'}`}>{partName}</span>
-                              {rule && (
-                                <span className="text-sm font-semibold text-blue-600">{getPricingDescription(rule.model)}</span>
-                              )}
-                            </div>
-                            
-                            {/* Vis fastprispakker som egen seksjon */}
-                            {fixedPackages && fixedPackages.length > 0 && (
-                              <div className="mt-3 pt-3 border-t border-gray-100">
-                                <p className="text-xs font-medium text-gray-500 mb-2">Fastprispakker:</p>
-                                <div className="grid gap-1.5">
-                                  {fixedPackages.map(pkg => (
-                                    <div key={pkg.id} className="flex items-center justify-between text-sm bg-purple-50 px-3 py-1.5 rounded-md">
-                                      <span className="text-purple-800">{pkg.name}</span>
-                                      <span className="text-purple-900 font-medium">{Math.round(pkg.price)} kr <span className="text-purple-600 font-normal">/ {formatDuration(pkg.durationMinutes)}</span></span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                  
-                  {partsPricing.length === 0 && resource.parts.length > 0 && pricingEnabled && !resource.allowWholeBooking && (
-                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-600">
-                        Ingen prisregler funnet for delene.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <PricingInfoCard
+                resourceName={resource.name}
+                allowWholeBooking={resource.allowWholeBooking}
+                isMember={session?.user?.isMember ?? false}
+                relevantRule={relevantRule?.rule || null}
+                resourceFixedPackages={resourceFixedPackages}
+                partsPricing={sortedPartsPricing.map(p => ({
+                  partId: p.partId,
+                  partName: p.partName,
+                  parentId: p.parentId,
+                  rule: p.rule || null,
+                  fixedPackages: p.fixedPackages
+                }))}
+              />
             )}
 
             {/* Parts - Mer informasjon */}
