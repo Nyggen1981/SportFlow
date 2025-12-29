@@ -372,7 +372,13 @@ export default function BookResourcePage({ params }: Props) {
   }, [status, router, id])
 
   // Beregn pris når dato/tid/deler endres (kun hvis pricing er aktivert)
+  // IKKE beregn hvis en fastprispakke er valgt - da brukes pakkeprisen
   useEffect(() => {
+    // Hvis fastprispakke er valgt, ikke beregn - pakkeprisen settes i egen useEffect
+    if (usePackage && selectedPackageId) {
+      return
+    }
+    
     if (!pricingEnabled || !session?.user?.id || !startDate || !startTime || !endDate || !endTime || !resource) {
       setCalculatedPrice(null)
       return
@@ -421,7 +427,7 @@ export default function BookResourcePage({ params }: Props) {
     }
     
     calculatePrice()
-  }, [pricingEnabled, startDate, startTime, endDate, endTime, selectedParts, id, resource, session?.user?.id])
+  }, [pricingEnabled, startDate, startTime, endDate, endTime, selectedParts, id, resource, session?.user?.id, usePackage, selectedPackageId])
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
