@@ -327,7 +327,8 @@ export default function BookResourcePage({ params }: Props) {
     }
 
     loadPricingData()
-  }, [pricingEnabled, resource, selectedParts, id, selectedPackageId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pricingEnabled, resource, selectedParts, id]) // Ikke inkluder selectedPackageId - vil utløse unødvendig reload
 
   // When a package is selected, auto-calculate end time and date
   useEffect(() => {
@@ -929,14 +930,17 @@ export default function BookResourcePage({ params }: Props) {
               </div>
             </div>
 
-            <p className="text-sm text-gray-500">
-              {resource.minBookingMinutes !== null && resource.maxBookingMinutes !== null &&
-               resource.minBookingMinutes !== 0 && resource.maxBookingMinutes !== 9999 ? (
-                <>Varighet må være mellom {resource.minBookingMinutes} og {resource.maxBookingMinutes} minutter</>
-              ) : (
-                <>Ubegrenset varighet</>
-              )}
-            </p>
+            {/* Vis varighetsinfo kun for timeleie, ikke for fastprispakker */}
+            {!usePackage && (
+              <p className="text-sm text-gray-500">
+                {resource.minBookingMinutes !== null && resource.maxBookingMinutes !== null &&
+                 resource.minBookingMinutes !== 0 && resource.maxBookingMinutes !== 9999 ? (
+                  <>Varighet må være mellom {resource.minBookingMinutes} og {resource.maxBookingMinutes} minutter</>
+                ) : (
+                  <>Ubegrenset varighet</>
+                )}
+              </p>
+            )}
 
             {/* Recurring booking */}
             <div className="p-4 bg-gray-50 rounded-xl space-y-4">
