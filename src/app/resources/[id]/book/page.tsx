@@ -375,7 +375,9 @@ export default function BookResourcePage({ params }: Props) {
   // IKKE beregn hvis en fastprispakke er valgt - da brukes pakkeprisen
   useEffect(() => {
     // Hvis fastprispakke er valgt, ikke beregn - pakkeprisen settes i egen useEffect
-    if (usePackage && selectedPackageId) {
+    // Sjekk både usePackage flag OG om selectedPackageId finnes i availablePackages
+    const hasSelectedPackage = selectedPackageId && availablePackages.some(p => p.id === selectedPackageId)
+    if (usePackage || hasSelectedPackage) {
       return
     }
     
@@ -427,7 +429,7 @@ export default function BookResourcePage({ params }: Props) {
     }
     
     calculatePrice()
-  }, [pricingEnabled, startDate, startTime, endDate, endTime, selectedParts, id, resource, session?.user?.id, usePackage, selectedPackageId])
+  }, [pricingEnabled, startDate, startTime, endDate, endTime, selectedParts, id, resource, session?.user?.id, usePackage, selectedPackageId, availablePackages])
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
