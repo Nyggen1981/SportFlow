@@ -30,15 +30,16 @@ export function FixedPricePackagesList({ packages }: FixedPricePackagesListProps
 
   return (
     <>
-      <div className="text-gray-600 space-y-1">
-        {packages.map(pkg => (
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {packages.map((pkg, index) => (
           <button
             key={pkg.id}
             onClick={() => setSelectedPackage(pkg)}
-            className="block text-purple-600 hover:text-purple-800 hover:underline transition-colors cursor-pointer"
+            className="text-xs text-purple-700 hover:text-purple-900 hover:underline transition-colors cursor-pointer"
             title="Klikk for mer info"
           >
-            {pkg.name}: {Math.round(pkg.price)} kr
+            <span>{pkg.name}: {Math.round(pkg.price)}kr</span>
+            {index < packages.length - 1 && <span className="sr-only">,</span>}
           </button>
         ))}
       </div>
@@ -56,7 +57,7 @@ export function FixedPricePackagesList({ packages }: FixedPricePackagesListProps
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">{selectedPackage.name}</h3>
-                <p className="text-gray-500">Fastprispakke</p>
+                <p className="text-sm text-gray-500">Fastprispakke</p>
               </div>
               <button
                 onClick={() => setSelectedPackage(null)}
@@ -67,33 +68,33 @@ export function FixedPricePackagesList({ packages }: FixedPricePackagesListProps
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-lg">
-                <Tag className="w-6 h-6 text-purple-600" />
+              <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg">
+                <Tag className="w-5 h-5 text-purple-600" />
                 <div>
-                  <p className="text-gray-500">Pris</p>
-                  <p className="text-2xl font-bold text-purple-900">{Math.round(selectedPackage.price)} kr</p>
+                  <p className="text-sm text-gray-500">Pris</p>
+                  <p className="text-xl font-bold text-purple-900">{Math.round(selectedPackage.price)} kr</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
-                <Clock className="w-6 h-6 text-blue-600" />
+              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                <Clock className="w-5 h-5 text-blue-600" />
                 <div>
-                  <p className="text-gray-500">Varighet</p>
-                  <p className="text-xl font-semibold text-blue-900">{formatDuration(selectedPackage.durationMinutes)}</p>
+                  <p className="text-sm text-gray-500">Varighet</p>
+                  <p className="text-lg font-semibold text-blue-900">{formatDuration(selectedPackage.durationMinutes)}</p>
                 </div>
               </div>
 
               {selectedPackage.description && (
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-gray-500 mb-1">Beskrivelse</p>
-                  <p className="text-gray-700">{selectedPackage.description}</p>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-500 mb-1">Beskrivelse</p>
+                  <p className="text-sm text-gray-700">{selectedPackage.description}</p>
                 </div>
               )}
             </div>
 
             <button
               onClick={() => setSelectedPackage(null)}
-              className="w-full mt-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+              className="w-full mt-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
             >
               Lukk
             </button>
@@ -103,3 +104,4 @@ export function FixedPricePackagesList({ packages }: FixedPricePackagesListProps
     </>
   )
 }
+

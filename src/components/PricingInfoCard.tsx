@@ -98,58 +98,66 @@ export function PricingInfoCard({
 
   return (
     <div className="card p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">
+      <h3 className="font-semibold text-gray-900 mb-4">
         Prisinfo
-      </h2>
-      <div className="space-y-5">
+      </h3>
+      <div className="space-y-3">
         {/* Hovedfasilitet */}
         {allowWholeBooking && (relevantRule || resourceFixedPackages.length > 0) && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-medium text-gray-900">{resourceName}</span>
+          <div className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-900">Hele {resourceName}</span>
               {relevantRule && (
-                <span className="font-semibold text-blue-600">
+                <span className="text-sm font-semibold text-blue-600">
                   {getPricingDescription(relevantRule, isMember)}
                 </span>
               )}
             </div>
             
             {resourceFixedPackages.length > 0 && (
-              <FixedPricePackagesList packages={resourceFixedPackages} />
+              <div className="mt-2">
+                <FixedPricePackagesList packages={resourceFixedPackages} />
+              </div>
             )}
           </div>
         )}
         
         {allowWholeBooking && !relevantRule && resourceFixedPackages.length === 0 && (
-          <p className="text-gray-600">
-            Ingen prisregel funnet for din rolle.
-          </p>
+          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-600">
+              Ingen prisregel funnet for din rolle.
+            </p>
+          </div>
         )}
         
         {/* Deler */}
         {sortedPartsPricing.length > 0 && (
-          <div className="space-y-4">
+          <div className="space-y-2">
             {sortedPartsPricing.map(({ partId, partName, parentId, rule, fixedPackages }) => {
               const isChildPart = !!parentId
               
               return (
                 <div 
                   key={partId} 
-                  className={isChildPart ? 'ml-4' : ''}
+                  className={`p-3 rounded-lg border shadow-sm ${
+                    isChildPart ? 'ml-4 bg-gray-50 border-gray-200' : 'bg-white border-gray-200'
+                  }`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`font-medium ${isChildPart ? 'text-gray-700' : 'text-gray-900'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm font-medium ${isChildPart ? 'text-gray-700' : 'text-gray-900'}`}>
                       {partName}
                     </span>
                     {rule && (
-                      <span className="font-semibold text-blue-600">
+                      <span className="text-sm font-semibold text-blue-600">
                         {getPricingDescription(rule, isMember)}
                       </span>
                     )}
                   </div>
                   
                   {fixedPackages && fixedPackages.length > 0 && (
-                    <FixedPricePackagesList packages={fixedPackages} />
+                    <div className="mt-2">
+                      <FixedPricePackagesList packages={fixedPackages} />
+                    </div>
                   )}
                 </div>
               )
@@ -158,11 +166,14 @@ export function PricingInfoCard({
         )}
         
         {partsPricing.length === 0 && !allowWholeBooking && (
-          <p className="text-gray-600">
-            Ingen prisregler funnet.
-          </p>
+          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-600">
+              Ingen prisregler funnet.
+            </p>
+          </div>
         )}
       </div>
     </div>
   )
 }
+
