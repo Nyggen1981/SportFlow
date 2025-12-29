@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
+// Force Vercel rebuild with fresh Prisma client - 2024-12-30
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
