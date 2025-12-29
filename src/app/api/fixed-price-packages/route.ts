@@ -44,11 +44,50 @@ export async function GET(request: NextRequest) {
         description: true,
         durationMinutes: true,
         price: true,
-        isActive: true
+        isActive: true,
+        forRoles: true
       }
     })
 
-    return NextResponse.json(packages)
+    // Filter packages based on user's role
+    const userSystemRole = (session.user as any).systemRole || session.user.role // "admin" or "user"
+    const userRoleId = (session.user as any).customRoleId // Custom role ID if any
+    const isMember = (session.user as any).isMember // Member status
+
+    const filteredPackages = packages.filter(pkg => {
+      // If no forRoles specified, package is available for all
+      if (!pkg.forRoles) return true
+      
+      try {
+        const allowedRoles: string[] = JSON.parse(pkg.forRoles)
+        
+        // If empty array, available for all
+        if (allowedRoles.length === 0) return true
+        
+        // Check if user's role matches any allowed role
+        // Admin always matches "admin"
+        if (userSystemRole === "admin" && allowedRoles.includes("admin")) return true
+        
+        // "member" = verified member (isMember: true)
+        // "user" = logged in but NOT verified member (isMember: false)
+        // When membership is verified, user transitions from "user" to "member"
+        if (isMember && allowedRoles.includes("member")) return true
+        if (!isMember && allowedRoles.includes("user")) return true
+        
+        // Check custom role ID
+        if (userRoleId && allowedRoles.includes(userRoleId)) return true
+        
+        return false
+      } catch {
+        // If parsing fails, allow access
+        return true
+      }
+    })
+
+    // Remove forRoles from response (not needed for client)
+    const cleanedPackages = filteredPackages.map(({ forRoles, ...rest }) => rest)
+
+    return NextResponse.json(cleanedPackages)
   } catch (error) {
     console.error("Error fetching fixed price packages:", error)
     return NextResponse.json(

@@ -251,6 +251,11 @@ model FixedPricePackage {
   durationMinutes Int      // Duration in minutes (e.g., 120 = 2 hours)
   price           Decimal  // Fixed price in NOK
   
+  // Role restrictions - JSON array of role IDs that can use this package
+  // If null or empty array, all roles can use it
+  // Values: "admin", "user", or custom role IDs (cuid)
+  forRoles        String?  // JSON array: ["admin", "roleId1", "roleId2"]
+  
   // Can be linked to resource (whole facility) or resource part
   resourceId      String?
   resource        Resource? @relation(fields: [resourceId], references: [id], onDelete: Cascade)

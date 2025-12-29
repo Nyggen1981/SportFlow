@@ -32,7 +32,13 @@ export async function GET(request: NextRequest) {
       orderBy: { sortOrder: "asc" }
     })
 
-    return NextResponse.json(packages)
+    // Parse forRoles from JSON string to array for each package
+    const packagesWithParsedRoles = packages.map(pkg => ({
+      ...pkg,
+      forRoles: pkg.forRoles ? JSON.parse(pkg.forRoles) : []
+    }))
+
+    return NextResponse.json(packagesWithParsedRoles)
   } catch (error) {
     console.error("Error fetching fixed price packages:", error)
     return NextResponse.json(
@@ -127,6 +133,11 @@ export async function POST(request: NextRequest) {
     const results = []
     for (let i = 0; i < packages.length; i++) {
       const pkg = packages[i]
+      // Handle forRoles - store as JSON string if provided
+      const forRolesJson = pkg.forRoles && Array.isArray(pkg.forRoles) && pkg.forRoles.length > 0
+        ? JSON.stringify(pkg.forRoles)
+        : null
+      
       const data = {
         name: pkg.name.trim(),
         description: pkg.description?.trim() || null,
@@ -134,6 +145,7 @@ export async function POST(request: NextRequest) {
         price: pkg.price,
         isActive: pkg.isActive !== false,
         sortOrder: i,
+        forRoles: forRolesJson,
         resourceId: resourcePartId ? null : resourceId,
         resourcePartId: resourcePartId || null,
         organizationId: session.user.organizationId

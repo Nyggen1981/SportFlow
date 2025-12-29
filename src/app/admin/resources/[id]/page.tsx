@@ -38,6 +38,7 @@ interface FixedPricePackage {
   price: number
   isActive: boolean
   sortOrder: number
+  forRoles?: string[]
 }
 
 interface Category {
@@ -1279,6 +1280,7 @@ export default function EditResourcePage({ params }: Props) {
                       resourceId={id}
                       packages={fixedPricePackages}
                       onChange={setFixedPricePackages}
+                      customRoles={customRoles}
                     />
                   </div>
                 )}
@@ -1337,6 +1339,7 @@ export default function EditResourcePage({ params }: Props) {
                                   [part.id!]: newPackages
                                 }))
                               }}
+                              customRoles={customRoles}
                             />
                           </div>
                         )}

@@ -11,6 +11,12 @@ interface FixedPricePackage {
   price: number
   isActive: boolean
   sortOrder: number
+  forRoles?: string[]  // Role IDs that can use this package (empty = all roles)
+}
+
+interface CustomRole {
+  id: string
+  name: string
 }
 
 interface FixedPricePackagesEditorProps {
@@ -19,6 +25,7 @@ interface FixedPricePackagesEditorProps {
   packages: FixedPricePackage[]
   onChange: (packages: FixedPricePackage[]) => void
   disabled?: boolean
+  customRoles?: CustomRole[]  // Available custom roles for selection
 }
 
 export default function FixedPricePackagesEditor({
@@ -26,7 +33,8 @@ export default function FixedPricePackagesEditor({
   resourcePartId,
   packages,
   onChange,
-  disabled = false
+  disabled = false,
+  customRoles = []
 }: FixedPricePackagesEditorProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<FixedPricePackage | null>(null)
@@ -37,7 +45,8 @@ export default function FixedPricePackagesEditor({
     durationMinutes: 120,
     price: 0,
     isActive: true,
-    sortOrder: packages.length
+    sortOrder: packages.length,
+    forRoles: []
   })
 
   // Format duration for display
@@ -71,7 +80,8 @@ export default function FixedPricePackagesEditor({
       durationMinutes: 120,
       price: 0,
       isActive: true,
-      sortOrder: packages.length + 1
+      sortOrder: packages.length + 1,
+      forRoles: []
     })
     setShowAddForm(false)
   }
@@ -225,6 +235,82 @@ export default function FixedPricePackagesEditor({
                     <span className="text-xs text-gray-500">min</span>
                   </div>
                 </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Tilgjengelig for roller</label>
+                  <div className="space-y-2 p-3 bg-gray-50 rounded-lg max-h-40 overflow-y-auto">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={editForm.forRoles?.includes("admin") ?? false}
+                        onChange={(e) => {
+                          const currentRoles = editForm.forRoles || []
+                          if (e.target.checked) {
+                            setEditForm({ ...editForm, forRoles: [...currentRoles, "admin"] })
+                          } else {
+                            setEditForm({ ...editForm, forRoles: currentRoles.filter(r => r !== "admin") })
+                          }
+                        }}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm text-gray-700">Administrator</span>
+                    </label>
+                    <label className="flex items-center gap-2" title="Innloggede brukere med verifisert medlemskap">
+                      <input
+                        type="checkbox"
+                        checked={editForm.forRoles?.includes("member") ?? false}
+                        onChange={(e) => {
+                          const currentRoles = editForm.forRoles || []
+                          if (e.target.checked) {
+                            setEditForm({ ...editForm, forRoles: [...currentRoles, "member"] })
+                          } else {
+                            setEditForm({ ...editForm, forRoles: currentRoles.filter(r => r !== "member") })
+                          }
+                        }}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm text-gray-700">Medlem <span className="text-xs text-gray-500">(verifisert)</span></span>
+                    </label>
+                    <label className="flex items-center gap-2" title="Innloggede brukere uten verifisert medlemskap">
+                      <input
+                        type="checkbox"
+                        checked={editForm.forRoles?.includes("user") ?? false}
+                        onChange={(e) => {
+                          const currentRoles = editForm.forRoles || []
+                          if (e.target.checked) {
+                            setEditForm({ ...editForm, forRoles: [...currentRoles, "user"] })
+                          } else {
+                            setEditForm({ ...editForm, forRoles: currentRoles.filter(r => r !== "user") })
+                          }
+                        }}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm text-gray-700">Bruker <span className="text-xs text-gray-500">(ikke verifisert)</span></span>
+                    </label>
+                    {customRoles.map(role => (
+                      <label key={role.id} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={editForm.forRoles?.includes(role.id) ?? false}
+                          onChange={(e) => {
+                            const currentRoles = editForm.forRoles || []
+                            if (e.target.checked) {
+                              setEditForm({ ...editForm, forRoles: [...currentRoles, role.id] })
+                            } else {
+                              setEditForm({ ...editForm, forRoles: currentRoles.filter(r => r !== role.id) })
+                            }
+                          }}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm text-gray-700">{role.name}</span>
+                      </label>
+                    ))}
+                    {(!editForm.forRoles || editForm.forRoles.length === 0) && (
+                      <p className="text-xs text-gray-500 italic">
+                        Ingen roller valgt - pakken er tilgjengelig for alle
+                      </p>
+                    )}
+                  </div>
+                </div>
                 <div className="flex justify-end gap-2 pt-2 border-t">
                   <button
                     type="button"
@@ -252,6 +338,17 @@ export default function FixedPricePackagesEditor({
                     <span className="font-medium text-gray-900">{pkg.name}</span>
                     {pkg.description && (
                       <span className="text-xs text-gray-500">{pkg.description}</span>
+                    )}
+                    {pkg.forRoles && pkg.forRoles.length > 0 && (
+                      <span className="text-xs text-blue-600">
+                        Kun for: {pkg.forRoles.map(r => {
+                          if (r === "admin") return "Administrator"
+                          if (r === "member") return "Medlem (verifisert)"
+                          if (r === "user") return "Bruker (ikke verifisert)"
+                          const role = customRoles.find(cr => cr.id === r)
+                          return role?.name || r
+                        }).join(", ")}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -369,6 +466,82 @@ export default function FixedPricePackagesEditor({
               <span className="text-xs text-gray-500">min</span>
             </div>
           </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Tilgjengelig for roller</label>
+            <div className="space-y-2 p-3 bg-white rounded-lg border border-blue-200 max-h-40 overflow-y-auto">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={newPackage.forRoles?.includes("admin") ?? false}
+                  onChange={(e) => {
+                    const currentRoles = newPackage.forRoles || []
+                    if (e.target.checked) {
+                      setNewPackage({ ...newPackage, forRoles: [...currentRoles, "admin"] })
+                    } else {
+                      setNewPackage({ ...newPackage, forRoles: currentRoles.filter(r => r !== "admin") })
+                    }
+                  }}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm text-gray-700">Administrator</span>
+              </label>
+              <label className="flex items-center gap-2" title="Innloggede brukere med verifisert medlemskap">
+                <input
+                  type="checkbox"
+                  checked={newPackage.forRoles?.includes("member") ?? false}
+                  onChange={(e) => {
+                    const currentRoles = newPackage.forRoles || []
+                    if (e.target.checked) {
+                      setNewPackage({ ...newPackage, forRoles: [...currentRoles, "member"] })
+                    } else {
+                      setNewPackage({ ...newPackage, forRoles: currentRoles.filter(r => r !== "member") })
+                    }
+                  }}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm text-gray-700">Medlem <span className="text-xs text-gray-500">(verifisert)</span></span>
+              </label>
+              <label className="flex items-center gap-2" title="Innloggede brukere uten verifisert medlemskap">
+                <input
+                  type="checkbox"
+                  checked={newPackage.forRoles?.includes("user") ?? false}
+                  onChange={(e) => {
+                    const currentRoles = newPackage.forRoles || []
+                    if (e.target.checked) {
+                      setNewPackage({ ...newPackage, forRoles: [...currentRoles, "user"] })
+                    } else {
+                      setNewPackage({ ...newPackage, forRoles: currentRoles.filter(r => r !== "user") })
+                    }
+                  }}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm text-gray-700">Bruker <span className="text-xs text-gray-500">(ikke verifisert)</span></span>
+              </label>
+              {customRoles.map(role => (
+                <label key={role.id} className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={newPackage.forRoles?.includes(role.id) ?? false}
+                    onChange={(e) => {
+                      const currentRoles = newPackage.forRoles || []
+                      if (e.target.checked) {
+                        setNewPackage({ ...newPackage, forRoles: [...currentRoles, role.id] })
+                      } else {
+                        setNewPackage({ ...newPackage, forRoles: currentRoles.filter(r => r !== role.id) })
+                      }
+                    }}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm text-gray-700">{role.name}</span>
+                </label>
+              ))}
+              {(!newPackage.forRoles || newPackage.forRoles.length === 0) && (
+                <p className="text-xs text-gray-500 italic">
+                  Ingen roller valgt - pakken er tilgjengelig for alle
+                </p>
+              )}
+            </div>
+          </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-blue-200">
             <button
               type="button"
@@ -380,7 +553,8 @@ export default function FixedPricePackagesEditor({
                   durationMinutes: 120,
                   price: 0,
                   isActive: true,
-                  sortOrder: packages.length
+                  sortOrder: packages.length,
+                  forRoles: []
                 })
               }}
               className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800"

@@ -219,14 +219,40 @@ export default async function ResourcePage({ params }: Props) {
         select: { id: true, name: true }
       })
       
+      // Brukerrolleinformasjon for filtrering av fastprispakker
+      const userSystemRole = (session.user as any).systemRole || session.user.role || "user"
+      const userRoleId = (session.user as any).customRoleId
+      const isMember = (session.user as any).isMember
+      
       // Hent fastprispakker for hele fasiliteten
       if (resource.allowWholeBooking) {
         const packages = await prisma.fixedPricePackage.findMany({
           where: { resourceId: id, resourcePartId: null, isActive: true },
-          select: { id: true, name: true, description: true, durationMinutes: true, price: true },
+          select: { id: true, name: true, description: true, durationMinutes: true, price: true, forRoles: true },
           orderBy: { sortOrder: "asc" }
         })
-        resourceFixedPackages = packages.map(p => ({ ...p, price: Number(p.price) }))
+        
+        // Filtrer basert på brukerens rolle
+        const filteredPackages = packages.filter(pkg => {
+          if (!pkg.forRoles) return true
+          try {
+            const allowedRoles: string[] = JSON.parse(pkg.forRoles)
+            if (allowedRoles.length === 0) return true
+            // Admin matches "admin"
+            if (userSystemRole === "admin" && allowedRoles.includes("admin")) return true
+            // "member" = verified member (isMember: true)
+            // "user" = logged in but NOT verified member (isMember: false)
+            if (isMember && allowedRoles.includes("member")) return true
+            if (!isMember && allowedRoles.includes("user")) return true
+            // Custom role ID
+            if (userRoleId && allowedRoles.includes(userRoleId)) return true
+            return false
+          } catch {
+            return true
+          }
+        })
+        
+        resourceFixedPackages = filteredPackages.map(({ forRoles, ...p }) => ({ ...p, price: Number(p.price) }))
       }
       
       // Hvis allowWholeBooking er true, hent fasilitetsprisen
@@ -241,11 +267,31 @@ export default async function ResourcePage({ params }: Props) {
           const partPricingConfig = await getPricingConfig(id, part.id)
           
           // Hent fastprispakker for delen
-          const fixedPackages = await prisma.fixedPricePackage.findMany({
+          const partPackages = await prisma.fixedPricePackage.findMany({
             where: { resourcePartId: part.id, isActive: true },
-            select: { id: true, name: true, description: true, durationMinutes: true, price: true },
+            select: { id: true, name: true, description: true, durationMinutes: true, price: true, forRoles: true },
             orderBy: { sortOrder: "asc" }
           })
+          
+          // Filtrer basert på brukerens rolle (bruk samme variabler som over)
+          const fixedPackages = partPackages.filter(pkg => {
+            if (!pkg.forRoles) return true
+            try {
+              const allowedRoles: string[] = JSON.parse(pkg.forRoles)
+              if (allowedRoles.length === 0) return true
+              // Admin matches "admin"
+              if (userSystemRole === "admin" && allowedRoles.includes("admin")) return true
+              // "member" = verified member (isMember: true)
+              // "user" = logged in but NOT verified member (isMember: false)
+              if (isMember && allowedRoles.includes("member")) return true
+              if (!isMember && allowedRoles.includes("user")) return true
+              // Custom role ID
+              if (userRoleId && allowedRoles.includes(userRoleId)) return true
+              return false
+            } catch {
+              return true
+            }
+          }).map(({ forRoles, ...p }) => ({ ...p, price: Number(p.price) }))
           
           if (partPricingConfig?.rules) {
             const partRule = await findPricingRuleForUser(session.user.id, partPricingConfig.rules)
@@ -256,7 +302,7 @@ export default async function ResourcePage({ params }: Props) {
                 parentId: part.parentId || null,
                 rule: partRule.rule,
                 reason: partRule.reason,
-                fixedPackages: fixedPackages.map(p => ({ ...p, price: Number(p.price) }))
+                fixedPackages: fixedPackages
               })
             }
           } else if (fixedPackages.length > 0) {
@@ -266,7 +312,7 @@ export default async function ResourcePage({ params }: Props) {
               partName: part.name,
               parentId: part.parentId || null,
               rule: null,
-              fixedPackages: fixedPackages.map(p => ({ ...p, price: Number(p.price) }))
+              fixedPackages: fixedPackages
             })
           }
         }
