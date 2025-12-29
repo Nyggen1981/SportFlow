@@ -696,9 +696,9 @@ export default function BookResourcePage({ params }: Props) {
                       className="mt-1 w-4 h-4 text-blue-600"
                     />
                     <div className="flex-1">
-                      <div className="font-medium text-gray-900">Velg start- og sluttid selv</div>
+                      <div className="font-medium text-gray-900">Timeleie</div>
                       <div className="text-sm text-gray-500">
-                        Du angir nøyaktig når bookingen starter og slutter
+                        Velg varighet selv - pris beregnes per time
                       </div>
                     </div>
                   </label>
