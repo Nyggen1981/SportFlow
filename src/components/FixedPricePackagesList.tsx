@@ -35,7 +35,7 @@ export function FixedPricePackagesList({ packages }: FixedPricePackagesListProps
           <button
             key={pkg.id}
             onClick={() => setSelectedPackage(pkg)}
-            className="text-sm text-purple-700 hover:text-purple-900 hover:underline transition-colors cursor-pointer text-left"
+            className="text-xs text-purple-700 hover:text-purple-900 hover:underline transition-colors cursor-pointer text-left"
             title="Klikk for mer info"
           >
             {pkg.name}: {Math.round(pkg.price)}kr
