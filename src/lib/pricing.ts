@@ -2,6 +2,10 @@ import { prisma } from "./prisma"
 import { validateLicense } from "./license"
 import { getUserRoleInfo } from "./roles"
 
+// Cache for isPricingEnabled - reduserer database-kall dramatisk
+let pricingEnabledCache: { value: boolean; timestamp: number } | null = null
+const PRICING_CACHE_TTL = 30000 // 30 sekunder
+
 export type PricingModel = "FREE" | "HOURLY" | "DAILY" | "FIXED_DURATION"
 
 export interface PricingRule {
@@ -90,8 +94,15 @@ export interface BookingPriceCalculation {
 /**
  * Sjekker om prislogikk er aktivert basert på lisensserver-status
  * Prislogikk er kun aktiv hvis lisensen har "pricing" modulen aktivert
+ * OPTIMALISERT: Cacher resultatet i 30 sekunder for å unngå gjentatte database-kall
  */
 export async function isPricingEnabled(): Promise<boolean> {
+  // Sjekk cache først
+  const now = Date.now()
+  if (pricingEnabledCache && (now - pricingEnabledCache.timestamp) < PRICING_CACHE_TTL) {
+    return pricingEnabledCache.value
+  }
+  
   try {
     const license = await validateLicense()
     
@@ -100,6 +111,7 @@ export async function isPricingEnabled(): Promise<boolean> {
     // 2. Lisensen har pricing-modulen aktivert
     
     if (!license.valid && license.status !== "grace" && license.status !== "error") {
+      pricingEnabledCache = { value: false, timestamp: now }
       return false
     }
     
@@ -115,13 +127,16 @@ export async function isPricingEnabled(): Promise<boolean> {
         license.licenseType === "standard" ||
         license.licenseType === "pilot" ||
         license.features?.emailNotifications === true
+      pricingEnabledCache = { value: hasPricingFeature, timestamp: now }
       return hasPricingFeature
     }
     
+    pricingEnabledCache = { value: hasPricingModule, timestamp: now }
     return hasPricingModule
   } catch (error) {
     console.error("[Pricing] Error checking license:", error)
     // Ved feil, returner false for å være på den sikre siden
+    pricingEnabledCache = { value: false, timestamp: now }
     return false
   }
 }
@@ -186,6 +201,75 @@ export async function hasPricingRules(
   })
   
   return hasActualPricing
+}
+
+/**
+ * OPTIMALISERT: Sjekker prisregler for flere deler på én gang
+ * Reduserer N+1 spørringer til 2 spørringer (en for pakker, en for deler)
+ */
+export async function hasPricingRulesForParts(
+  resourceId: string,
+  partIds: string[]
+): Promise<Set<string>> {
+  if (partIds.length === 0) return new Set()
+  
+  const pricingEnabled = await isPricingEnabled()
+  if (!pricingEnabled) return new Set()
+  
+  // Hent alle fastprispakker for alle deler i én spørring
+  const packagesWithParts = await prisma.fixedPricePackage.groupBy({
+    by: ['resourcePartId'],
+    where: {
+      resourcePartId: { in: partIds },
+      isActive: true
+    }
+  })
+  
+  const partsWithPackages = new Set(packagesWithParts.map(p => p.resourcePartId).filter(Boolean) as string[])
+  
+  // Hent alle deler med prisregler i én spørring
+  const partsWithRules = await prisma.resourcePart.findMany({
+    where: {
+      id: { in: partIds },
+      OR: [
+        { pricingRules: { not: null } },
+        { pricingModel: { not: null } }
+      ]
+    },
+    select: { id: true, pricingRules: true, pricingModel: true }
+  })
+  
+  const result = new Set<string>()
+  
+  // Legg til deler med fastprispakker
+  partsWithPackages.forEach(id => result.add(id))
+  
+  // Legg til deler med prisregler
+  for (const part of partsWithRules) {
+    if (part.pricingRules) {
+      try {
+        const rules = JSON.parse(part.pricingRules as string)
+        if (Array.isArray(rules) && rules.length > 0) {
+          // Sjekk om det er faktiske prisregler (ikke bare tomme)
+          const hasActualRules = rules.some((rule: PricingRule) => {
+            if (rule.model === "FREE" && (!rule.forRoles || rule.forRoles.length === 0)) {
+              return false
+            }
+            return true
+          })
+          if (hasActualRules) {
+            result.add(part.id)
+          }
+        }
+      } catch {
+        // Ignorer parse-feil
+      }
+    } else if (part.pricingModel) {
+      result.add(part.id)
+    }
+  }
+  
+  return result
 }
 
 /**
@@ -294,17 +378,6 @@ export async function getPricingConfig(
       if (resource.pricingRules) {
         try {
           const rules = JSON.parse(resource.pricingRules) as PricingRule[]
-          console.log("[Pricing] Loaded pricingRules from database:", {
-            rulesCount: rules.length,
-            rules: rules.map(r => ({
-              forRoles: r.forRoles,
-              model: r.model,
-              hasMemberPrice: !!(r.memberPricePerHour || r.memberPricePerDay || r.memberFixedPrice),
-              hasNonMemberPrice: !!(r.nonMemberPricePerHour || r.nonMemberPricePerDay || r.nonMemberFixedPrice),
-              memberPricePerHour: r.memberPricePerHour,
-              nonMemberPricePerHour: r.nonMemberPricePerHour
-            }))
-          })
           return { rules }
         } catch (e) {
           console.error("[Pricing] Error parsing pricingRules:", e)
@@ -343,8 +416,47 @@ export async function getPricingConfig(
   }
 }
 
+// Cache for user role info for å unngå gjentatte database-kall
+const userRoleCache = new Map<string, { roleInfo: any; isMember: boolean; timestamp: number }>()
+const USER_ROLE_CACHE_TTL = 10000 // 10 sekunder
+
+/**
+ * OPTIMALISERT: Henter brukerinfo med caching for å unngå gjentatte database-kall
+ */
+async function getCachedUserInfo(userId: string): Promise<{ roleInfo: any; isMember: boolean }> {
+  const now = Date.now()
+  const cached = userRoleCache.get(userId)
+  
+  if (cached && (now - cached.timestamp) < USER_ROLE_CACHE_TTL) {
+    return { roleInfo: cached.roleInfo, isMember: cached.isMember }
+  }
+  
+  // Hent data parallelt
+  const [roleInfo, user] = await Promise.all([
+    getUserRoleInfo(userId),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { isMember: true }
+    })
+  ])
+  
+  const isMember = user?.isMember ?? false
+  
+  // Cache resultatet
+  userRoleCache.set(userId, { roleInfo, isMember, timestamp: now })
+  
+  // Rens gammel cache (maks 100 entries)
+  if (userRoleCache.size > 100) {
+    const oldestKey = userRoleCache.keys().next().value
+    if (oldestKey) userRoleCache.delete(oldestKey)
+  }
+  
+  return { roleInfo, isMember }
+}
+
 /**
  * Finner riktig pris-regel for en bruker basert på deres roller
+ * OPTIMALISERT: Cacher brukerinfo for å unngå gjentatte database-kall
  */
 export async function findPricingRuleForUser(
   userId: string,
@@ -355,25 +467,7 @@ export async function findPricingRuleForUser(
   }
 
   try {
-    const roleInfo = await getUserRoleInfo(userId)
-    
-    // Hent brukerens medlemsstatus
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { isMember: true }
-    })
-    const isMember = user?.isMember ?? false
-    
-    // Debug logging
-    console.log("[Pricing] Finding rule for user:", {
-      userId,
-      systemRole: roleInfo.systemRole,
-      isAdmin: roleInfo.isAdmin,
-      isMember,
-      customRole: roleInfo.customRole?.name || null,
-      rulesCount: rules.length,
-      rules: rules.map(r => ({ forRoles: r.forRoles, model: r.model }))
-    })
+    const { roleInfo, isMember } = await getCachedUserInfo(userId)
     
     // Først: sjekk spesifikke regler (forRoles er ikke tom)
     // Prioriter rekkefølge: admin > member > custom role > user > standard (tom forRoles)
@@ -427,48 +521,11 @@ export async function findPricingRuleForUser(
     // 5. Hvis ingen spesifikk match, bruk standard-regelen (forRoles er tom)
     // Dette gjelder alle som ikke dekkes av reglene over
     const defaultRule = rules.find(r => r.forRoles.length === 0)
-    console.log("[Pricing] No specific rule matched, checking default rule:", {
-      defaultRuleFound: !!defaultRule,
-      defaultRuleDetails: defaultRule ? { 
-        model: defaultRule.model,
-        forRoles: defaultRule.forRoles,
-        hasMemberPrice: !!(defaultRule.memberPricePerHour || defaultRule.memberPricePerDay || defaultRule.memberFixedPrice),
-        hasNonMemberPrice: !!(defaultRule.nonMemberPricePerHour || defaultRule.nonMemberPricePerDay || defaultRule.nonMemberFixedPrice),
-        memberPricePerHour: defaultRule.memberPricePerHour,
-        nonMemberPricePerHour: defaultRule.nonMemberPricePerHour,
-        allRules: rules.map(r => ({ 
-          forRoles: r.forRoles, 
-          model: r.model,
-          isDefault: r.forRoles.length === 0
-        }))
-      } : null,
-      allRules: rules.map(r => ({ 
-        forRoles: r.forRoles, 
-        model: r.model,
-        isDefault: r.forRoles.length === 0,
-        forRolesString: JSON.stringify(r.forRoles)
-      })),
-      rulesCount: rules.length
-    })
     if (defaultRule) {
       return { rule: defaultRule }
     }
     
-    // Hvis ingen standardregel finnes, men det finnes regler, logg en advarsel
-    if (rules.length > 0) {
-      console.warn("[Pricing] No default rule found, but rules exist. User will see 'gratis'. Rules:", rules.map(r => ({
-        forRoles: r.forRoles,
-        forRolesString: JSON.stringify(r.forRoles),
-        model: r.model,
-        isDefault: r.forRoles.length === 0,
-        hasMemberPrice: !!(r.memberPricePerHour || r.memberPricePerDay || r.memberFixedPrice),
-        hasNonMemberPrice: !!(r.nonMemberPricePerHour || r.nonMemberPricePerDay || r.nonMemberFixedPrice)
-      })))
-      console.warn("[Pricing] SOLUTION: Add a rule with NO roles selected (empty forRoles array) to make it the default rule for standard users.")
-    }
-    
-    // Hvis ingen regel funnet, returner null (gratis)
-    console.log("[Pricing] No rule found for user, returning null (gratis)")
+    // Hvis ingen regel funnet, returner null
     return { rule: null }
   } catch (error) {
     console.error("[Pricing] Error finding pricing rule:", error)

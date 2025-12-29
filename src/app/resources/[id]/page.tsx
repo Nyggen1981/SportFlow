@@ -18,7 +18,7 @@ import { ResourceCalendar } from "@/components/ResourceCalendar"
 import { MapViewer } from "@/components/MapViewer"
 import { PartsList } from "@/components/PartsList"
 import { PricingInfoCard } from "@/components/PricingInfoCard"
-import { getPricingConfig, isPricingEnabled, findPricingRuleForUser, hasPricingRules } from "@/lib/pricing"
+import { getPricingConfig, isPricingEnabled, findPricingRuleForUser, hasPricingRulesForParts } from "@/lib/pricing"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getUserRoleInfo } from "@/lib/roles"
@@ -101,15 +101,11 @@ async function getResource(id: string) {
     if (!resource) return null
 
     // Hvis pricing er aktivert, filtrer ut deler uten prisregler
+    // OPTIMALISERT: Bruker batch-spørring i stedet for N+1 spørringer
     if (pricingEnabled && resource.parts.length > 0) {
-      const partsWithPricing = []
-      for (const part of resource.parts) {
-        const hasRules = await hasPricingRules(id, part.id)
-        if (hasRules) {
-          partsWithPricing.push(part)
-        }
-      }
-      resource.parts = partsWithPricing
+      const partIds = resource.parts.map(p => p.id)
+      const partsWithPricingSet = await hasPricingRulesForParts(id, partIds)
+      resource.parts = resource.parts.filter(p => partsWithPricingSet.has(p.id))
     }
 
     return resource
@@ -262,41 +258,66 @@ export default async function ResourcePage({ params }: Props) {
       }
       
       // Hent relevante regler for hoveddeler og underdeler (alltid hvis det finnes deler)
+      // OPTIMALISERT: Batch-henting av data for alle deler
       if (resource.parts.length > 0 && session?.user?.id) {
+        const partIds = resource.parts.map(p => p.id)
+        
+        // Hent alle fastprispakker for ALLE deler i én spørring
+        const allPartPackages = await prisma.fixedPricePackage.findMany({
+          where: { resourcePartId: { in: partIds }, isActive: true },
+          select: { id: true, name: true, description: true, durationMinutes: true, price: true, forRoles: true, resourcePartId: true },
+          orderBy: { sortOrder: "asc" }
+        })
+        
+        // Grupper pakker etter del-ID
+        const packagesByPartId = new Map<string, typeof allPartPackages>()
+        for (const pkg of allPartPackages) {
+          if (!pkg.resourcePartId) continue
+          const existing = packagesByPartId.get(pkg.resourcePartId) || []
+          existing.push(pkg)
+          packagesByPartId.set(pkg.resourcePartId, existing)
+        }
+        
+        // Hent alle prisregler for alle deler i én spørring
+        const allPartsWithPricing = await prisma.resourcePart.findMany({
+          where: { id: { in: partIds } },
+          select: { id: true, pricingRules: true }
+        })
+        
+        // Prosesser hver del
         for (const part of resource.parts) {
-          const partPricingConfig = await getPricingConfig(id, part.id)
+          const partPackages = packagesByPartId.get(part.id) || []
           
-          // Hent fastprispakker for delen
-          const partPackages = await prisma.fixedPricePackage.findMany({
-            where: { resourcePartId: part.id, isActive: true },
-            select: { id: true, name: true, description: true, durationMinutes: true, price: true, forRoles: true },
-            orderBy: { sortOrder: "asc" }
-          })
-          
-          // Filtrer basert på brukerens rolle (bruk samme variabler som over)
+          // Filtrer pakker basert på brukerens rolle
           const fixedPackages = partPackages.filter(pkg => {
             if (!pkg.forRoles) return true
             try {
               const allowedRoles: string[] = JSON.parse(pkg.forRoles)
               if (allowedRoles.length === 0) return true
-              // Admin matches "admin"
               if (userSystemRole === "admin" && allowedRoles.includes("admin")) return true
-              // "member" = verified member (isMember: true)
-              // "user" = logged in but NOT verified member (isMember: false)
               if (isMember && allowedRoles.includes("member")) return true
               if (!isMember && allowedRoles.includes("user")) return true
-              // Custom role ID
               if (userRoleId && allowedRoles.includes(userRoleId)) return true
               return false
             } catch {
               return true
             }
-          }).map(({ forRoles, ...p }) => ({ ...p, price: Number(p.price) }))
+          }).map(({ forRoles, resourcePartId, ...p }) => ({ ...p, price: Number(p.price) }))
           
-          // Hent prisregel for brukeren (hvis det finnes regler)
-          const partRule = partPricingConfig?.rules 
-            ? await findPricingRuleForUser(session.user.id, partPricingConfig.rules)
-            : null
+          // Finn prisregel fra forhåndslastet data
+          const partPricingData = allPartsWithPricing.find(p => p.id === part.id)
+          let partRule: { rule: any; reason?: string } | null = null
+          
+          if (partPricingData?.pricingRules) {
+            try {
+              const rules = JSON.parse(partPricingData.pricingRules as string)
+              if (Array.isArray(rules) && rules.length > 0) {
+                partRule = await findPricingRuleForUser(session.user.id, rules)
+              }
+            } catch {
+              // Ignorer parse-feil
+            }
+          }
           
           // Vis delen hvis brukeren har enten prisregel ELLER fastprispakker tilgjengelig
           if (partRule?.rule || fixedPackages.length > 0) {
