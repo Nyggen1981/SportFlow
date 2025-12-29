@@ -3,8 +3,10 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { generateInvoicePDF } from "@/lib/invoice-pdf"
-import { format } from "date-fns"
+import { formatInTimeZone } from "date-fns-tz"
 import { nb } from "date-fns/locale"
+
+const TIMEZONE = "Europe/Oslo"
 
 /**
  * Download invoice as PDF
@@ -105,7 +107,7 @@ export async function GET(
         const resourceName = b.resourcePart 
           ? `${b.resource.name} - ${b.resourcePart.name}` 
           : b.resource.name;
-        const dateTime = `${format(new Date(b.startTime), "d. MMM yyyy HH:mm", { locale: nb })} - ${format(new Date(b.endTime), "HH:mm", { locale: nb })}`;
+        const dateTime = `${formatInTimeZone(new Date(b.startTime), TIMEZONE, "d. MMM yyyy HH:mm", { locale: nb })} - ${formatInTimeZone(new Date(b.endTime), TIMEZONE, "HH:mm", { locale: nb })}`;
         
         return {
           description: cleanTitle,
