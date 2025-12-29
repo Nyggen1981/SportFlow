@@ -116,6 +116,7 @@ export function PricingInfoCard({
             
             {resourceFixedPackages.length > 0 && (
               <div className="mt-2">
+                <p className="text-xs font-medium text-gray-500 mb-1">Fastpriser:</p>
                 <FixedPricePackagesList packages={resourceFixedPackages} />
               </div>
             )}
@@ -156,6 +157,7 @@ export function PricingInfoCard({
                   
                   {fixedPackages && fixedPackages.length > 0 && (
                     <div className="mt-2">
+                      <p className="text-xs font-medium text-gray-500 mb-1">Fastpriser:</p>
                       <FixedPricePackagesList packages={fixedPackages} />
                     </div>
                   )}
