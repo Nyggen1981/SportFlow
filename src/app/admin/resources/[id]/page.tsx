@@ -1049,6 +1049,23 @@ export default function EditResourcePage({ params }: Props) {
                           />
                           <span className="text-sm text-gray-700">Administrator</span>
                         </label>
+                        <label className="flex items-center gap-2" title="Innloggede brukere med verifisert medlemskap">
+                          <input
+                            type="checkbox"
+                            checked={rule.forRoles.includes("member")}
+                            onChange={(e) => {
+                              const newRules = [...pricingRules]
+                              if (e.target.checked) {
+                                newRules[index].forRoles = [...newRules[index].forRoles, "member"]
+                              } else {
+                                newRules[index].forRoles = newRules[index].forRoles.filter(r => r !== "member")
+                              }
+                              setPricingRules(newRules)
+                            }}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm text-gray-700">Medlem <span className="text-xs text-gray-500">(verifisert)</span></span>
+                        </label>
                         {customRoles.map(role => (
                           <label key={role.id} className="flex items-center gap-2">
                             <input
@@ -1068,7 +1085,7 @@ export default function EditResourcePage({ params }: Props) {
                             <span className="text-sm text-gray-700">{role.name}</span>
                           </label>
                         ))}
-                        <label className="flex items-center gap-2">
+                        <label className="flex items-center gap-2" title="Innloggede brukere uten verifisert medlemskap">
                           <input
                             type="checkbox"
                             checked={rule.forRoles.includes("user")}
@@ -1083,11 +1100,11 @@ export default function EditResourcePage({ params }: Props) {
                             }}
                             className="w-4 h-4"
                           />
-                          <span className="text-sm text-gray-700">Bruker (standardbrukere)</span>
+                          <span className="text-sm text-gray-700">Bruker <span className="text-xs text-gray-500">(ikke verifisert)</span></span>
                         </label>
                         {rule.forRoles.length === 0 && (
                           <p className="text-xs text-gray-500 italic">
-                            Ingen roller valgt = standard for alle standardbrukere (systemRole: "user" uten custom role)
+                            Ingen roller valgt = standard for alle som ikke dekkes av andre regler
                           </p>
                         )}
                       </div>
@@ -1397,7 +1414,26 @@ export default function EditResourcePage({ params }: Props) {
                                       />
                                       <span className="text-xs text-gray-700">Administrator</span>
                                     </label>
-                                    <label className="flex items-center gap-2">
+                                    <label className="flex items-center gap-2" title="Innloggede brukere med verifisert medlemskap">
+                                      <input
+                                        type="checkbox"
+                                        checked={rule.forRoles.includes("member")}
+                                        onChange={(e) => {
+                                          const newParts = [...parts]
+                                          const newRules = [...partPricingRules]
+                                          if (e.target.checked) {
+                                            newRules[ruleIndex].forRoles = [...newRules[ruleIndex].forRoles, "member"]
+                                          } else {
+                                            newRules[ruleIndex].forRoles = newRules[ruleIndex].forRoles.filter(r => r !== "member")
+                                          }
+                                          newParts[partIndex].pricingRules = newRules
+                                          setParts(newParts)
+                                        }}
+                                        className="w-3.5 h-3.5"
+                                      />
+                                      <span className="text-xs text-gray-700">Medlem</span>
+                                    </label>
+                                    <label className="flex items-center gap-2" title="Innloggede brukere uten verifisert medlemskap">
                                       <input
                                         type="checkbox"
                                         checked={rule.forRoles.includes("user")}

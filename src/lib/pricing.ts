@@ -5,7 +5,7 @@ import { getUserRoleInfo } from "./roles"
 export type PricingModel = "FREE" | "HOURLY" | "DAILY" | "FIXED_DURATION"
 
 export interface PricingRule {
-  forRoles: string[] // Array av role IDs, "admin", eller "user". Tom array = standard for alle standardbrukere (systemRole: "user" uten custom role)
+  forRoles: string[] // Array av role IDs, "admin", "member", eller "user". Tom array = standard for alle som ikke dekkes av andre regler
   model: PricingModel
   fixedPriceDuration?: number | null // minutter (kun for FIXED_DURATION)
   // Legacy fields (for backwards compatibility when converting from old pricing)
@@ -294,19 +294,28 @@ export async function findPricingRuleForUser(
   try {
     const roleInfo = await getUserRoleInfo(userId)
     
+    // Hent brukerens medlemsstatus
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isMember: true }
+    })
+    const isMember = user?.isMember ?? false
+    
     // Debug logging
     console.log("[Pricing] Finding rule for user:", {
       userId,
       systemRole: roleInfo.systemRole,
       isAdmin: roleInfo.isAdmin,
+      isMember,
       customRole: roleInfo.customRole?.name || null,
       rulesCount: rules.length,
       rules: rules.map(r => ({ forRoles: r.forRoles, model: r.model }))
     })
     
     // Først: sjekk spesifikke regler (forRoles er ikke tom)
-    // Prioriter rekkefølge: admin > custom role > user > standard (tom forRoles)
-    // Standardbrukere (systemRole: "user" uten custom role) kan matche enten "user"-regel eller standardregel (forRoles: [])
+    // Prioriter rekkefølge: admin > member > custom role > user > standard (tom forRoles)
+    // "member" = verifisert medlem (isMember: true)
+    // "user" = ikke-verifisert bruker (isMember: false)
     
     // 1. Sjekk om brukeren er admin og admin er i listen
     if (roleInfo.isAdmin) {
@@ -316,7 +325,18 @@ export async function findPricingRuleForUser(
       }
     }
     
-    // 2. Sjekk om brukeren har en custom role som er i listen
+    // 2. Sjekk om brukeren er verifisert medlem og "member" er i listen
+    if (isMember) {
+      const memberRule = rules.find(r => r.forRoles.includes("member"))
+      if (memberRule) {
+        return { 
+          rule: memberRule, 
+          reason: memberRule.model === "FREE" ? "Gratis for medlemmer" : undefined 
+        }
+      }
+    }
+    
+    // 3. Sjekk om brukeren har en custom role som er i listen
     if (roleInfo.customRole) {
       const customRoleRule = rules.find(r => r.forRoles.includes(roleInfo.customRole!.id))
       if (customRoleRule) {
@@ -327,8 +347,8 @@ export async function findPricingRuleForUser(
       }
     }
     
-    // 3. Sjekk om systemRole "user" er i listen (for standardbrukere)
-    if (roleInfo.systemRole === "user") {
+    // 4. Sjekk om brukeren IKKE er verifisert medlem og "user" er i listen
+    if (!isMember && roleInfo.systemRole === "user") {
       const userRule = rules.find(r => r.forRoles.includes("user"))
       if (userRule) {
         return { 
@@ -338,8 +358,8 @@ export async function findPricingRuleForUser(
       }
     }
     
-    // 4. Hvis ingen spesifikk match, bruk standard-regelen (forRoles er tom)
-    // Dette gjelder alle standardbrukere (systemRole: "user" uten custom role) hvis ingen "user"-regel finnes
+    // 5. Hvis ingen spesifikk match, bruk standard-regelen (forRoles er tom)
+    // Dette gjelder alle som ikke dekkes av reglene over
     const defaultRule = rules.find(r => r.forRoles.length === 0)
     console.log("[Pricing] No specific rule matched, checking default rule:", {
       defaultRuleFound: !!defaultRule,
