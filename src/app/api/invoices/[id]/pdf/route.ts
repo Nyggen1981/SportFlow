@@ -107,7 +107,17 @@ export async function GET(
         const resourceName = b.resourcePart 
           ? `${b.resource.name} - ${b.resourcePart.name}` 
           : b.resource.name;
-        const dateTime = `${formatInTimeZone(new Date(b.startTime), TIMEZONE, "d. MMM yyyy HH:mm", { locale: nb })} - ${formatInTimeZone(new Date(b.endTime), TIMEZONE, "HH:mm", { locale: nb })}`;
+        
+        // Sjekk om bookingen går over flere dager
+        const startDate = formatInTimeZone(new Date(b.startTime), TIMEZONE, "d. MMM yyyy", { locale: nb });
+        const endDate = formatInTimeZone(new Date(b.endTime), TIMEZONE, "d. MMM yyyy", { locale: nb });
+        const startTime = formatInTimeZone(new Date(b.startTime), TIMEZONE, "HH:mm", { locale: nb });
+        const endTime = formatInTimeZone(new Date(b.endTime), TIMEZONE, "HH:mm", { locale: nb });
+        
+        // Hvis samme dag, vis bare én dato. Ellers vis begge datoer.
+        const dateTime = startDate === endDate 
+          ? `${startDate} ${startTime} - ${endTime}`
+          : `${startDate} ${startTime} - ${endDate} ${endTime}`;
         
         return {
           description: cleanTitle,

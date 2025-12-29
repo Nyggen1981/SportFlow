@@ -1409,18 +1409,24 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
               {/* Date and time */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Dato</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Fra</h4>
                   <div className="flex items-center gap-2 text-gray-600">
                     <Calendar className="w-4 h-4 text-gray-400" />
-                    <span>{format(new Date(selectedBooking.startTime), "EEEE d. MMMM yyyy", { locale: nb })}</span>
+                    <span>
+                      {format(new Date(selectedBooking.startTime), "EEEE d. MMMM yyyy", { locale: nb })}
+                      {" kl. "}
+                      {format(new Date(selectedBooking.startTime), "HH:mm")}
+                    </span>
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Tid</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Til</h4>
                   <div className="flex items-center gap-2 text-gray-600">
-                    <Clock className="w-4 h-4 text-gray-400" />
+                    <Calendar className="w-4 h-4 text-gray-400" />
                     <span>
-                      {format(new Date(selectedBooking.startTime), "HH:mm")} - {format(new Date(selectedBooking.endTime), "HH:mm")}
+                      {format(new Date(selectedBooking.endTime), "EEEE d. MMMM yyyy", { locale: nb })}
+                      {" kl. "}
+                      {format(new Date(selectedBooking.endTime), "HH:mm")}
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
@@ -1430,8 +1436,6 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       let durationMs = end.getTime() - start.getTime()
                       
                       // Håndter tilfelle hvor booking går over midnatt
-                      // Hvis varighet er negativ, betyr det at endTime er før startTime (sannsynligvis feil dato)
-                      // Legg til 24 timer for å korrigere (antagelse: booking går over midnatt og er < 24 timer)
                       if (durationMs < 0) {
                         durationMs += 24 * 60 * 60 * 1000
                       }
