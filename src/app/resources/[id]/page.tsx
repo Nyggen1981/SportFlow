@@ -199,8 +199,10 @@ export default async function ResourcePage({ params }: Props) {
   // Finn relevant prisregel for den innloggede brukeren (kun hvis allowWholeBooking er true)
   let relevantRule: { rule: any; reason?: string } | null = null
   let customRoles: Array<{ id: string; name: string }> = []
-  let partsPricing: Array<{ partId: string; partName: string; parentId: string | null; rule: any; reason?: string; fixedPackages?: Array<{ id: string; name: string; durationMinutes: number; price: number }> }> = []
-  let resourceFixedPackages: Array<{ id: string; name: string; durationMinutes: number; price: number }> = []
+  let partsPricing: Array<{ partId: string; partName: string; parentId: string | null; rule: any; reason?: string; fixedPackages?: Array<{ id: string; name: string; durationMinutes: number; price: number; memberPrice?: number | null }>; memberRule?: any }> = []
+  let resourceFixedPackages: Array<{ id: string; name: string; durationMinutes: number; price: number; memberPrice?: number | null }> = []
+  let isNonMember = false // Flagg for å vise medlemsbesparelser
+  let memberRule: any = null // Medlemsprisregel for sammenligning (hele fasilitet)
   
   if (pricingEnabled && session?.user?.id) {
     try {
@@ -208,6 +210,9 @@ export default async function ResourcePage({ params }: Props) {
       const userSystemRole = (session.user as any).systemRole || session.user.role || "user"
       const userRoleId = (session.user as any).customRoleId
       const isMember = (session.user as any).isMember
+      
+      // Sett isNonMember for å vise besparelser
+      isNonMember = !isMember && userSystemRole !== "admin"
       
       // Hjelpefunksjon for å filtrere pakker basert på brukerens rolle
       const filterPackagesByRole = <T extends { forRoles: string | null }>(packages: T[]): T[] => {
@@ -225,6 +230,35 @@ export default async function ResourcePage({ params }: Props) {
             return true
           }
         })
+      }
+      
+      // Hjelpefunksjon for å finne medlemspakker (kun for ikke-medlemmer)
+      const filterMemberPackages = <T extends { forRoles: string | null }>(packages: T[]): T[] => {
+        return packages.filter(pkg => {
+          if (!pkg.forRoles) return false
+          try {
+            const allowedRoles: string[] = JSON.parse(pkg.forRoles)
+            return allowedRoles.includes("member")
+          } catch {
+            return false
+          }
+        })
+      }
+      
+      // Hjelpefunksjon for å finne medlemspris for en pakke (basert på navn)
+      const findMemberPriceForPackage = <T extends { name: string; price: any; forRoles: string | null }>(
+        pkg: T,
+        allPackages: T[]
+      ): number | null => {
+        const memberPackages = filterMemberPackages(allPackages)
+        const matchingPackage = memberPackages.find(mp => mp.name === pkg.name)
+        return matchingPackage ? Number(matchingPackage.price) : null
+      }
+      
+      // Hjelpefunksjon for å finne medlemsprisregel
+      const findMemberRule = (rules: any[]): any | null => {
+        if (!Array.isArray(rules)) return null
+        return rules.find(r => r.forRoles?.includes("member")) || null
       }
       
       const partIds = resource.parts.map(p => p.id)
@@ -274,10 +308,19 @@ export default async function ResourcePage({ params }: Props) {
       customRoles = customRolesResult
       relevantRule = wholeResourceRule
       
+      // Finn medlemsprisregel for hele fasilitet (kun for ikke-medlemmer)
+      if (isNonMember && pricingConfig?.rules) {
+        memberRule = findMemberRule(pricingConfig.rules)
+      }
+      
       // Filtrer hele-fasilitet pakker
       if (wholeResourcePackages.length > 0) {
         resourceFixedPackages = filterPackagesByRole(wholeResourcePackages)
-          .map(({ forRoles, ...p }) => ({ ...p, price: Number(p.price) }))
+          .map(({ forRoles, ...p }) => ({
+            ...p,
+            price: Number(p.price),
+            memberPrice: isNonMember ? findMemberPriceForPackage(p, wholeResourcePackages) : null
+          }))
       }
       
       // Prosesser del-pakker
@@ -295,19 +338,28 @@ export default async function ResourcePage({ params }: Props) {
         const partRulePromises = resource.parts.map(async (part) => {
           const partPackages = packagesByPartId.get(part.id) || []
           
-          // Filtrer pakker basert på brukerens rolle
+          // Filtrer pakker basert på brukerens rolle og legg til medlemspris for sammenligning
           const fixedPackages = filterPackagesByRole(partPackages)
-            .map(({ forRoles, resourcePartId, ...p }) => ({ ...p, price: Number(p.price) }))
+            .map(({ forRoles, resourcePartId, ...p }) => ({
+              ...p,
+              price: Number(p.price),
+              memberPrice: isNonMember ? findMemberPriceForPackage(p, partPackages) : null
+            }))
           
           // Finn prisregel fra forhåndslastet data
           const partPricingData = allPartsWithPricing.find(p => p.id === part.id)
           let partRule: { rule: any; reason?: string } | null = null
+          let partMemberRule: any = null
           
           if (partPricingData?.pricingRules) {
             try {
               const rules = JSON.parse(partPricingData.pricingRules as string)
               if (Array.isArray(rules) && rules.length > 0) {
                 partRule = await findPricingRuleForUser(session.user.id, rules)
+                // Finn medlemsprisregel for sammenligning (kun for ikke-medlemmer)
+                if (isNonMember) {
+                  partMemberRule = findMemberRule(rules)
+                }
               }
             } catch {
               // Ignorer parse-feil
@@ -322,7 +374,8 @@ export default async function ResourcePage({ params }: Props) {
               parentId: part.parentId || null,
               rule: partRule?.rule || null,
               reason: partRule?.reason,
-              fixedPackages: fixedPackages
+              fixedPackages: fixedPackages,
+              memberRule: partMemberRule
             }
           }
           return null
@@ -584,9 +637,12 @@ export default async function ResourcePage({ params }: Props) {
                   partName: p.partName,
                   parentId: p.parentId,
                   rule: p.rule || null,
-                  fixedPackages: p.fixedPackages
+                  fixedPackages: p.fixedPackages,
+                  memberRule: p.memberRule || null
                 }))}
                 customRoles={customRoles}
+                isNonMember={isNonMember}
+                memberRule={memberRule}
               />
             )}
 

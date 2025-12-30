@@ -1,5 +1,6 @@
 "use client"
 
+import { Sparkles } from "lucide-react"
 import { FixedPricePackagesList } from "./FixedPricePackagesList"
 
 interface PricingRule {
@@ -24,6 +25,7 @@ interface FixedPackage {
   description?: string | null
   durationMinutes: number
   price: number
+  memberPrice?: number | null // Medlemspris for sammenligning
 }
 
 interface PartPricing {
@@ -32,6 +34,7 @@ interface PartPricing {
   parentId: string | null
   rule: PricingRule | null
   fixedPackages?: FixedPackage[]
+  memberRule?: PricingRule | null // Medlemsprisregel for sammenligning
 }
 
 interface CustomRole {
@@ -46,37 +49,37 @@ interface PricingInfoCardProps {
   resourceFixedPackages: FixedPackage[]
   partsPricing: PartPricing[]
   customRoles?: CustomRole[]
+  isNonMember?: boolean // Vis medlemsbesparelser for ikke-medlemmer
+  memberRule?: PricingRule | null // Medlemsprisregel for sammenligning
+}
+
+// Helper: Hent pris fra regel (støtter nytt og legacy format)
+function getPriceFromRule(rule: PricingRule): { hourly: number | null; daily: number | null; fixed: number | null } {
+  return {
+    hourly: rule.pricePerHour ?? rule.memberPricePerHour ?? rule.nonMemberPricePerHour ?? null,
+    daily: rule.pricePerDay ?? rule.memberPricePerDay ?? rule.nonMemberPricePerDay ?? null,
+    fixed: rule.fixedPrice ?? rule.memberFixedPrice ?? rule.nonMemberFixedPrice ?? null
+  }
 }
 
 function getPricingDescription(rule: PricingRule): string {
-  // Helper: få pris fra regel (støtter nytt og legacy format)
-  const getHourlyPrice = (): number | null => 
-    rule.pricePerHour ?? rule.memberPricePerHour ?? rule.nonMemberPricePerHour ?? null
-  
-  const getDailyPrice = (): number | null => 
-    rule.pricePerDay ?? rule.memberPricePerDay ?? rule.nonMemberPricePerDay ?? null
-  
-  const getFixedPrice = (): number | null => 
-    rule.fixedPrice ?? rule.memberFixedPrice ?? rule.nonMemberFixedPrice ?? null
+  const prices = getPriceFromRule(rule)
 
   switch (rule.model) {
     case "FREE":
       return "Gratis"
     case "HOURLY":
-      const hourlyPrice = getHourlyPrice()
-      if (hourlyPrice === null || hourlyPrice === 0) {
+      if (prices.hourly === null || prices.hourly === 0) {
         return "Per time"
       }
-      return `${Math.round(Number(hourlyPrice))} kr/time`
+      return `${Math.round(Number(prices.hourly))} kr/time`
     case "DAILY":
-      const dailyPrice = getDailyPrice()
-      if (dailyPrice === null || dailyPrice === 0) {
+      if (prices.daily === null || prices.daily === 0) {
         return "Per døgn"
       }
-      return `${Math.round(Number(dailyPrice))} kr/døgn`
+      return `${Math.round(Number(prices.daily))} kr/døgn`
     case "FIXED_DURATION":
-      const fixedPrice = getFixedPrice()
-      if (fixedPrice === null || fixedPrice === 0) {
+      if (prices.fixed === null || prices.fixed === 0) {
         return "Fast pris"
       }
       
@@ -84,10 +87,66 @@ function getPricingDescription(rule: PricingRule): string {
       const m = (rule.fixedPriceDuration || 0) % 60
       const durationStr = h > 0 && m > 0 ? `${h}t ${m}m` : h > 0 ? `${h}t` : `${m}m`
       
-      return `${Math.round(Number(fixedPrice))} kr/${durationStr}`
+      return `${Math.round(Number(prices.fixed))} kr/${durationStr}`
     default:
       return "Ukjent"
   }
+}
+
+// Beregn besparelser mellom ikke-medlemspris og medlemspris
+function calculateSavings(userRule: PricingRule, memberRule: PricingRule | null): { savings: number; memberPrice: number; suffix: string } | null {
+  if (!memberRule || memberRule.model === "FREE") {
+    // Hvis medlemmer får gratis, beregn besparelser
+    if (memberRule?.model === "FREE") {
+      const userPrices = getPriceFromRule(userRule)
+      if (userRule.model === "HOURLY" && userPrices.hourly) {
+        return { savings: userPrices.hourly, memberPrice: 0, suffix: "/time" }
+      }
+      if (userRule.model === "DAILY" && userPrices.daily) {
+        return { savings: userPrices.daily, memberPrice: 0, suffix: "/døgn" }
+      }
+      if (userRule.model === "FIXED_DURATION" && userPrices.fixed) {
+        return { savings: userPrices.fixed, memberPrice: 0, suffix: "" }
+      }
+    }
+    return null
+  }
+  
+  const userPrices = getPriceFromRule(userRule)
+  const memberPrices = getPriceFromRule(memberRule)
+  
+  // Sammenlign basert på modell
+  if (userRule.model === "HOURLY" && memberRule.model === "HOURLY") {
+    if (userPrices.hourly && memberPrices.hourly && memberPrices.hourly < userPrices.hourly) {
+      return { 
+        savings: userPrices.hourly - memberPrices.hourly, 
+        memberPrice: memberPrices.hourly,
+        suffix: "/time"
+      }
+    }
+  }
+  
+  if (userRule.model === "DAILY" && memberRule.model === "DAILY") {
+    if (userPrices.daily && memberPrices.daily && memberPrices.daily < userPrices.daily) {
+      return { 
+        savings: userPrices.daily - memberPrices.daily, 
+        memberPrice: memberPrices.daily,
+        suffix: "/døgn"
+      }
+    }
+  }
+  
+  if (userRule.model === "FIXED_DURATION" && memberRule.model === "FIXED_DURATION") {
+    if (userPrices.fixed && memberPrices.fixed && memberPrices.fixed < userPrices.fixed) {
+      return { 
+        savings: userPrices.fixed - memberPrices.fixed, 
+        memberPrice: memberPrices.fixed,
+        suffix: ""
+      }
+    }
+  }
+  
+  return null
 }
 
 // Helper function to format role names
@@ -116,7 +175,9 @@ export function PricingInfoCard({
   relevantRule,
   resourceFixedPackages,
   partsPricing,
-  customRoles = []
+  customRoles = [],
+  isNonMember = false,
+  memberRule = null
 }: PricingInfoCardProps) {
   // Sort parts pricing hierarchically
   const sortedPartsPricing = [...partsPricing].sort((a, b) => {
@@ -157,13 +218,31 @@ export function PricingInfoCard({
                     )}
                   </div>
                 </div>
+                {/* Vis medlemsbesparelser for ikke-medlemmer */}
+                {isNonMember && memberRule && (() => {
+                  const savings = calculateSavings(relevantRule, memberRule)
+                  if (!savings) return null
+                  return (
+                    <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      <div className="text-xs">
+                        <span className="text-green-700 font-medium">
+                          Som medlem: {savings.memberPrice === 0 ? "Gratis" : `${Math.round(savings.memberPrice)} kr${savings.suffix}`}
+                        </span>
+                        <span className="text-green-600 ml-1">
+                          (spar {Math.round(savings.savings)} kr{savings.suffix})
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             )}
             
             {resourceFixedPackages.length > 0 && (
               <div className="mt-2">
                 <p className="text-xs font-medium text-gray-500 mb-1">Fastpriser:</p>
-                <FixedPricePackagesList packages={resourceFixedPackages} />
+                <FixedPricePackagesList packages={resourceFixedPackages} showMemberSavings={isNonMember} />
               </div>
             )}
           </div>
@@ -180,7 +259,7 @@ export function PricingInfoCard({
         {/* Deler */}
         {sortedPartsPricing.length > 0 && (
           <div className="space-y-2">
-            {sortedPartsPricing.map(({ partId, partName, parentId, rule, fixedPackages }) => {
+            {sortedPartsPricing.map(({ partId, partName, parentId, rule, fixedPackages, memberRule: partMemberRule }) => {
               const isChildPart = !!parentId
               
               return (
@@ -213,13 +292,31 @@ export function PricingInfoCard({
                           )}
                         </div>
                       </div>
+                      {/* Vis medlemsbesparelser for ikke-medlemmer */}
+                      {isNonMember && partMemberRule && (() => {
+                        const savings = calculateSavings(rule, partMemberRule)
+                        if (!savings) return null
+                        return (
+                          <div className="mt-2 p-2 bg-green-50 rounded-lg border border-green-200 flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-green-600 flex-shrink-0" />
+                            <div className="text-xs">
+                              <span className="text-green-700 font-medium">
+                                Som medlem: {savings.memberPrice === 0 ? "Gratis" : `${Math.round(savings.memberPrice)} kr${savings.suffix}`}
+                              </span>
+                              <span className="text-green-600 ml-1">
+                                (spar {Math.round(savings.savings)} kr{savings.suffix})
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </div>
                   )}
                   
                   {fixedPackages && fixedPackages.length > 0 && (
                     <div className="mt-2">
                       <p className="text-xs font-medium text-gray-500 mb-1">Fastpriser:</p>
-                      <FixedPricePackagesList packages={fixedPackages} />
+                      <FixedPricePackagesList packages={fixedPackages} showMemberSavings={isNonMember} />
                     </div>
                   )}
                 </div>
