@@ -33,12 +33,14 @@ async function getModeratorResources(userId: string) {
 }
 
 async function getQuickStats(organizationId: string) {
-  const [resourceCount, categoryCount, userCount, roleCount] = await Promise.all([
+  const [resourceCount, categoryCount, userCount, customRoleCount] = await Promise.all([
     prisma.resource.count({ where: { organizationId, isActive: true } }),
     prisma.resourceCategory.count(),
     prisma.user.count({ where: { organizationId } }),
     prisma.customRole.count({ where: { organizationId } })
   ])
+  // Legg til 3 standardroller (Admin, Medlem, Ikke medlem) til antallet
+  const roleCount = customRoleCount + 3
   return { resourceCount, categoryCount, userCount, roleCount }
       }
 
