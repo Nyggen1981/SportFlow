@@ -13,6 +13,7 @@ export default function AdminInvoicesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [pricingEnabled, setPricingEnabled] = useState(false)
+  const [checkingPricing, setCheckingPricing] = useState(true)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -25,16 +26,18 @@ export default function AdminInvoicesPage() {
         .then(res => res.json())
         .then(data => setPricingEnabled(data.enabled || false))
         .catch(() => setPricingEnabled(false))
+        .finally(() => setCheckingPricing(false))
     }
   }, [status, session, router])
 
-  if (status === "loading") {
+  if (status === "loading" || checkingPricing) {
     return (
       <div className="min-h-screen bg-slate-50">
         <Navbar />
         <div className="flex items-center justify-center h-[60vh]">
           <div className="text-center">
-            <p className="text-gray-500">Laster...</p>
+            <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-2" />
+            <p className="text-gray-500">Laster fakturaer...</p>
           </div>
         </div>
       </div>
