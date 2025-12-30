@@ -6,7 +6,7 @@ import { sendVerificationEmail } from "@/lib/email-verification"
 
 export async function POST(request: Request) {
   try {
-    const { name, email, phone, password, orgSlug } = await request.json()
+    const { name, email, phone, password, orgSlug, claimsMembership } = await request.json()
 
     // Validate required fields (orgSlug is now optional - will auto-detect)
     if (!email || !password) {
@@ -74,6 +74,8 @@ export async function POST(request: Request) {
     const needsApproval = organization.requireUserApproval
 
     // Create user
+    // Hvis brukeren hevder å være medlem, sett isMember basert på deres valg
+    // Admin kan verifisere/endre dette senere ved godkjenning
     const user = await prisma.user.create({
       data: {
         email,
@@ -86,7 +88,7 @@ export async function POST(request: Request) {
         organizationId: organization.id,
         isApproved: !needsApproval, // Auto-approve if org doesn't require approval
         approvedAt: !needsApproval ? new Date() : null,
-        isMember: false, // Medlemsstatus settes av admin
+        isMember: claimsMembership === true, // Medlemsstatus basert på brukerens valg
         emailVerified: false, // Email must be verified
       },
       select: {
