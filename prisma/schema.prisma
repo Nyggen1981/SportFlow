@@ -33,6 +33,7 @@ model Organization {
 
   // User registration settings
   requireUserApproval Boolean @default(true)  // If true, new users must be approved by admin
+  allowSelfMembershipClaim Boolean @default(false)  // If true, users can claim membership status during registration
 
   // SMTP settings per organization (optional - falls back to global env vars if not set)
   smtpHost       String?  // e.g., smtp.office365.com, smtp.gmail.com

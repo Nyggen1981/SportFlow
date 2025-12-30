@@ -29,6 +29,7 @@ function RegisterForm() {
   const [orgExists, setOrgExists] = useState(false)
   const [existingOrgName, setExistingOrgName] = useState("")
   const [orgRequiresApproval, setOrgRequiresApproval] = useState(true) // Organization's setting
+  const [orgAllowsSelfMembership, setOrgAllowsSelfMembership] = useState(false) // Can users claim membership?
   const [needsApproval, setNeedsApproval] = useState(true) // Result after registration
 
   // Check if organization exists on page load
@@ -44,6 +45,7 @@ function RegisterForm() {
             setOrgExists(true)
             setExistingOrgName(data.name)
             setOrgRequiresApproval(data.requireUserApproval !== false)
+            setOrgAllowsSelfMembership(data.allowSelfMembershipClaim === true)
             setStep("join") // Organization exists, go to join
           } else {
             setOrgExists(false)
@@ -109,7 +111,7 @@ function RegisterForm() {
 
       const body = step === "create" 
         ? { name, email, phone, password, orgName, orgSlug: orgSlugInput }
-        : { name, email, phone, password, claimsMembership } // Include membership claim
+        : { name, email, phone, password, claimsMembership: orgAllowsSelfMembership ? claimsMembership : false }
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -321,22 +323,24 @@ function RegisterForm() {
                 />
               </div>
 
-              {/* Membership status checkbox */}
-              <div className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-                <input
-                  type="checkbox"
-                  id="membership-claim"
-                  checked={claimsMembership}
-                  onChange={(e) => setClaimsMembership(e.target.checked)}
-                  className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-                />
-                <label htmlFor="membership-claim" className="text-sm text-gray-700 cursor-pointer">
-                  <span className="font-medium">Jeg er medlem av {existingOrgName || "idrettslaget"}</span>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Huk av hvis du allerede er medlem. Dette påvirker hvilke priser og tilganger du får.
-                  </p>
-                </label>
-              </div>
+              {/* Membership status checkbox - only show if organization allows self-membership claims */}
+              {orgAllowsSelfMembership && (
+                <div className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <input
+                    type="checkbox"
+                    id="membership-claim"
+                    checked={claimsMembership}
+                    onChange={(e) => setClaimsMembership(e.target.checked)}
+                    className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                  />
+                  <label htmlFor="membership-claim" className="text-sm text-gray-700 cursor-pointer">
+                    <span className="font-medium">Jeg er medlem av {existingOrgName || "idrettslaget"}</span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Huk av hvis du allerede er medlem. Dette påvirker hvilke priser og tilganger du får.
+                    </p>
+                  </label>
+                </div>
+              )}
 
               {/* Consent checkbox */}
               <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">

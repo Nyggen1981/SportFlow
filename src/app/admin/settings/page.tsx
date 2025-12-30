@@ -56,6 +56,7 @@ interface Organization {
   invoiceBankAccount?: string | null
   invoiceNotes?: string | null
   isMvaRegistered?: boolean
+  allowSelfMembershipClaim?: boolean
 }
 
 export default function AdminSettingsPage() {
@@ -87,6 +88,7 @@ export default function AdminSettingsPage() {
   const [primaryColor, setPrimaryColor] = useState("#2563eb")
   const [secondaryColor, setSecondaryColor] = useState("#1e40af")
   const [requireUserApproval, setRequireUserApproval] = useState(true)
+  const [allowSelfMembershipClaim, setAllowSelfMembershipClaim] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // SMTP settings state
@@ -161,6 +163,7 @@ export default function AdminSettingsPage() {
           setPrimaryColor(orgData.primaryColor || "#2563eb")
           setSecondaryColor(orgData.secondaryColor || "#1e40af")
           setRequireUserApproval(orgData.requireUserApproval !== false) // Default to true
+          setAllowSelfMembershipClaim(orgData.allowSelfMembershipClaim === true) // Default to false
           
           // Load SMTP settings
           setSmtpHost(orgData.smtpHost || "")
@@ -437,6 +440,7 @@ export default function AdminSettingsPage() {
           primaryColor,
           secondaryColor,
           requireUserApproval,
+          allowSelfMembershipClaim,
           smtpHost: smtpHost || null,
           smtpPort: smtpPort || null,
           smtpUser: smtpUser || null,
@@ -782,6 +786,31 @@ export default function AdminSettingsPage() {
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
                       requireUserApproval ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div>
+                  <h3 className="font-medium text-gray-900">Tillat brukere å registrere seg som medlem</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {allowSelfMembershipClaim 
+                      ? "Brukere kan selv velge om de er medlem ved registrering"
+                      : "Kun admin kan sette medlemsstatus på brukere"
+                    }
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAllowSelfMembershipClaim(!allowSelfMembershipClaim)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    allowSelfMembershipClaim ? 'bg-blue-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      allowSelfMembershipClaim ? 'translate-x-5' : 'translate-x-0'
                     }`}
                   />
                 </button>

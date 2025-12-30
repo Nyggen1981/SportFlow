@@ -21,6 +21,7 @@ export async function GET(request: Request) {
           tagline: true,
           primaryColor: true,
           requireUserApproval: true,
+          allowSelfMembershipClaim: true,
           invoiceOrgNumber: true,
           invoiceAddress: true,
           invoicePhone: true,
