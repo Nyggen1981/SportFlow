@@ -210,7 +210,7 @@ export default async function ResourcePage({ params }: Props) {
       const isMember = (session.user as any).isMember
       
       // Hjelpefunksjon for å filtrere pakker basert på brukerens rolle
-      const filterPackagesByRole = (packages: Array<{ forRoles: string | null; [key: string]: any }>) => {
+      const filterPackagesByRole = <T extends { forRoles: string | null }>(packages: T[]): T[] => {
         return packages.filter(pkg => {
           if (!pkg.forRoles) return true
           try {
