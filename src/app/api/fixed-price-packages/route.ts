@@ -55,18 +55,25 @@ export async function GET(request: NextRequest) {
     const isMember = (session.user as any).isMember // Member status
 
     const filteredPackages = packages.filter(pkg => {
-      // If no forRoles specified, package is available for all
-      if (!pkg.forRoles) return true
+      // VIKTIG: Admin skal KUN se pakker der "admin" er eksplisitt valgt - ingen fallback
+      
+      // If no forRoles specified, package is available for all EXCEPT admin
+      if (!pkg.forRoles) {
+        return userSystemRole !== "admin"
+      }
       
       try {
         const allowedRoles: string[] = JSON.parse(pkg.forRoles)
         
-        // If empty array, available for all
-        if (allowedRoles.length === 0) return true
+        // If empty array, available for all EXCEPT admin
+        if (allowedRoles.length === 0) {
+          return userSystemRole !== "admin"
+        }
         
-        // Check if user's role matches any allowed role
-        // Admin always matches "admin"
-        if (userSystemRole === "admin" && allowedRoles.includes("admin")) return true
+        // Admin sjekkes først og får IKKE fallback til andre roller
+        if (userSystemRole === "admin") {
+          return allowedRoles.includes("admin")
+        }
         
         // "member" = verified member (isMember: true)
         // "user" = logged in but NOT verified member (isMember: false)
@@ -79,8 +86,8 @@ export async function GET(request: NextRequest) {
         
         return false
       } catch {
-        // If parsing fails, allow access
-        return true
+        // If parsing fails, allow access for non-admin only
+        return userSystemRole !== "admin"
       }
     })
 

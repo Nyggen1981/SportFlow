@@ -215,19 +215,32 @@ export default async function ResourcePage({ params }: Props) {
       isNonMember = !isMember && userSystemRole !== "admin"
       
       // Hjelpefunksjon for å filtrere pakker basert på brukerens rolle
+      // VIKTIG: Admin skal KUN se pakker der "admin" er eksplisitt valgt - ingen fallback
       const filterPackagesByRole = <T extends { forRoles: string | null }>(packages: T[]): T[] => {
         return packages.filter(pkg => {
-          if (!pkg.forRoles) return true
+          if (!pkg.forRoles) {
+            // Ingen rollebegrensning - vis til alle UNNTATT admin (admin må være eksplisitt)
+            return userSystemRole !== "admin"
+          }
           try {
             const allowedRoles: string[] = JSON.parse(pkg.forRoles)
-            if (allowedRoles.length === 0) return true
-            if (userSystemRole === "admin" && allowedRoles.includes("admin")) return true
+            if (allowedRoles.length === 0) {
+              // Tom liste = vis til alle UNNTATT admin
+              return userSystemRole !== "admin"
+            }
+            
+            // Admin sjekkes først og får IKKE fallback til andre roller
+            if (userSystemRole === "admin") {
+              return allowedRoles.includes("admin")
+            }
+            
+            // For vanlige brukere: sjekk rolle-match
             if (isMember && allowedRoles.includes("member")) return true
             if (!isMember && allowedRoles.includes("user")) return true
             if (userRoleId && allowedRoles.includes(userRoleId)) return true
             return false
           } catch {
-            return true
+            return userSystemRole !== "admin"
           }
         })
       }
