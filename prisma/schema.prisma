@@ -473,6 +473,7 @@ enum InvoiceStatus {
   PAID
   OVERDUE
   CANCELLED
+  REFUNDED
 }
 
 // Payment - Betalinger (Vipps, kort, etc.)

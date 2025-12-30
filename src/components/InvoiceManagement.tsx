@@ -12,14 +12,16 @@ import {
   XCircle,
   Loader2,
   Eye,
-  Trash2
+  Trash2,
+  RotateCcw,
+  MoreVertical
 } from "lucide-react"
 import Link from "next/link"
 
 interface Invoice {
   id: string
   invoiceNumber: string
-  status: "DRAFT" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED"
+  status: "DRAFT" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED" | "REFUNDED"
   dueDate: string
   paidAt: string | null
   totalAmount: number
@@ -37,12 +39,46 @@ interface Invoice {
 export function InvoiceManagement() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [filter, setFilter] = useState<"all" | "draft" | "sent" | "paid" | "overdue">("all")
+  const [filter, setFilter] = useState<"all" | "draft" | "sent" | "paid" | "overdue" | "refunded">("all")
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchInvoices()
   }, [filter])
+
+  const handleMarkAsRefunded = async (invoice: Invoice) => {
+    if (!confirm(`Er du sikker på at du vil markere faktura ${invoice.invoiceNumber} som refundert?`)) {
+      return
+    }
+
+    setUpdatingId(invoice.id)
+    setOpenMenuId(null)
+    try {
+      const response = await fetch(`/api/invoices/${invoice.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "REFUNDED" })
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        alert(data.error || "Kunne ikke oppdatere faktura")
+        return
+      }
+
+      // Oppdater fakturaen i listen
+      setInvoices(prev => prev.map(inv => 
+        inv.id === invoice.id ? { ...inv, status: "REFUNDED" as const } : inv
+      ))
+    } catch (error) {
+      console.error("Error updating invoice:", error)
+      alert("En feil oppstod ved oppdatering av faktura")
+    } finally {
+      setUpdatingId(null)
+    }
+  }
 
   const handleDelete = async (invoice: Invoice) => {
     if (!confirm(`Er du sikker på at du vil slette faktura ${invoice.invoiceNumber}?\n\nDenne handlingen kan ikke angres.`)) {
@@ -105,6 +141,8 @@ export function InvoiceManagement() {
         return "bg-red-100 text-red-700"
       case "CANCELLED":
         return "bg-gray-100 text-gray-500"
+      case "REFUNDED":
+        return "bg-purple-100 text-purple-700"
       default:
         return "bg-gray-100 text-gray-700"
     }
@@ -122,6 +160,8 @@ export function InvoiceManagement() {
         return <Clock className="w-4 h-4" />
       case "CANCELLED":
         return <XCircle className="w-4 h-4" />
+      case "REFUNDED":
+        return <RotateCcw className="w-4 h-4" />
       default:
         return <FileText className="w-4 h-4" />
     }
@@ -139,6 +179,8 @@ export function InvoiceManagement() {
         return "Forfalt"
       case "CANCELLED":
         return "Kansellert"
+      case "REFUNDED":
+        return "Refundert"
       default:
         return status
     }
@@ -155,18 +197,18 @@ export function InvoiceManagement() {
   return (
     <div className="space-y-4">
       {/* Filter tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
-        {(["all", "draft", "sent", "paid", "overdue"] as const).map((f) => (
+      <div className="flex gap-2 border-b border-gray-200 overflow-x-auto">
+        {(["all", "draft", "sent", "paid", "overdue", "refunded"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               filter === f
                 ? "border-blue-500 text-blue-600"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
-            {f === "all" ? "Alle" : f === "draft" ? "Kladder" : f === "sent" ? "Sendt" : f === "paid" ? "Betalt" : "Forfalt"}
+            {f === "all" ? "Alle" : f === "draft" ? "Kladder" : f === "sent" ? "Sendt" : f === "paid" ? "Betalt" : f === "overdue" ? "Forfalt" : "Refundert"}
           </button>
         ))}
       </div>
@@ -236,18 +278,52 @@ export function InvoiceManagement() {
                       >
                         <Download className="w-4 h-4" />
                       </a>
-                      <button
-                        onClick={() => handleDelete(invoice)}
-                        disabled={deletingId === invoice.id}
-                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                        title="Slett faktura"
-                      >
-                        {deletingId === invoice.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
+                      
+                      {/* Dropdown menu for actions */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setOpenMenuId(openMenuId === invoice.id ? null : invoice.id)}
+                          disabled={deletingId === invoice.id || updatingId === invoice.id}
+                          className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                          title="Flere handlinger"
+                        >
+                          {(deletingId === invoice.id || updatingId === invoice.id) ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <MoreVertical className="w-4 h-4" />
+                          )}
+                        </button>
+                        
+                        {openMenuId === invoice.id && (
+                          <>
+                            <div 
+                              className="fixed inset-0 z-10" 
+                              onClick={() => setOpenMenuId(null)} 
+                            />
+                            <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[160px] py-1">
+                              {invoice.status === "PAID" && (
+                                <button
+                                  onClick={() => handleMarkAsRefunded(invoice)}
+                                  className="w-full px-4 py-2 text-left text-sm text-purple-600 hover:bg-purple-50 flex items-center gap-2"
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                  Marker som refundert
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setOpenMenuId(null)
+                                  handleDelete(invoice)
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                Slett faktura
+                              </button>
+                            </div>
+                          </>
                         )}
-                      </button>
+                      </div>
                     </div>
                   </td>
                 </tr>
