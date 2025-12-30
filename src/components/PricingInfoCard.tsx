@@ -156,10 +156,11 @@ export function PricingInfoCard({
             {relevantRule ? (
               <button
                 onClick={() => setSelectedPricing({ name: resourceName, rule: relevantRule, memberRule })}
-                className="text-sm font-medium text-gray-900 hover:text-blue-700 hover:underline transition-colors cursor-pointer text-left"
+                className="w-full flex items-center justify-between text-sm font-medium text-gray-900 hover:text-blue-700 transition-colors cursor-pointer"
                 title="Klikk for mer info"
               >
-                {resourceName}: <span className="text-blue-700">{getPricingDescription(relevantRule)}</span>
+                <span>{resourceName}</span>
+                <span className="text-blue-700 hover:underline">{getPricingDescription(relevantRule)}</span>
               </button>
             ) : (
               <span className="text-sm font-medium text-gray-900">{resourceName}</span>
@@ -198,10 +199,11 @@ export function PricingInfoCard({
                   {rule ? (
                     <button
                       onClick={() => setSelectedPricing({ name: partName, rule, memberRule: partMemberRule })}
-                      className={`text-sm font-medium ${isChildPart ? 'text-gray-700' : 'text-gray-900'} hover:text-blue-700 hover:underline transition-colors cursor-pointer text-left`}
+                      className={`w-full flex items-center justify-between text-sm font-medium ${isChildPart ? 'text-gray-700' : 'text-gray-900'} hover:text-blue-700 transition-colors cursor-pointer`}
                       title="Klikk for mer info"
                     >
-                      {partName}: <span className="text-blue-700">{getPricingDescription(rule)}</span>
+                      <span>{partName}</span>
+                      <span className="text-blue-700 hover:underline">{getPricingDescription(rule)}</span>
                     </button>
                   ) : (
                     <span className={`text-sm font-medium ${isChildPart ? 'text-gray-700' : 'text-gray-900'}`}>
