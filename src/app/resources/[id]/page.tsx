@@ -656,10 +656,12 @@ export default async function ResourcePage({ params }: Props) {
                   partName: p.partName,
                   parentId: p.parentId,
                   rule: p.rule || null,
-                  fixedPackages: p.fixedPackages
+                  fixedPackages: p.fixedPackages,
+                  memberRule: p.memberRule || null
                 }))}
                 customRoles={customRoles}
                 isNonMember={isNonMember}
+                memberRule={memberRule}
               />
             )}
 

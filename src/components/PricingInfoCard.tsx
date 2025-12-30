@@ -1,5 +1,7 @@
 "use client"
 
+import { useState } from "react"
+import { X, Clock, Sparkles } from "lucide-react"
 import { FixedPricePackagesList } from "./FixedPricePackagesList"
 
 interface PricingRule {
@@ -24,7 +26,7 @@ interface FixedPackage {
   description?: string | null
   durationMinutes: number
   price: number
-  memberPrice?: number | null // Medlemspris for sammenligning
+  memberPrice?: number | null
 }
 
 interface PartPricing {
@@ -33,6 +35,7 @@ interface PartPricing {
   parentId: string | null
   rule: PricingRule | null
   fixedPackages?: FixedPackage[]
+  memberRule?: PricingRule | null // For sammenligning av besparelser
 }
 
 interface CustomRole {
@@ -47,69 +50,60 @@ interface PricingInfoCardProps {
   resourceFixedPackages: FixedPackage[]
   partsPricing: PartPricing[]
   customRoles?: CustomRole[]
-  isNonMember?: boolean // Vis medlemsbesparelser for ikke-medlemmer (for fastprispakker)
+  isNonMember?: boolean
+  memberRule?: PricingRule | null // Medlemsprisregel for hele fasilitet
 }
 
-function getPricingDescription(rule: PricingRule): string {
-  // Helper: få pris fra regel (støtter nytt og legacy format)
-  const getHourlyPrice = (): number | null => 
-    rule.pricePerHour ?? rule.memberPricePerHour ?? rule.nonMemberPricePerHour ?? null
-  
-  const getDailyPrice = (): number | null => 
-    rule.pricePerDay ?? rule.memberPricePerDay ?? rule.nonMemberPricePerDay ?? null
-  
-  const getFixedPrice = (): number | null => 
-    rule.fixedPrice ?? rule.memberFixedPrice ?? rule.nonMemberFixedPrice ?? null
+interface SelectedPricing {
+  name: string
+  rule: PricingRule
+  memberRule?: PricingRule | null
+}
 
+// Hent pris fra regel
+function getPriceFromRule(rule: PricingRule): { price: number | null; suffix: string } {
   switch (rule.model) {
     case "FREE":
-      return "Gratis"
+      return { price: 0, suffix: "" }
     case "HOURLY":
-      const hourlyPrice = getHourlyPrice()
-      if (hourlyPrice === null || hourlyPrice === 0) {
-        return "Per time"
-      }
-      return `${Math.round(Number(hourlyPrice))} kr/time`
+      const hourly = rule.pricePerHour ?? rule.memberPricePerHour ?? rule.nonMemberPricePerHour ?? null
+      return { price: hourly, suffix: "/time" }
     case "DAILY":
-      const dailyPrice = getDailyPrice()
-      if (dailyPrice === null || dailyPrice === 0) {
-        return "Per døgn"
-      }
-      return `${Math.round(Number(dailyPrice))} kr/døgn`
+      const daily = rule.pricePerDay ?? rule.memberPricePerDay ?? rule.nonMemberPricePerDay ?? null
+      return { price: daily, suffix: "/døgn" }
     case "FIXED_DURATION":
-      const fixedPrice = getFixedPrice()
-      if (fixedPrice === null || fixedPrice === 0) {
-        return "Fast pris"
-      }
-      
+      const fixed = rule.fixedPrice ?? rule.memberFixedPrice ?? rule.nonMemberFixedPrice ?? null
       const h = Math.floor((rule.fixedPriceDuration || 0) / 60)
       const m = (rule.fixedPriceDuration || 0) % 60
-      const durationStr = h > 0 && m > 0 ? `${h}t ${m}m` : h > 0 ? `${h}t` : `${m}m`
-      
-      return `${Math.round(Number(fixedPrice))} kr/${durationStr}`
+      const durationStr = h > 0 && m > 0 ? `/${h}t ${m}m` : h > 0 ? `/${h}t` : `/${m}m`
+      return { price: fixed, suffix: durationStr }
     default:
-      return "Ukjent"
+      return { price: null, suffix: "" }
   }
 }
 
-// Helper function to format role names
-function formatRoleNames(forRoles: string[] | undefined, customRoles: CustomRole[] = []): string | null {
-  if (!forRoles || forRoles.length === 0) return null
-  
-  const roleNames = forRoles.map(roleId => {
-    // Map system role IDs to Norwegian names
-    if (roleId === "admin") return "Administrator"
-    if (roleId === "member") return "Medlem"
-    if (roleId === "user") return "Ikke medlem"
-    
-    // Check custom roles
-    const customRole = customRoles.find(r => r.id === roleId)
-    if (customRole) return customRole.name
-    
-    return roleId // Fallback
-  })
-  
-  return roleNames.join(", ")
+function getPricingDescription(rule: PricingRule): string {
+  if (rule.model === "FREE") return "Gratis"
+  const { price, suffix } = getPriceFromRule(rule)
+  if (price === null || price === 0) {
+    switch (rule.model) {
+      case "HOURLY": return "Per time"
+      case "DAILY": return "Per døgn"
+      case "FIXED_DURATION": return "Fast pris"
+      default: return "Ukjent"
+    }
+  }
+  return `${Math.round(Number(price))}kr${suffix}`
+}
+
+function getModelLabel(model: string): string {
+  switch (model) {
+    case "FREE": return "Gratis"
+    case "HOURLY": return "Timepris"
+    case "DAILY": return "Døgnpris"
+    case "FIXED_DURATION": return "Fast varighet"
+    default: return "Pris"
+  }
 }
 
 export function PricingInfoCard({
@@ -119,8 +113,11 @@ export function PricingInfoCard({
   resourceFixedPackages,
   partsPricing,
   customRoles = [],
-  isNonMember = false
+  isNonMember = false,
+  memberRule = null
 }: PricingInfoCardProps) {
+  const [selectedPricing, setSelectedPricing] = useState<SelectedPricing | null>(null)
+
   // Sort parts pricing hierarchically
   const sortedPartsPricing = [...partsPricing].sort((a, b) => {
     if (a.parentId === null && b.parentId !== null) return -1
@@ -130,6 +127,23 @@ export function PricingInfoCard({
     return a.partName.localeCompare(b.partName, 'no')
   })
 
+  // Beregn besparelser
+  const calculateSavings = (userRule: PricingRule, memRule: PricingRule | null): { savings: number; memberPrice: number } | null => {
+    if (!memRule) return null
+    
+    const userPrice = getPriceFromRule(userRule)
+    const memberPrice = getPriceFromRule(memRule)
+    
+    if (userPrice.price === null || memberPrice.price === null) return null
+    if (memRule.model === "FREE") {
+      return { savings: userPrice.price, memberPrice: 0 }
+    }
+    if (memberPrice.price < userPrice.price) {
+      return { savings: userPrice.price - memberPrice.price, memberPrice: memberPrice.price }
+    }
+    return null
+  }
+
   return (
     <div className="card p-6">
       <h3 className="font-semibold text-gray-900 mb-4">
@@ -138,37 +152,24 @@ export function PricingInfoCard({
       <div className="space-y-3">
         {/* Hovedfasilitet */}
         {allowWholeBooking && (relevantRule || resourceFixedPackages.length > 0) && (
-          <div className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-900">Hele {resourceName}</span>
-            </div>
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <span className="text-sm font-medium text-gray-900">{resourceName}</span>
             
-            {relevantRule && (
-              <div className="mt-2 p-2 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-blue-600 text-xs font-bold">kr</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-900">
-                      {getPricingDescription(relevantRule)}
-                    </p>
-                    {formatRoleNames(relevantRule.forRoles, customRoles) && (
-                      <p className="text-xs text-blue-600">
-                        Kun for: {formatRoleNames(relevantRule.forRoles, customRoles)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {resourceFixedPackages.length > 0 && (
-              <div className="mt-2">
-                <p className="text-xs font-medium text-gray-500 mb-1">Fastpriser:</p>
+            <div className="mt-2 flex flex-col gap-1">
+              {relevantRule && (
+                <button
+                  onClick={() => setSelectedPricing({ name: resourceName, rule: relevantRule, memberRule })}
+                  className="text-xs text-blue-700 hover:text-blue-900 hover:underline transition-colors cursor-pointer text-left"
+                  title="Klikk for mer info"
+                >
+                  {getPricingDescription(relevantRule)}
+                </button>
+              )}
+              
+              {resourceFixedPackages.length > 0 && (
                 <FixedPricePackagesList packages={resourceFixedPackages} showMemberSavings={isNonMember} />
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
         
@@ -183,48 +184,35 @@ export function PricingInfoCard({
         {/* Deler */}
         {sortedPartsPricing.length > 0 && (
           <div className="space-y-2">
-            {sortedPartsPricing.map(({ partId, partName, parentId, rule, fixedPackages }) => {
+            {sortedPartsPricing.map(({ partId, partName, parentId, rule, fixedPackages, memberRule: partMemberRule }) => {
               const isChildPart = !!parentId
               
               return (
                 <div 
                   key={partId} 
-                  className={`p-3 rounded-lg border shadow-sm bg-gray-50 border-gray-200 ${
+                  className={`p-3 rounded-lg border bg-gray-50 border-gray-200 ${
                     isChildPart ? 'ml-4' : ''
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className={`text-sm font-medium ${isChildPart ? 'text-gray-700' : 'text-gray-900'}`}>
-                      {partName}
-                    </span>
-                  </div>
+                  <span className={`text-sm font-medium ${isChildPart ? 'text-gray-700' : 'text-gray-900'}`}>
+                    {partName}
+                  </span>
                   
-                  {rule && (
-                    <div className="mt-2 p-2 bg-white rounded-lg border border-gray-100">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-blue-600 text-xs font-bold">kr</span>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-gray-900">
-                            {getPricingDescription(rule)}
-                          </p>
-                          {formatRoleNames(rule.forRoles, customRoles) && (
-                            <p className="text-xs text-blue-600">
-                              Kun for: {formatRoleNames(rule.forRoles, customRoles)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {fixedPackages && fixedPackages.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs font-medium text-gray-500 mb-1">Fastpriser:</p>
+                  <div className="mt-2 flex flex-col gap-1">
+                    {rule && (
+                      <button
+                        onClick={() => setSelectedPricing({ name: partName, rule, memberRule: partMemberRule })}
+                        className="text-xs text-blue-700 hover:text-blue-900 hover:underline transition-colors cursor-pointer text-left"
+                        title="Klikk for mer info"
+                      >
+                        {getPricingDescription(rule)}
+                      </button>
+                    )}
+                    
+                    {fixedPackages && fixedPackages.length > 0 && (
                       <FixedPricePackagesList packages={fixedPackages} showMemberSavings={isNonMember} />
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               )
             })}
@@ -239,7 +227,80 @@ export function PricingInfoCard({
           </div>
         )}
       </div>
+
+      {/* Modal for prisdetaljer */}
+      {selectedPricing && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={() => setSelectedPricing(null)}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{selectedPricing.name}</h3>
+                <p className="text-sm text-gray-500">{getModelLabel(selectedPricing.rule.model)}</p>
+              </div>
+              <button
+                onClick={() => setSelectedPricing(null)}
+                className="p-1 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {selectedPricing.rule.model === "FREE" ? (
+                <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                  <Sparkles className="w-5 h-5 text-green-600" />
+                  <div>
+                    <p className="text-xl font-bold text-green-900">Gratis</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                  <Clock className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <p className="text-sm text-gray-500">Pris</p>
+                    <p className="text-xl font-bold text-blue-900">
+                      {getPricingDescription(selectedPricing.rule)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Vis medlemsbesparelser for ikke-medlemmer */}
+              {isNonMember && selectedPricing.memberRule && (() => {
+                const savings = calculateSavings(selectedPricing.rule, selectedPricing.memberRule)
+                if (!savings) return null
+                const { suffix } = getPriceFromRule(selectedPricing.rule)
+                return (
+                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <Sparkles className="w-5 h-5 text-green-600" />
+                    <div>
+                      <p className="text-sm text-green-700 font-medium">
+                        Som medlem: {savings.memberPrice === 0 ? "Gratis" : `${Math.round(savings.memberPrice)}kr${suffix}`}
+                      </p>
+                      <p className="text-xs text-green-600">
+                        Spar {Math.round(savings.savings)}kr{suffix} ved å bli medlem!
+                      </p>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+
+            <button
+              onClick={() => setSelectedPricing(null)}
+              className="w-full mt-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+            >
+              Lukk
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
-
