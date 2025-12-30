@@ -338,7 +338,7 @@ function RegisterForm() {
                   <label htmlFor="membership-claim" className="text-sm text-gray-700 cursor-pointer">
                     <span className="font-medium">Jeg er medlem av {existingOrgName || "idrettslaget"}</span>
                     <p className="text-xs text-gray-500 mt-1">
-                      Huk av hvis du allerede er medlem. Dette påvirker hvilke priser og tilganger du får.
+                      Huk av hvis du allerede er medlem av klubben.
                     </p>
                   </label>
                 </div>
