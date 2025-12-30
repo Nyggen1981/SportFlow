@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 
-// Cache for 5 minutes
-export const revalidate = 300
+// Dynamisk - ingen server-side caching for å sikre ferske data
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const slug = searchParams.get("slug")
+    const noCache = searchParams.get("fresh") === "1" // For å tvinge fersk data
     
     let org
     if (slug) {
@@ -70,10 +71,10 @@ export async function GET(request: Request) {
       }
     }
 
-    // Add cache headers
+    // Add cache headers - kortere cache for registreringssiden
     return NextResponse.json(org, {
       headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        'Cache-Control': noCache ? 'no-store' : 'public, s-maxage=60, stale-while-revalidate=120',
       }
     })
   } catch {

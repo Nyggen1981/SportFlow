@@ -37,8 +37,10 @@ function RegisterForm() {
     const checkOrg = async () => {
       try {
         // Use slug from URL if provided, otherwise fetch default
-        const url = orgSlug ? `/api/organization?slug=${orgSlug}` : "/api/organization"
-        const res = await fetch(url)
+        // Add fresh=1 to bypass cache and get latest settings
+        const baseUrl = orgSlug ? `/api/organization?slug=${orgSlug}` : "/api/organization"
+        const url = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}fresh=1`
+        const res = await fetch(url, { cache: 'no-store' })
         if (res.ok) {
           const data = await res.json()
           if (data && data.name) {
