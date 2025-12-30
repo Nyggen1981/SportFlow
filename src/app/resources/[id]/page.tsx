@@ -23,8 +23,8 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getUserRoleInfo } from "@/lib/roles"
 
-// Revalidate every hour (3600 seconds) to reduce ISR writes
-export const revalidate = 3600
+// Kort cache for at endringer vises raskt
+export const revalidate = 60 // 1 minutt
 
 interface Props {
   params: Promise<{ id: string }>

@@ -5,7 +5,8 @@ import { Building2 } from "lucide-react"
 import { isPricingEnabled, hasPricingRules } from "@/lib/pricing"
 
 // Revalidate every hour (3600 seconds) to reduce ISR writes
-export const revalidate = 3600
+// Kort cache for at nye fasiliteter vises raskt
+export const revalidate = 60 // 1 minutt
 
 // Fetch resources directly (cache removed temporarily to debug)
 async function getResources() {
