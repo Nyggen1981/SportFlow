@@ -153,23 +153,24 @@ export function PricingInfoCard({
         {/* Hovedfasilitet */}
         {allowWholeBooking && (relevantRule || resourceFixedPackages.length > 0) && (
           <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <span className="text-sm font-medium text-gray-900">{resourceName}</span>
+            {relevantRule ? (
+              <button
+                onClick={() => setSelectedPricing({ name: resourceName, rule: relevantRule, memberRule })}
+                className="text-sm font-medium text-gray-900 hover:text-blue-700 hover:underline transition-colors cursor-pointer text-left"
+                title="Klikk for mer info"
+              >
+                {resourceName}: <span className="text-blue-700">{getPricingDescription(relevantRule)}</span>
+              </button>
+            ) : (
+              <span className="text-sm font-medium text-gray-900">{resourceName}</span>
+            )}
             
-            <div className="mt-2 flex flex-col gap-1">
-              {relevantRule && (
-                <button
-                  onClick={() => setSelectedPricing({ name: resourceName, rule: relevantRule, memberRule })}
-                  className="text-xs text-blue-700 hover:text-blue-900 hover:underline transition-colors cursor-pointer text-left"
-                  title="Klikk for mer info"
-                >
-                  {getPricingDescription(relevantRule)}
-                </button>
-              )}
-              
-              {resourceFixedPackages.length > 0 && (
+            {resourceFixedPackages.length > 0 && (
+              <div className="mt-2">
+                <p className="text-xs font-medium text-gray-500 mb-1">Fastpriser:</p>
                 <FixedPricePackagesList packages={resourceFixedPackages} showMemberSavings={isNonMember} />
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
         
@@ -194,25 +195,26 @@ export function PricingInfoCard({
                     isChildPart ? 'ml-4' : ''
                   }`}
                 >
-                  <span className={`text-sm font-medium ${isChildPart ? 'text-gray-700' : 'text-gray-900'}`}>
-                    {partName}
-                  </span>
+                  {rule ? (
+                    <button
+                      onClick={() => setSelectedPricing({ name: partName, rule, memberRule: partMemberRule })}
+                      className={`text-sm font-medium ${isChildPart ? 'text-gray-700' : 'text-gray-900'} hover:text-blue-700 hover:underline transition-colors cursor-pointer text-left`}
+                      title="Klikk for mer info"
+                    >
+                      {partName}: <span className="text-blue-700">{getPricingDescription(rule)}</span>
+                    </button>
+                  ) : (
+                    <span className={`text-sm font-medium ${isChildPart ? 'text-gray-700' : 'text-gray-900'}`}>
+                      {partName}
+                    </span>
+                  )}
                   
-                  <div className="mt-2 flex flex-col gap-1">
-                    {rule && (
-                      <button
-                        onClick={() => setSelectedPricing({ name: partName, rule, memberRule: partMemberRule })}
-                        className="text-xs text-blue-700 hover:text-blue-900 hover:underline transition-colors cursor-pointer text-left"
-                        title="Klikk for mer info"
-                      >
-                        {getPricingDescription(rule)}
-                      </button>
-                    )}
-                    
-                    {fixedPackages && fixedPackages.length > 0 && (
+                  {fixedPackages && fixedPackages.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-gray-500 mb-1">Fastpriser:</p>
                       <FixedPricePackagesList packages={fixedPackages} showMemberSavings={isNonMember} />
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               )
             })}
