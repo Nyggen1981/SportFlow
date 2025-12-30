@@ -4,6 +4,7 @@ import { FixedPricePackagesList } from "./FixedPricePackagesList"
 
 interface PricingRule {
   model: "FREE" | "HOURLY" | "DAILY" | "FIXED_DURATION"
+  forRoles?: string[]
   pricePerHour?: number | null
   pricePerDay?: number | null
   fixedPrice?: number | null
@@ -33,12 +34,18 @@ interface PartPricing {
   fixedPackages?: FixedPackage[]
 }
 
+interface CustomRole {
+  id: string
+  name: string
+}
+
 interface PricingInfoCardProps {
   resourceName: string
   allowWholeBooking: boolean
   relevantRule: PricingRule | null
   resourceFixedPackages: FixedPackage[]
   partsPricing: PartPricing[]
+  customRoles?: CustomRole[]
 }
 
 function getPricingDescription(rule: PricingRule): string {
@@ -83,12 +90,33 @@ function getPricingDescription(rule: PricingRule): string {
   }
 }
 
+// Helper function to format role names
+function formatRoleNames(forRoles: string[] | undefined, customRoles: CustomRole[] = []): string | null {
+  if (!forRoles || forRoles.length === 0) return null
+  
+  const roleNames = forRoles.map(roleId => {
+    // Map system role IDs to Norwegian names
+    if (roleId === "admin") return "Administrator"
+    if (roleId === "member") return "Medlem"
+    if (roleId === "user") return "Ikke medlem"
+    
+    // Check custom roles
+    const customRole = customRoles.find(r => r.id === roleId)
+    if (customRole) return customRole.name
+    
+    return roleId // Fallback
+  })
+  
+  return roleNames.join(", ")
+}
+
 export function PricingInfoCard({
   resourceName,
   allowWholeBooking,
   relevantRule,
   resourceFixedPackages,
-  partsPricing
+  partsPricing,
+  customRoles = []
 }: PricingInfoCardProps) {
   // Sort parts pricing hierarchically
   const sortedPartsPricing = [...partsPricing].sort((a, b) => {
@@ -110,12 +138,27 @@ export function PricingInfoCard({
           <div className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-900">Hele {resourceName}</span>
-              {relevantRule && (
-                <span className="text-sm font-semibold text-blue-600">
-                  {getPricingDescription(relevantRule)}
-                </span>
-              )}
             </div>
+            
+            {relevantRule && (
+              <div className="mt-2 p-2 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-blue-600 text-xs font-bold">kr</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {getPricingDescription(relevantRule)}
+                    </p>
+                    {formatRoleNames(relevantRule.forRoles, customRoles) && (
+                      <p className="text-xs text-blue-600">
+                        Kun for: {formatRoleNames(relevantRule.forRoles, customRoles)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             
             {resourceFixedPackages.length > 0 && (
               <div className="mt-2">
@@ -151,12 +194,27 @@ export function PricingInfoCard({
                     <span className={`text-sm font-medium ${isChildPart ? 'text-gray-700' : 'text-gray-900'}`}>
                       {partName}
                     </span>
-                    {rule && (
-                      <span className="text-sm font-semibold text-blue-600">
-                        {getPricingDescription(rule)}
-                      </span>
-                    )}
                   </div>
+                  
+                  {rule && (
+                    <div className="mt-2 p-2 bg-white rounded-lg border border-gray-100">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-blue-600 text-xs font-bold">kr</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-gray-900">
+                            {getPricingDescription(rule)}
+                          </p>
+                          {formatRoleNames(rule.forRoles, customRoles) && (
+                            <p className="text-xs text-blue-600">
+                              Kun for: {formatRoleNames(rule.forRoles, customRoles)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   {fixedPackages && fixedPackages.length > 0 && (
                     <div className="mt-2">

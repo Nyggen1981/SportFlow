@@ -586,6 +586,7 @@ export default async function ResourcePage({ params }: Props) {
                   rule: p.rule || null,
                   fixedPackages: p.fixedPackages
                 }))}
+                customRoles={customRoles}
               />
             )}
 
