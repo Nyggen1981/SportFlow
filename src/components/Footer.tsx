@@ -19,8 +19,8 @@ export function Footer() {
   const [pricingEnabled, setPricingEnabled] = useState(false)
 
   useEffect(() => {
-    // Sjekk om pricing er aktivert
-    fetch("/api/pricing/status")
+    // Sjekk om pricing er aktivert (no-cache for fersk data)
+    fetch("/api/pricing/status", { cache: 'no-store' })
       .then(res => res.json())
       .then(data => setPricingEnabled(data.enabled || false))
       .catch(() => setPricingEnabled(false))
