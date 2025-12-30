@@ -316,10 +316,13 @@ export default async function ResourcePage({ params }: Props) {
       // Filtrer hele-fasilitet pakker
       if (wholeResourcePackages.length > 0) {
         resourceFixedPackages = filterPackagesByRole(wholeResourcePackages)
-          .map(({ forRoles, ...p }) => ({
-            ...p,
-            price: Number(p.price),
-            memberPrice: isNonMember ? findMemberPriceForPackage(p, wholeResourcePackages) : null
+          .map((pkg) => ({
+            id: pkg.id,
+            name: pkg.name,
+            description: pkg.description,
+            durationMinutes: pkg.durationMinutes,
+            price: Number(pkg.price),
+            memberPrice: isNonMember ? findMemberPriceForPackage(pkg, wholeResourcePackages) : null
           }))
       }
       
@@ -340,10 +343,13 @@ export default async function ResourcePage({ params }: Props) {
           
           // Filtrer pakker basert på brukerens rolle og legg til medlemspris for sammenligning
           const fixedPackages = filterPackagesByRole(partPackages)
-            .map(({ forRoles, resourcePartId, ...p }) => ({
-              ...p,
-              price: Number(p.price),
-              memberPrice: isNonMember ? findMemberPriceForPackage(p, partPackages) : null
+            .map((pkg) => ({
+              id: pkg.id,
+              name: pkg.name,
+              description: pkg.description,
+              durationMinutes: pkg.durationMinutes,
+              price: Number(pkg.price),
+              memberPrice: isNonMember ? findMemberPriceForPackage(pkg, partPackages) : null
             }))
           
           // Finn prisregel fra forhåndslastet data
