@@ -33,24 +33,16 @@ export function FixedPricePackagesList({ packages, showMemberSavings = false }: 
   return (
     <>
       <div className="flex flex-col gap-1">
-        {packages.map((pkg) => {
-          const hasSavings = showMemberSavings && pkg.memberPrice != null && pkg.memberPrice < pkg.price
-          return (
-            <button
-              key={pkg.id}
-              onClick={() => setSelectedPackage(pkg)}
-              className="text-xs text-purple-700 hover:text-purple-900 hover:underline transition-colors cursor-pointer text-left"
-              title="Klikk for mer info"
-            >
-              {pkg.name}: {Math.round(pkg.price)}kr
-              {hasSavings && (
-                <span className="ml-1 text-green-600 font-medium">
-                  (spar {Math.round(pkg.price - pkg.memberPrice!)}kr)
-                </span>
-              )}
-            </button>
-          )
-        })}
+        {packages.map((pkg) => (
+          <button
+            key={pkg.id}
+            onClick={() => setSelectedPackage(pkg)}
+            className="text-xs text-purple-700 hover:text-purple-900 hover:underline transition-colors cursor-pointer text-left"
+            title="Klikk for mer info"
+          >
+            {pkg.name}: {Math.round(pkg.price)}kr
+          </button>
+        ))}
       </div>
 
       {/* Modal for package details */}
