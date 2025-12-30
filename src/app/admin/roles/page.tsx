@@ -221,16 +221,99 @@ export default function AdminRolesPage() {
             </p>
           </div>
 
+          {/* System roles - always shown */}
+          <div className="mb-6">
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Standardroller (kan ikke slettes)
+            </h2>
+            <div className="grid gap-4 md:grid-cols-3">
+              {/* Admin */}
+              <div className="card p-6 bg-gray-50 border-gray-200">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-400">
+                    <Shield className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-700 text-lg">
+                      Admin
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Full tilgang til alle funksjoner
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <ShieldCheck className="w-4 h-4 text-green-600" />
+                    <span className="text-gray-600">Har full admin-tilgang</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Medlem */}
+              <div className="card p-6 bg-gray-50 border-gray-200">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-400">
+                    <Users className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-700 text-lg">
+                      Medlem
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Verifiserte medlemmer av klubben
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <ShieldOff className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-500">Ingen moderator-tilgang</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ikke medlem */}
+              <div className="card p-6 bg-gray-50 border-gray-200">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-400">
+                    <Users className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-700 text-lg">
+                      Ikke medlem
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Brukere som ikke er medlemmer
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <ShieldOff className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-500">Ingen moderator-tilgang</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Custom roles header */}
+          {roles.length > 0 && (
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Egendefinerte roller
+            </h2>
+          )}
+
           {/* Roles list */}
           {roles.length === 0 ? (
-            <div className="card p-12 text-center">
-              <Shield className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 mb-4">Ingen roller opprettet ennå</p>
+            <div className="card p-8 text-center mt-4">
+              <p className="text-gray-500 mb-4">Ingen egendefinerte roller opprettet ennå</p>
               <button
                 onClick={handleOpenAdd}
                 className="btn btn-primary"
               >
-                Opprett første rolle
+                Opprett din første egendefinerte rolle
               </button>
             </div>
           ) : (
