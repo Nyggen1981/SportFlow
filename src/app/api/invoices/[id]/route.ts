@@ -129,4 +129,64 @@ export async function PATCH(
   }
 }
 
+/**
+ * Delete an invoice
+ * DELETE /api/invoices/[id]
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
+    // Only admins can delete invoices
+    if (session.user.role !== "admin") {
+      return NextResponse.json({ error: "Kun administratorer kan slette fakturaer" }, { status: 403 })
+    }
+
+    const { id } = await params
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        bookings: true,
+        payments: true,
+      }
+    })
+
+    if (!invoice) {
+      return NextResponse.json({ error: "Faktura ikke funnet" }, { status: 404 })
+    }
+
+    if (invoice.organizationId !== session.user.organizationId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    // Fjern koblingen mellom faktura og bookinger (men ikke slett bookingene)
+    await prisma.booking.updateMany({
+      where: { invoiceId: id },
+      data: { invoiceId: null }
+    })
+
+    // Slett betalinger knyttet til fakturaen
+    await prisma.payment.deleteMany({
+      where: { invoiceId: id }
+    })
+
+    // Slett fakturaen
+    await prisma.invoice.delete({
+      where: { id }
+    })
+
+    return NextResponse.json({ success: true, message: "Faktura slettet" })
+  } catch (error: any) {
+    console.error("Error deleting invoice:", error)
+    return NextResponse.json(
+      { error: error.message || "Kunne ikke slette faktura" },
+      { status: 500 }
+    )
+  }
+}

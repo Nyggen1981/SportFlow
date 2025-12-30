@@ -11,7 +11,8 @@ import {
   Clock, 
   XCircle,
   Loader2,
-  Eye
+  Eye,
+  Trash2
 } from "lucide-react"
 import Link from "next/link"
 
@@ -37,10 +38,38 @@ export function InvoiceManagement() {
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "draft" | "sent" | "paid" | "overdue">("all")
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchInvoices()
   }, [filter])
+
+  const handleDelete = async (invoice: Invoice) => {
+    if (!confirm(`Er du sikker på at du vil slette faktura ${invoice.invoiceNumber}?\n\nDenne handlingen kan ikke angres.`)) {
+      return
+    }
+
+    setDeletingId(invoice.id)
+    try {
+      const response = await fetch(`/api/invoices/${invoice.id}`, {
+        method: "DELETE"
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        alert(data.error || "Kunne ikke slette faktura")
+        return
+      }
+
+      // Fjern fakturaen fra listen
+      setInvoices(prev => prev.filter(inv => inv.id !== invoice.id))
+    } catch (error) {
+      console.error("Error deleting invoice:", error)
+      alert("En feil oppstod ved sletting av faktura")
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const fetchInvoices = async () => {
     try {
@@ -207,6 +236,18 @@ export function InvoiceManagement() {
                       >
                         <Download className="w-4 h-4" />
                       </a>
+                      <button
+                        onClick={() => handleDelete(invoice)}
+                        disabled={deletingId === invoice.id}
+                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Slett faktura"
+                      >
+                        {deletingId === invoice.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
                     </div>
                   </td>
                 </tr>
