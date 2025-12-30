@@ -1009,15 +1009,40 @@ export default function EditResourcePage({ params }: Props) {
                       Konfigurer prising for hver del. Hvis ingen prislogikk er satt for en del, brukes fasilitetens prislogikk.
                     </p>
                     
-                    {parts.map((part, partIndex) => {
-                      const isTopLevel = !part.parentId
-                      const partType = isTopLevel ? "Hoveddel" : "Underdel"
-                    
-                      return (
-                        <div key={part.id || part.tempId || partIndex} className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4">
+                    {/* Sorter hierarkisk: hoveddeler først, deretter underdeler under hver hoveddel */}
+                    {(() => {
+                      // Finn alle hoveddeler (uten parentId)
+                      const mainParts = parts.filter(p => !p.parentId)
+                      // Sorter hoveddeler alfabetisk
+                      const sortedMainParts = [...mainParts].sort((a, b) => a.name.localeCompare(b.name, 'no'))
+                      
+                      // Bygg sortert liste med hoveddeler og deres underdeler
+                      const sortedParts: Array<{ part: Part; partIndex: number; isSubPart: boolean }> = []
+                      for (const mainPart of sortedMainParts) {
+                        const mainPartIndex = parts.findIndex(p => (p.id && p.id === mainPart.id) || (p.tempId && p.tempId === mainPart.tempId))
+                        sortedParts.push({ part: mainPart, partIndex: mainPartIndex, isSubPart: false })
+                        
+                        // Finn underdeler for denne hoveddelen
+                        const subParts = parts.filter(p => {
+                          if (!p.parentId) return false
+                          return p.parentId === mainPart.id || p.parentId === mainPart.tempId
+                        })
+                        // Sorter underdeler alfabetisk
+                        const sortedSubParts = [...subParts].sort((a, b) => a.name.localeCompare(b.name, 'no'))
+                        for (const subPart of sortedSubParts) {
+                          const subPartIndex = parts.findIndex(p => (p.id && p.id === subPart.id) || (p.tempId && p.tempId === subPart.tempId))
+                          sortedParts.push({ part: subPart, partIndex: subPartIndex, isSubPart: true })
+                        }
+                      }
+                      
+                      return sortedParts.map(({ part, partIndex, isSubPart }) => (
+                        <div 
+                          key={part.id || part.tempId || partIndex} 
+                          className={`p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4 ${isSubPart ? 'ml-6 border-l-4 border-l-blue-300' : ''}`}
+                        >
                           <div className="border-b border-gray-200 pb-2">
                             <h4 className="font-medium text-gray-900">{part.name}</h4>
-                            <p className="text-xs text-gray-500">{partType}</p>
+                            <p className="text-xs text-gray-500">{isSubPart ? "Underdel" : "Hoveddel"}</p>
                           </div>
                         
                           {/* Varighetspriser for denne delen */}
@@ -1050,8 +1075,8 @@ export default function EditResourcePage({ params }: Props) {
                             </p>
                           )}
                         </div>
-                      )
-                    })}
+                      ))
+                    })()}
                   </div>
                 )}
               </div>
