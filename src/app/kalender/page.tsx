@@ -37,7 +37,7 @@ interface Booking {
     name: string
     parentId?: string | null
   } | null
-  user: {
+  user?: {
     id: string
     name: string | null
     email: string
@@ -1629,7 +1629,7 @@ export default function CalendarPage() {
                                         <div className="truncate text-[10px] opacity-90">
                                           {timeStr}
                                         </div>
-                                        {booking.user.name && (
+                                        {booking.user?.name && (
                                           <div className="truncate text-[10px] opacity-75">
                                             {booking.user.name}
                                           </div>
