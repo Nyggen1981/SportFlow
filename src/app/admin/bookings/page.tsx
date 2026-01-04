@@ -481,6 +481,14 @@ export default function AdminBookingsPage() {
           />
         </div>
 
+        {/* Debug info - remove after fixing */}
+        <div className="mb-4 p-3 bg-yellow-100 border border-yellow-400 rounded-lg text-sm">
+          <strong>Debug:</strong> Groups: {Object.keys(groupedBookings.groups).length}, 
+          Standalone: {groupedBookings.standalone.length}, 
+          Filtered: {filteredBookings.length},
+          Test med _groupId: {filteredBookings.filter((b: any) => b.title === 'Test' && b._groupId).length}
+        </div>
+
         {/* Bookings list */}
         {filteredBookings.length === 0 ? (
           <div className="card p-12 text-center">
