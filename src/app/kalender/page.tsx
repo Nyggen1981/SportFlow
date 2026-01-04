@@ -2014,25 +2014,11 @@ export default function CalendarPage() {
                         Kanseller
                       </button>
                     </div>
-                    <button
-                      onClick={() => setSelectedBooking(null)}
-                      className="w-full px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-                    >
-                      Lukk
-                    </button>
                   </div>
                 )
               } else {
-                return (
-                  <div className="p-4 border-t bg-gray-50 rounded-b-xl">
-                    <button
-                      onClick={() => setSelectedBooking(null)}
-                      className="w-full px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-                    >
-                      Lukk
-                    </button>
-                  </div>
-                )
+                // Ingen handlingsknapper for denne bookingen - footer er tom
+                return null
               }
             })()}
           </div>

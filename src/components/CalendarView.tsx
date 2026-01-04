@@ -983,25 +983,10 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
                         Kanseller
                       </button>
                     </div>
-                    <button
-                      onClick={() => setSelectedBooking(null)}
-                      className="w-full btn btn-secondary"
-                    >
-                      Lukk
-                    </button>
                   </div>
                 )
               } else {
-                return (
-                  <div className="p-4 border-t bg-gray-50 rounded-b-xl">
-                    <button
-                      onClick={() => setSelectedBooking(null)}
-                      className="w-full btn btn-secondary"
-                    >
-                      Lukk
-                    </button>
-                  </div>
-                )
+                return null
               }
             })()}
           </div>
