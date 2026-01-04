@@ -1,9 +1,5 @@
 "use client"
 
-// Force dynamic - no caching (v2)
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
-
 import { useSession } from "next-auth/react"
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
