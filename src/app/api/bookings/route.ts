@@ -494,6 +494,8 @@ export async function GET() {
       statusNote: true,
       totalAmount: true,
       invoiceId: true,
+      isRecurring: true,
+      parentBookingId: true,
       invoice: {
         select: {
           id: true,

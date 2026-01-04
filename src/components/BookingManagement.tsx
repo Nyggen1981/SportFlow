@@ -1004,8 +1004,8 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         <CheckSquare className="w-4 h-4 text-blue-600" />
                       ) : (
                         <Square className="w-4 h-4 text-gray-400" />
-                      )}
-                    </button>
+                    )}
+                  </button>
                   </th>
                 )}
                 <th 
@@ -1093,8 +1093,8 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                               <ChevronDown className="w-5 h-5 text-blue-600" />
                             )}
                           </div>
-                          <div 
-                            className="w-3 h-3 rounded-full flex-shrink-0"
+                    <div 
+                      className="w-3 h-3 rounded-full flex-shrink-0"
                             style={{ backgroundColor: firstBooking.resource.color || "#3b82f6" }}
                           />
                           <div className="flex-1 min-w-0 overflow-hidden">
@@ -1102,23 +1102,23 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                               <span className="font-semibold text-blue-900 truncate max-w-[150px]">{firstBooking.title}</span>
                               <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-200 text-blue-800 whitespace-nowrap">
                                 📅 {groupBookings.length}x
-                              </span>
+                    </span>
                               {pendingCount > 0 && (
                                 <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700 whitespace-nowrap">
                                   {pendingCount} venter
-                                </span>
+                    </span>
                               )}
                               {approvedCount > 0 && (
                                 <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 whitespace-nowrap">
                                   {approvedCount} godkjent
-                                </span>
+                    </span>
                               )}
-                            </div>
+                  </div>
                             <p className="text-xs text-blue-600 mt-1 truncate">
                               {firstBooking.resource.name}
                               {firstBooking.resourcePart && ` → ${firstBooking.resourcePart.name}`}
                             </p>
-                          </div>
+                </div>
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -1154,7 +1154,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         <div className="flex items-center justify-end gap-2">
                           {pendingCount > 0 && (
                             <>
-                              <button
+                      <button
                                 onClick={() => executeAction(firstBooking.id, "approve", true)}
                                 disabled={processingId !== null}
                                 className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-1"
@@ -1185,7 +1185,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                           <button
                             onClick={() => handleDelete(firstBooking.id, true)}
                             disabled={processingId !== null}
-                            className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                        className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
                             title="Slett alle i serien"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1214,8 +1214,8 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                 <CheckSquare className="w-4 h-4 text-blue-600" />
                               ) : (
                                 <Square className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                              )}
-                            </button>
+                        )}
+                      </button>
                           </td>
                         )}
                         <td className="px-4 py-3 pl-12">
@@ -1295,9 +1295,9 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                 </button>
                               </>
                             )}
-                            <button
-                              onClick={() => handleDelete(booking.id)}
-                              disabled={processingId === booking.id}
+                      <button
+                        onClick={() => handleDelete(booking.id)}
+                        disabled={processingId === booking.id}
                               className="p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
                               title="Slett denne"
                             >
@@ -1463,11 +1463,11 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         >
                           {processingId === booking.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                         </button>
-                      )}
-                    </div>
+                  )}
+                </div>
                   </td>
                 </tr>
-              ))}
+          ))}
             </tbody>
           </table>
           </div>

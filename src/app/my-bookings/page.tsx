@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { useSession } from "next-auth/react"
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
@@ -21,7 +22,8 @@ import {
   ClipboardList,
   X,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  FolderOpen
 } from "lucide-react"
 import { EditBookingModal } from "@/components/EditBookingModal"
 import { format, isToday, isTomorrow, isThisWeek, parseISO } from "date-fns"
@@ -37,6 +39,8 @@ interface Booking {
   statusNote: string | null
   totalAmount: number | null
   invoiceId: string | null
+  isRecurring?: boolean
+  parentBookingId?: string | null
   invoice?: { id: string; status: string; invoiceNumber: string } | null
   preferredPaymentMethod: string | null
   resource: {
@@ -76,6 +80,7 @@ export default function MyBookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   // Get unique categories from bookings
   const categories = useMemo(() => {
@@ -385,6 +390,42 @@ export default function MyBookingsPage() {
 
   const activeBookings = activeTab === "upcoming" ? upcoming : history
 
+  // Group recurring bookings
+  const { recurringGroups, standaloneBookings } = useMemo(() => {
+    const groups: { [key: string]: Booking[] } = {}
+    const standalone: Booking[] = []
+
+    activeBookings.forEach(booking => {
+      if (booking.isRecurring) {
+        const groupId = booking.parentBookingId || booking.id
+        if (!groups[groupId]) groups[groupId] = []
+        groups[groupId].push(booking)
+      } else {
+        standalone.push(booking)
+      }
+    })
+
+    // Sort each group by date
+    Object.values(groups).forEach(group => {
+      group.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+    })
+
+    return { recurringGroups: groups, standaloneBookings: standalone }
+  }, [activeBookings])
+
+  // Toggle group expansion
+  const toggleGroupExpansion = useCallback((groupId: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(groupId)) {
+        newSet.delete(groupId)
+      } else {
+        newSet.add(groupId)
+      }
+      return newSet
+    })
+  }, [])
+
   const formatDateLabel = useCallback((dateStr: string) => {
     const date = parseISO(dateStr)
     if (isToday(date)) return "I dag"
@@ -637,7 +678,162 @@ export default function MyBookingsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {activeBookings.map((booking) => {
+                      {/* Render recurring groups as folders */}
+                      {Object.entries(recurringGroups).map(([groupId, groupBookings]) => {
+                        const isExpanded = expandedGroups.has(groupId)
+                        const firstBooking = groupBookings[0]
+                        const lastBooking = groupBookings[groupBookings.length - 1]
+                        const pendingCount = groupBookings.filter(b => b.status === "pending").length
+                        const approvedCount = groupBookings.filter(b => b.status === "approved").length
+
+                        return (
+                          <React.Fragment key={`group-${groupId}`}>
+                            {/* Folder Header Row */}
+                            <tr 
+                              className="bg-blue-50/50 hover:bg-blue-100/50 transition-colors cursor-pointer"
+                              onClick={() => toggleGroupExpansion(groupId)}
+                            >
+                              {activeTab === "history" && <td className="px-4 py-3"></td>}
+                              <td className="px-4 py-3" colSpan={2}>
+                                <div className="flex items-center gap-3">
+                                  <div className="p-1">
+                                    {isExpanded ? (
+                                      <ChevronUp className="w-5 h-5 text-blue-600" />
+                                    ) : (
+                                      <ChevronDown className="w-5 h-5 text-blue-600" />
+                                    )}
+                                  </div>
+                                  <div 
+                                    className="w-3 h-3 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: firstBooking.resource.color || "#3b82f6" }}
+                                  />
+                                  <div className="flex-1 min-w-0 overflow-hidden">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-semibold text-blue-900 truncate max-w-[150px]">{firstBooking.title}</span>
+                                      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-200 text-blue-800 whitespace-nowrap">
+                                        📅 {groupBookings.length}x
+                                      </span>
+                                      {pendingCount > 0 && (
+                                        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700 whitespace-nowrap">
+                                          {pendingCount} venter
+                                        </span>
+                                      )}
+                                      {approvedCount > 0 && (
+                                        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 whitespace-nowrap">
+                                          {approvedCount} godkjent
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-blue-600 mt-1 truncate">
+                                      {firstBooking.resource.name}
+                                      {firstBooking.resourcePart && ` → ${firstBooking.resourcePart.name}`}
+                                    </p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div>
+                                  <p className="text-sm font-medium text-blue-900">
+                                    {format(parseISO(firstBooking.startTime), "d. MMM", { locale: nb })} - {format(parseISO(lastBooking.startTime), "d. MMM yyyy", { locale: nb })}
+                                  </p>
+                                  <p className="text-xs text-blue-600">
+                                    {groupBookings.length} datoer
+                                  </p>
+                                </div>
+                              </td>
+                              {pricingEnabled && (
+                                <>
+                                  <td className="px-4 py-3"><p className="text-xs text-blue-600">—</p></td>
+                                  <td className="px-4 py-3"><p className="text-xs text-blue-600">—</p></td>
+                                  <td className="px-4 py-3"><p className="text-xs text-blue-600">—</p></td>
+                                </>
+                              )}
+                            </tr>
+                            
+                            {/* Child Booking Rows (when expanded) */}
+                            {isExpanded && groupBookings.map((booking) => {
+                              const statusInfo = getStatusInfo(booking.status)
+                              const StatusIcon = statusInfo.icon
+                              const isPast = new Date(booking.startTime) < new Date()
+                              const paymentStatus = getPaymentStatus(booking)
+
+                              return (
+                                <tr 
+                                  key={booking.id}
+                                  className={`bg-gray-50/50 hover:bg-gray-100 transition-colors cursor-pointer ${
+                                    isPast || booking.status === "cancelled" || booking.status === "rejected" ? "opacity-70" : ""
+                                  }`}
+                                  onClick={(e) => {
+                                    const target = e.target as HTMLElement
+                                    if (target.closest('input[type="checkbox"]')) return
+                                    setSelectedBooking(booking)
+                                  }}
+                                >
+                                  {activeTab === "history" && (
+                                    <td className="px-4 py-3 pl-8">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedForDelete.has(booking.id)}
+                                        onChange={() => toggleSelectBooking(booking.id)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                                      />
+                                    </td>
+                                  )}
+                                  <td className="px-4 py-3 pl-12">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-1 h-8 bg-blue-300 rounded-full" />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="font-medium text-gray-700">{booking.title}</span>
+                                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusInfo.color}`}>
+                                            <StatusIcon className="w-3 h-3" />
+                                            {statusInfo.label}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <p className="text-sm text-gray-600">{booking.resource.name}</p>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-900">
+                                        {format(parseISO(booking.startTime), "d. MMM yyyy", { locale: nb })}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        {format(parseISO(booking.startTime), "HH:mm")} - {format(parseISO(booking.endTime), "HH:mm")}
+                                      </p>
+                                    </div>
+                                  </td>
+                                  {pricingEnabled && (
+                                    <>
+                                      <td className="px-4 py-3">
+                                        {booking.totalAmount && booking.totalAmount > 0 ? (
+                                          <p className="text-sm font-semibold text-gray-900">{Math.round(Number(booking.totalAmount))} kr</p>
+                                        ) : (
+                                          <p className="text-xs text-gray-400">Gratis</p>
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-3"><p className="text-xs text-gray-400">—</p></td>
+                                      <td className="px-4 py-3">
+                                        {paymentStatus === "paid" && <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Betalt</span>}
+                                        {paymentStatus === "unpaid" && <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Ikke betalt</span>}
+                                        {paymentStatus === "pending_payment" && <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>}
+                                        {paymentStatus === "free" && <p className="text-xs text-gray-400">—</p>}
+                                      </td>
+                                    </>
+                                  )}
+                                </tr>
+                              )
+                            })}
+                          </React.Fragment>
+                        )
+                      })}
+                      
+                      {/* Render standalone bookings */}
+                      {standaloneBookings.map((booking) => {
                         const statusInfo = getStatusInfo(booking.status)
                         const StatusIcon = statusInfo.icon
                         const isPast = new Date(booking.startTime) < new Date()
@@ -650,11 +846,8 @@ export default function MyBookingsPage() {
                               isPast || booking.status === "cancelled" || booking.status === "rejected" ? "opacity-70" : ""
                             }`}
                             onClick={(e) => {
-                              // Don't open modal if clicking on checkbox
                               const target = e.target as HTMLElement
-                              if (target.closest('input[type="checkbox"]')) {
-                                return
-                              }
+                              if (target.closest('input[type="checkbox"]')) return
                               setSelectedBooking(booking)
                             }}
                           >
@@ -703,36 +896,7 @@ export default function MyBookingsPage() {
                                   {format(parseISO(booking.startTime), "d. MMM yyyy", { locale: nb })}
                                 </p>
                                 <p className="text-xs text-gray-500">
-                                  {(() => {
-                                    const start = parseISO(booking.startTime)
-                                    const end = parseISO(booking.endTime)
-                                    const startDateStr = format(start, "d. MMM yyyy", { locale: nb })
-                                    const endDateStr = format(end, "d. MMM yyyy", { locale: nb })
-                                    const isSameDay = startDateStr === endDateStr
-                                    
-                                    if (isSameDay) {
-                                      return `${format(start, "HH:mm")} - ${format(end, "HH:mm")}`
-                                    } else {
-                                      return `${format(start, "d. MMM HH:mm", { locale: nb })} - ${format(end, "d. MMM HH:mm", { locale: nb })}`
-                                    }
-                                  })()}
-                                </p>
-                                <p className="text-xs text-gray-400 mt-0.5">
-                                  {(() => {
-                                    const start = parseISO(booking.startTime)
-                                    const end = parseISO(booking.endTime)
-                                    const durationMs = end.getTime() - start.getTime()
-                                    const hours = Math.floor(durationMs / (1000 * 60 * 60))
-                                    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60))
-                                    
-                                    if (hours === 0) {
-                                      return `${minutes} min`
-                                    } else if (minutes === 0) {
-                                      return `${hours} ${hours === 1 ? "time" : "timer"}`
-                                    } else {
-                                      return `${hours} ${hours === 1 ? "time" : "timer"} ${minutes} min`
-                                    }
-                                  })()}
+                                  {format(parseISO(booking.startTime), "HH:mm")} - {format(parseISO(booking.endTime), "HH:mm")}
                                 </p>
                               </div>
                             </td>
@@ -740,9 +904,7 @@ export default function MyBookingsPage() {
                               <>
                                 <td className="px-4 py-4">
                                   {booking.totalAmount && booking.totalAmount > 0 ? (
-                                    <p className="text-sm font-semibold text-gray-900">
-                                      {Math.round(Number(booking.totalAmount))} kr
-                                    </p>
+                                    <p className="text-sm font-semibold text-gray-900">{Math.round(Number(booking.totalAmount))} kr</p>
                                   ) : (
                                     <p className="text-xs text-gray-400">Gratis</p>
                                   )}
@@ -759,24 +921,10 @@ export default function MyBookingsPage() {
                                   )}
                                 </td>
                                 <td className="px-4 py-4">
-                                  {paymentStatus === "paid" && (
-                                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
-                                      Betalt
-                                    </span>
-                                  )}
-                                  {paymentStatus === "unpaid" && (
-                                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
-                                      Ikke betalt
-                                    </span>
-                                  )}
-                                  {paymentStatus === "pending_payment" && (
-                                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700">
-                                      Venter på betaling
-                                    </span>
-                                  )}
-                                  {paymentStatus === "free" && (
-                                    <p className="text-xs text-gray-400">Gratis</p>
-                                  )}
+                                  {paymentStatus === "paid" && <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Betalt</span>}
+                                  {paymentStatus === "unpaid" && <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">Ikke betalt</span>}
+                                  {paymentStatus === "pending_payment" && <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter på betaling</span>}
+                                  {paymentStatus === "free" && <p className="text-xs text-gray-400">Gratis</p>}
                                 </td>
                               </>
                             )}
