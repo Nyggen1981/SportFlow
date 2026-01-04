@@ -300,13 +300,19 @@ export async function DELETE(
   }
 
   const { id } = await params
+  
+  // Check for deleteAll query parameter
+  const url = new URL(request.url)
+  const deleteAll = url.searchParams.get('deleteAll') === 'true'
 
   const booking = await prisma.booking.findUnique({
     where: { id },
     select: {
       id: true,
       organizationId: true,
-      resourceId: true
+      resourceId: true,
+      isRecurring: true,
+      parentBookingId: true
     }
   })
 
@@ -339,6 +345,25 @@ export async function DELETE(
     }
   }
 
+  // If deleteAll and this is a recurring booking, delete all in the series
+  if (deleteAll && booking.isRecurring) {
+    const groupId = booking.parentBookingId || booking.id
+    
+    // Delete all bookings in the series (parent + children)
+    await prisma.booking.deleteMany({
+      where: {
+        OR: [
+          { id: groupId },
+          { parentBookingId: groupId }
+        ],
+        organizationId: session.user.organizationId
+      }
+    })
+    
+    return NextResponse.json({ success: true, deletedAll: true })
+  }
+
+  // Delete single booking
   await prisma.booking.delete({
     where: { id }
   })

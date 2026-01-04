@@ -383,14 +383,21 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
     }
   }
 
-  const handleDelete = async (bookingId: string) => {
-    if (!confirm("Er du sikker på at du vil slette denne bookingen permanent?")) {
+  const handleDelete = async (bookingId: string, deleteAll: boolean = false) => {
+    const booking = bookings.find(b => b.id === bookingId)
+    const isRecurringGroup = booking?.isRecurring && deleteAll
+    
+    const confirmMessage = isRecurringGroup 
+      ? "Er du sikker på at du vil slette ALLE bookinger i denne serien permanent?"
+      : "Er du sikker på at du vil slette denne bookingen permanent?"
+    
+    if (!confirm(confirmMessage)) {
       return
     }
     
     setProcessingId(bookingId)
     try {
-      const response = await fetch(`/api/admin/bookings/${bookingId}`, {
+      const response = await fetch(`/api/admin/bookings/${bookingId}${isRecurringGroup ? '?deleteAll=true' : ''}`, {
         method: "DELETE"
       })
 
@@ -1249,36 +1256,90 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         {booking.status === "rejected" && "Avslått"}
                         {booking.status === "pending" && "Utløpt"}
                       </span>
-                      <button
-                        onClick={() => handleDelete(booking.id)}
-                        disabled={processingId === booking.id}
-                        className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
-                        title="Slett permanent"
-                      >
-                        {processingId === booking.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                              <Trash2 className="w-4 h-4" />
-                        )}
-                      </button>
+                      {/* Slett-knapper for historie */}
+                      {(booking as any)._groupCount > 1 ? (
+                        <>
+                          <button
+                            onClick={() => handleDelete(booking.id, true)}
+                            disabled={processingId === booking.id}
+                            className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                            title={`Slett alle ${(booking as any)._groupCount} bookinger`}
+                          >
+                            {processingId === booking.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3 h-3" />
+                            )}
+                            Slett alle
+                          </button>
+                          <button
+                            onClick={() => handleDelete(booking.id)}
+                            disabled={processingId === booking.id}
+                            className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                            title="Slett kun denne"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => handleDelete(booking.id)}
+                          disabled={processingId === booking.id}
+                          className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                          title="Slett permanent"
+                        >
+                          {processingId === booking.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
                     </>
                   ) : activeTab === "rejected" ? (
                     <>
                       <span className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-sm">
                         {booking.status === "cancelled" ? "Kansellert" : "Avslått"}
                       </span>
-                      <button
-                        onClick={() => handleDelete(booking.id)}
-                        disabled={processingId === booking.id}
-                        className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
-                        title="Slett permanent"
-                      >
-                        {processingId === booking.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                              <Trash2 className="w-4 h-4" />
-                        )}
-                      </button>
+                      {/* Slett-knapper for avslåtte */}
+                      {(booking as any)._groupCount > 1 ? (
+                        <>
+                          <button
+                            onClick={() => handleDelete(booking.id, true)}
+                            disabled={processingId === booking.id}
+                            className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                            title={`Slett alle ${(booking as any)._groupCount} bookinger`}
+                          >
+                            {processingId === booking.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3 h-3" />
+                            )}
+                            Slett alle
+                          </button>
+                          <button
+                            onClick={() => handleDelete(booking.id)}
+                            disabled={processingId === booking.id}
+                            className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                            title="Slett kun denne"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => handleDelete(booking.id)}
+                          disabled={processingId === booking.id}
+                          className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                          title="Slett permanent"
+                        >
+                          {processingId === booking.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      )}
                     </>
                   ) : (
                     <>
