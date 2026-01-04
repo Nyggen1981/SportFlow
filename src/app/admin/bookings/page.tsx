@@ -134,6 +134,14 @@ export default function AdminBookingsPage() {
       group.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
     })
 
+    // Debug logging
+    console.log('[Booking Groups]', {
+      totalBookings: bookings.length,
+      recurringGroups: Object.keys(groups).length,
+      standaloneCount: standalone.length,
+      groups: Object.entries(groups).map(([id, g]) => ({ groupId: id, count: g.length, firstTitle: g[0]?.title }))
+    })
+
     return { groups, standalone }
   }, [bookings])
 
