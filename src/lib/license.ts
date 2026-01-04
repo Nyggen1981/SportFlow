@@ -47,7 +47,7 @@ const CACHE_DURATION = process.env.NODE_ENV === "development"
   : 5 * 60 * 1000 // 5 minutter i produksjon
 
 // Hardkodet lisensserver URL
-const LICENSE_SERVER_URL = process.env.LICENSE_SERVER_URL || "https://sportflow-license.vercel.app"
+const LICENSE_SERVER_URL = process.env.LICENSE_SERVER_URL || "https://sportflow-administration.vercel.app"
 
 // Cache for database config
 let cachedLicenseKey: string | null = null

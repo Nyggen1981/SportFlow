@@ -40,7 +40,7 @@
 ### Lisensserver
 | Variabel | Verdi | Eksempel | Beskrivelse |
 |----------|-------|----------|-------------|
-| `LICENSE_SERVER_URL` | URL til lisensserver | `https://sportflow-license.vercel.app` | URL til lisensserver (standard hvis ikke satt) |
+| `LICENSE_SERVER_URL` | URL til lisensserver | `https://sportflow-administration.vercel.app` | URL til lisensserver (standard hvis ikke satt) |
 | `LICENSE_KEY` | Lisensnøkkel | `clxxxxxxxxxxxxxxxxxxxx` | Lisensnøkkel fra lisensserver (kan også settes i admin-panelet) |
 
 **Merk:** Hvis `LICENSE_SERVER_URL` eller `LICENSE_KEY` ikke er satt, kjører appen i "development mode" og hopper over lisensvalidering.
@@ -213,7 +213,7 @@ SMTP_FROM=din-epost@example.com
 # VALGFRITT - Lisensserver
 # ============================================
 
-LICENSE_SERVER_URL=https://sportflow-license.vercel.app
+LICENSE_SERVER_URL=https://sportflow-administration.vercel.app
 LICENSE_KEY=clxxxxxxxxxxxxxxxxxxxx
 
 # ============================================

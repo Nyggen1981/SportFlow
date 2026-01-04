@@ -3,7 +3,7 @@
 
 import { prisma } from "./prisma"
 
-const LICENSE_SERVER_URL = process.env.LICENSE_SERVER_URL || "https://sportflow-license.vercel.app"
+const LICENSE_SERVER_URL = process.env.LICENSE_SERVER_URL || "https://sportflow-administration.vercel.app"
 
 interface StatsReport {
   totalUsers: number
