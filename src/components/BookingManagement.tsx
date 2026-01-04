@@ -2182,8 +2182,9 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
             resourcePartId: editingBooking.resourcePart?.id || null,
             resourcePartName: editingBooking.resourcePart?.name || null
           }}
+          isAdmin={true}
           onClose={() => setEditingBooking(null)}
-          onSave={async () => {
+          onSaved={async () => {
             setEditingBooking(null)
             await fetchBookings()
           }}
