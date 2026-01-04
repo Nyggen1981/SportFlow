@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { nb } from "date-fns/locale"
 import { 
@@ -114,6 +114,9 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
   const [userSearchFilter, setUserSearchFilter] = useState<string>("")
   const [minPriceFilter, setMinPriceFilter] = useState<string>("")
   const [maxPriceFilter, setMaxPriceFilter] = useState<string>("")
+  
+  // Expanded recurring groups state
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   
   const now = new Date()
   
@@ -541,32 +544,49 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
     return { groups, standalone }
   })()
 
-  // Create display list: standalone + one representative per group
-  const displayBookings: (Booking & { _groupId?: string; _groupCount?: number })[] = [
-    ...groupedBookings.standalone,
-    ...Object.entries(groupedBookings.groups).map(([groupId, group]) => ({
-      ...group[0],
-      _groupId: groupId,
-      _groupCount: group.length
-    }))
+  // Helper to check if a booking matches current tab filter
+  const matchesTabFilter = (b: Booking) => {
+    const isPast = new Date(b.endTime) < now
+    if (activeTab === "all") return true
+    if (activeTab === "pending") return b.status === "pending" && !isPast
+    if (activeTab === "approved") return b.status === "approved" && !isPast
+    if (activeTab === "rejected") return (b.status === "rejected" || b.status === "cancelled") && !isPast
+    if (activeTab === "history") return isPast
+    return true
+  }
+
+  // Filter groups to only include those with at least one matching booking
+  const filteredGroups = Object.entries(groupedBookings.groups)
+    .map(([groupId, group]) => {
+      const matchingBookings = group.filter(matchesTabFilter)
+      return { groupId, bookings: matchingBookings, allBookings: group }
+    })
+    .filter(g => g.bookings.length > 0)
+
+  // Filter standalone bookings
+  const filteredStandalone = groupedBookings.standalone.filter(matchesTabFilter)
+
+  // Toggle group expansion
+  const toggleGroupExpansion = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(groupId)) {
+        newSet.delete(groupId)
+      } else {
+        newSet.add(groupId)
+      }
+      return newSet
+    })
+  }
+
+  // For counting and other purposes, create a flat filtered list
+  const filteredBookings = [
+    ...filteredStandalone,
+    ...filteredGroups.flatMap(g => g.bookings)
   ]
 
-  const filteredBookings = displayBookings.filter(b => {
-    const isPast = new Date(b.endTime) < now
-    
-    // Tab filtering
-    if (activeTab === "all") {
-      // Show all bookings
-    } else if (activeTab === "pending") {
-      if (b.status !== "pending" || isPast) return false
-    } else if (activeTab === "approved") {
-      if (b.status !== "approved" || isPast) return false
-    } else if (activeTab === "rejected") {
-      if ((b.status !== "rejected" && b.status !== "cancelled") || isPast) return false
-    } else if (activeTab === "history") {
-      if (!isPast) return false
-    }
-    
+  // Additional filters (applied to individual bookings)
+  const applyAdditionalFilters = (b: Booking) => {
     // Payment status filter (only if pricing enabled)
     if (pricingEnabled && paymentStatusFilter !== "all") {
       const paymentStatus = getPaymentStatus(b)
@@ -613,7 +633,10 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
     }
     
     return true
-  }).sort((a, b) => {
+  }
+
+  // Sort function for bookings
+  const sortBookings = (bookingsToSort: Booking[]) => bookingsToSort.sort((a, b) => {
     // If a sort column is selected, use it
     if (sortColumn) {
       let aValue: any
@@ -1039,50 +1062,282 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-          {filteredBookings.map((booking) => (
+              {/* Render recurring groups as folders */}
+              {filteredGroups.map(({ groupId, bookings: groupBookings }) => {
+                const isExpanded = expandedGroups.has(groupId)
+                const firstBooking = groupBookings[0]
+                const lastBooking = groupBookings[groupBookings.length - 1]
+                const pendingCount = groupBookings.filter(b => b.status === "pending").length
+                const approvedCount = groupBookings.filter(b => b.status === "approved").length
+                
+                return (
+                  <React.Fragment key={`group-${groupId}`}>
+                    {/* Folder Header Row */}
+                    <tr className="bg-blue-50/50 hover:bg-blue-100/50 transition-colors">
+                      {canDelete && <td className="px-4 py-3"></td>}
+                      <td className="px-4 py-3" colSpan={2}>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => toggleGroupExpansion(groupId)}
+                            className="p-1 rounded hover:bg-blue-200 transition-colors"
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="w-5 h-5 text-blue-600" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5 text-blue-600" />
+                            )}
+                          </button>
+                          <div 
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: firstBooking.resource.color || "#3b82f6" }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-blue-900">{firstBooking.title}</span>
+                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-200 text-blue-800">
+                                📅 Serie: {groupBookings.length} bookinger
+                              </span>
+                              {pendingCount > 0 && (
+                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">
+                                  {pendingCount} venter
+                                </span>
+                              )}
+                              {approvedCount > 0 && (
+                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                                  {approvedCount} godkjent
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-blue-600 mt-1">
+                              {firstBooking.resource.name}
+                              {firstBooking.resourcePart && ` → ${firstBooking.resourcePart.name}`}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-blue-900">
+                            {format(new Date(firstBooking.startTime), "d. MMM", { locale: nb })} - {format(new Date(lastBooking.startTime), "d. MMM yyyy", { locale: nb })}
+                          </p>
+                          <p className="text-xs text-blue-600">
+                            {groupBookings.length} datoer
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="text-sm text-blue-900">{firstBooking.user.name || "—"}</p>
+                          <p className="text-xs text-blue-600">{firstBooking.user.email}</p>
+                        </div>
+                      </td>
+                      {pricingEnabled && (
+                        <>
+                          <td className="px-4 py-3">
+                            <p className="text-xs text-blue-600">—</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="text-xs text-blue-600">—</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="text-xs text-blue-600">—</p>
+                          </td>
+                        </>
+                      )}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-2">
+                          {pendingCount > 0 && (
+                            <>
+                              <button
+                                onClick={() => executeAction(firstBooking.id, "approve", true)}
+                                disabled={processingId !== null}
+                                className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                title={`Godkjenn alle ${pendingCount} ventende`}
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                Godkjenn alle
+                              </button>
+                              <button
+                                onClick={() => {
+                                  // Reject all - use first pending booking
+                                  const firstPending = groupBookings.find(b => b.status === "pending")
+                                  if (firstPending) {
+                                    setRejectingBookingId(firstPending.id)
+                                    setRejectReason("")
+                                    setRejectModalOpen(true)
+                                  }
+                                }}
+                                disabled={processingId !== null}
+                                className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                title="Avslå alle"
+                              >
+                                <XCircle className="w-3 h-3" />
+                                Avslå alle
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => handleDelete(firstBooking.id, true)}
+                            disabled={processingId !== null}
+                            className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                            title="Slett alle i serien"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    
+                    {/* Child Booking Rows (when expanded) */}
+                    {isExpanded && groupBookings.map((booking) => (
+                      <tr 
+                        key={booking.id}
+                        className={`bg-gray-50/50 hover:bg-gray-100 transition-colors cursor-pointer ${
+                          selectedIds.has(booking.id) ? "bg-blue-50/50" : ""
+                        }`}
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement
+                          if (target.closest('button') || target.closest('input[type="checkbox"]')) return
+                          setSelectedBooking(booking)
+                        }}
+                      >
+                        {canDelete && (
+                          <td className="px-4 py-3 pl-8">
+                            <button onClick={() => toggleSelection(booking.id)} className="p-1">
+                              {selectedIds.has(booking.id) ? (
+                                <CheckSquare className="w-4 h-4 text-blue-600" />
+                              ) : (
+                                <Square className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                              )}
+                            </button>
+                          </td>
+                        )}
+                        <td className="px-4 py-3 pl-12">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1 h-8 bg-blue-300 rounded-full" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium text-gray-700">{booking.title}</span>
+                                {booking.status === "pending" && (
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>
+                                )}
+                                {booking.status === "approved" && (
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Godkjent</span>
+                                )}
+                                {booking.status === "rejected" && (
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Avslått</span>
+                                )}
+                                {booking.status === "cancelled" && (
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Kansellert</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm text-gray-600">{booking.resource.name}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {format(new Date(booking.startTime), "d. MMM yyyy", { locale: nb })}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {format(new Date(booking.startTime), "HH:mm")} - {format(new Date(booking.endTime), "HH:mm")}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm text-gray-600">{booking.user.name || booking.user.email}</p>
+                        </td>
+                        {pricingEnabled && (
+                          <>
+                            <td className="px-4 py-3">
+                              {booking.totalAmount && booking.totalAmount > 0 ? (
+                                <p className="text-sm font-semibold text-gray-900">{Math.round(Number(booking.totalAmount))} kr</p>
+                              ) : (
+                                <p className="text-xs text-gray-400">Gratis</p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <p className="text-xs text-gray-400">—</p>
+                            </td>
+                            <td className="px-4 py-3">
+                              <p className="text-xs text-gray-400">—</p>
+                            </td>
+                          </>
+                        )}
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            {booking.status === "pending" && (
+                              <>
+                                <button
+                                  onClick={() => handleAction(booking.id, "approve")}
+                                  disabled={processingId === booking.id}
+                                  className="p-1.5 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors disabled:opacity-50"
+                                  title="Godkjenn"
+                                >
+                                  {processingId === booking.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                                </button>
+                                <button
+                                  onClick={() => handleAction(booking.id, "reject")}
+                                  disabled={processingId === booking.id}
+                                  className="p-1.5 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors disabled:opacity-50"
+                                  title="Avslå"
+                                >
+                                  <XCircle className="w-3 h-3" />
+                                </button>
+                              </>
+                            )}
+                            <button
+                              onClick={() => handleDelete(booking.id)}
+                              disabled={processingId === booking.id}
+                              className="p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                              title="Slett denne"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                )
+              })}
+              
+              {/* Render standalone bookings */}
+              {sortBookings(filteredStandalone.filter(applyAdditionalFilters)).map((booking) => (
                 <tr 
-              key={booking.id} 
+                  key={booking.id} 
                   className={`hover:bg-gray-50 transition-colors cursor-pointer ${
                     selectedIds.has(booking.id) ? "bg-blue-50/50" : ""
                   }`}
                   onClick={(e) => {
-                    // Don't open modal if clicking on checkbox or action buttons
                     const target = e.target as HTMLElement
-                    if (target.closest('button') || target.closest('input[type="checkbox"]')) {
-                      return
-                    }
+                    if (target.closest('button') || target.closest('input[type="checkbox"]')) return
                     setSelectedBooking(booking)
                   }}
                 >
-                {canDelete && (
+                  {canDelete && (
                     <td className="px-4 py-4">
-                  <button
-                    onClick={() => toggleSelection(booking.id)}
-                        className="p-1"
-                  >
-                    {selectedIds.has(booking.id) ? (
+                      <button onClick={() => toggleSelection(booking.id)} className="p-1">
+                        {selectedIds.has(booking.id) ? (
                           <CheckSquare className="w-4 h-4 text-blue-600" />
-                    ) : (
+                        ) : (
                           <Square className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                    )}
-                  </button>
+                        )}
+                      </button>
                     </td>
-                )}
+                  )}
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-2">
-                    <div 
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: booking.resource.color || "#3b82f6" }}
-                    />
+                      <div 
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: booking.resource.color || "#3b82f6" }}
+                      />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-gray-900">{booking.title}</span>
-                          {/* Badge for recurring series */}
-                          {(booking as any)._groupCount > 1 && (
-                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
-                              {(booking as any)._groupCount} ganger
-                            </span>
-                          )}
                           {booking.status === "pending" && (
                             <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>
                           )}
@@ -1095,7 +1350,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                           {booking.status === "cancelled" && (
                             <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Kansellert</span>
                           )}
-                  </div>
+                        </div>
                         {booking.description && (
                           <p className="text-xs text-gray-500 mt-1 line-clamp-2">{booking.description}</p>
                         )}
@@ -1113,39 +1368,10 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                   <td className="px-4 py-4">
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                      {format(new Date(booking.startTime), "d. MMM yyyy", { locale: nb })}
+                        {format(new Date(booking.startTime), "d. MMM yyyy", { locale: nb })}
                       </p>
                       <p className="text-xs text-gray-500">
-                      {(() => {
-                        const start = new Date(booking.startTime)
-                        const end = new Date(booking.endTime)
-                        const startDateStr = format(start, "d. MMM yyyy", { locale: nb })
-                        const endDateStr = format(end, "d. MMM yyyy", { locale: nb })
-                        const isSameDay = startDateStr === endDateStr
-                        
-                        if (isSameDay) {
-                          return `${format(start, "HH:mm")} - ${format(end, "HH:mm")}`
-                        } else {
-                          return `${format(start, "d. MMM HH:mm", { locale: nb })} - ${format(end, "d. MMM HH:mm", { locale: nb })}`
-                        }
-                      })()}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {(() => {
-                          const start = new Date(booking.startTime)
-                          const end = new Date(booking.endTime)
-                          const durationMs = end.getTime() - start.getTime()
-                          const hours = Math.floor(durationMs / (1000 * 60 * 60))
-                          const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60))
-                          
-                          if (hours === 0) {
-                            return `${minutes} min`
-                          } else if (minutes === 0) {
-                            return `${hours} ${hours === 1 ? "time" : "timer"}`
-                          } else {
-                            return `${hours} ${hours === 1 ? "time" : "timer"} ${minutes} min`
-                          }
-                        })()}
+                        {format(new Date(booking.startTime), "HH:mm")} - {format(new Date(booking.endTime), "HH:mm")}
                       </p>
                     </div>
                   </td>
@@ -1159,76 +1385,26 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                     <>
                       <td className="px-4 py-4">
                         {booking.totalAmount && booking.totalAmount > 0 ? (
-                          <p className="text-sm font-semibold text-gray-900">
-                            {Math.round(Number(booking.totalAmount))} kr
-                          </p>
+                          <p className="text-sm font-semibold text-gray-900">{Math.round(Number(booking.totalAmount))} kr</p>
                         ) : (
                           <p className="text-xs text-gray-400">Gratis</p>
                         )}
                       </td>
                       <td className="px-4 py-4">
-                        {/* Vis betalingsmetode kun hvis det er en betalt booking (ikke gratis) */}
-                        {booking.totalAmount && booking.totalAmount > 0 ? (
-                          booking.preferredPaymentMethod ? (
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
-                                {booking.preferredPaymentMethod === "INVOICE" && "Faktura"}
-                                {booking.preferredPaymentMethod === "VIPPS" && "Vipps"}
-                                {booking.preferredPaymentMethod === "CARD" && "Kort"}
-                              </span>
-                              {booking.preferredPaymentMethod === "INVOICE" && booking.invoice && (
-                                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
-                                  (booking.invoice.status === "PAID" || booking.invoice.status === "SENT")
-                                    ? "bg-blue-100 text-blue-700"
-                                    : booking.invoice.status === "DRAFT"
-                                    ? "bg-gray-100 text-gray-600"
-                                    : "bg-orange-100 text-orange-700"
-                                }`}>
-                                  {(booking.invoice.status === "PAID" || booking.invoice.status === "SENT") && "Sendt"}
-                                  {booking.invoice.status === "DRAFT" && "Kladd"}
-                                  {booking.invoice.status === "OVERDUE" && "Forfalt"}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-gray-400">—</p>
-                          )
+                        {booking.totalAmount && booking.totalAmount > 0 && booking.preferredPaymentMethod ? (
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
+                            {booking.preferredPaymentMethod === "INVOICE" && "Faktura"}
+                            {booking.preferredPaymentMethod === "VIPPS" && "Vipps"}
+                            {booking.preferredPaymentMethod === "CARD" && "Kort"}
+                          </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-50 text-green-700">Gratis</span>
+                          <p className="text-xs text-gray-400">—</p>
                         )}
                       </td>
                       <td className="px-4 py-4">
                         {booking.payments && booking.payments.length > 0 ? (
-                          <div className="space-y-1">
-                            {booking.payments.map((payment: any) => (
-                              <div key={payment.id} className="flex items-center gap-2">
-                                <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${
-                                  payment.status === "COMPLETED" 
-                                    ? "bg-green-100 text-green-700" 
-                                    : "bg-amber-100 text-amber-700"
-                                }`}>
-                                  {payment.status === "COMPLETED" ? "Betalt" : "Venter"}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  {Math.round(Number(payment.amount))} kr
-                    </span>
-                  </div>
-                            ))}
-                </div>
-                        ) : booking.invoice && booking.preferredPaymentMethod === "INVOICE" ? (
-                          <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
-                            booking.invoice.status === "PAID" 
-                              ? "bg-green-100 text-green-700"
-                              : booking.invoice.status === "SENT"
-                              ? "bg-blue-100 text-blue-700"
-                              : booking.invoice.status === "DRAFT"
-                              ? "bg-gray-100 text-gray-600"
-                              : "bg-orange-100 text-orange-700"
-                          }`}>
-                            {booking.invoice.status === "PAID" && "Betalt"}
-                            {booking.invoice.status === "SENT" && "Faktura sendt"}
-                            {booking.invoice.status === "DRAFT" && "Faktura kladd"}
-                            {booking.invoice.status === "OVERDUE" && "Forfalt"}
+                          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                            Betalt
                           </span>
                         ) : booking.totalAmount && booking.totalAmount > 0 ? (
                           <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
@@ -1242,155 +1418,23 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                   )}
                   <td className="px-4 py-4">
                     <div className="flex items-center justify-end gap-2">
-                  {activeTab === "history" ? (
-                    <>
-                      <span className={`px-3 py-1 rounded-full text-sm ${
-                        booking.status === "approved" 
-                          ? "bg-green-100 text-green-600" 
-                          : booking.status === "cancelled"
-                          ? "bg-gray-100 text-gray-600"
-                          : "bg-red-100 text-red-600"
-                      }`}>
-                        {booking.status === "approved" && "Gjennomført"}
-                        {booking.status === "cancelled" && "Kansellert"}
-                        {booking.status === "rejected" && "Avslått"}
-                        {booking.status === "pending" && "Utløpt"}
-                      </span>
-                      {/* Slett-knapper for historie */}
-                      {(booking as any)._groupCount > 1 ? (
-                        <>
-                          <button
-                            onClick={() => handleDelete(booking.id, true)}
-                            disabled={processingId === booking.id}
-                            className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-1"
-                            title={`Slett alle ${(booking as any)._groupCount} bookinger`}
-                          >
-                            {processingId === booking.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-3 h-3" />
-                            )}
-                            Slett alle
-                          </button>
-                          <button
-                            onClick={() => handleDelete(booking.id)}
-                            disabled={processingId === booking.id}
-                            className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
-                            title="Slett kun denne"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => handleDelete(booking.id)}
-                          disabled={processingId === booking.id}
-                          className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
-                          title="Slett permanent"
-                        >
-                          {processingId === booking.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </button>
-                      )}
-                    </>
-                  ) : activeTab === "rejected" ? (
-                    <>
-                      <span className="px-3 py-1 rounded-full bg-red-100 text-red-600 text-sm">
-                        {booking.status === "cancelled" ? "Kansellert" : "Avslått"}
-                      </span>
-                      {/* Slett-knapper for avslåtte */}
-                      {(booking as any)._groupCount > 1 ? (
-                        <>
-                          <button
-                            onClick={() => handleDelete(booking.id, true)}
-                            disabled={processingId === booking.id}
-                            className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-1"
-                            title={`Slett alle ${(booking as any)._groupCount} bookinger`}
-                          >
-                            {processingId === booking.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-3 h-3" />
-                            )}
-                            Slett alle
-                          </button>
-                          <button
-                            onClick={() => handleDelete(booking.id)}
-                            disabled={processingId === booking.id}
-                            className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
-                            title="Slett kun denne"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => handleDelete(booking.id)}
-                          disabled={processingId === booking.id}
-                          className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
-                          title="Slett permanent"
-                        >
-                          {processingId === booking.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <>
                       {booking.status === "pending" && (
                         <>
-                          {/* Hvis dette er en gruppert recurring booking, vis "Godkjenn alle" */}
-                          {(booking as any)._groupCount > 1 ? (
-                            <>
-                              <button
-                                onClick={() => executeAction(booking.id, "approve", true)}
-                                disabled={processingId === booking.id}
-                                className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-1"
-                                title={`Godkjenn alle ${(booking as any)._groupCount} bookinger`}
-                              >
-                                {processingId === booking.id ? (
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  <CheckCircle2 className="w-3 h-3" />
-                                )}
-                                Alle ({(booking as any)._groupCount})
-                              </button>
-                              <button
-                                onClick={() => handleAction(booking.id, "approve")}
-                                disabled={processingId === booking.id}
-                                className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors disabled:opacity-50"
-                                title="Godkjenn kun denne"
-                              >
-                                <CheckCircle2 className="w-4 h-4" />
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              onClick={() => handleAction(booking.id, "approve")}
-                              disabled={processingId === booking.id}
-                              className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors disabled:opacity-50"
-                              title="Godkjenn"
-                            >
-                              {processingId === booking.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="w-4 h-4" />
-                              )}
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleAction(booking.id, "approve")}
+                            disabled={processingId === booking.id}
+                            className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors disabled:opacity-50"
+                            title="Godkjenn"
+                          >
+                            {processingId === booking.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                          </button>
                           <button
                             onClick={() => handleAction(booking.id, "reject")}
                             disabled={processingId === booking.id}
                             className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors disabled:opacity-50"
                             title="Avslå"
                           >
-                                <XCircle className="w-4 h-4" />
+                            <XCircle className="w-4 h-4" />
                           </button>
                         </>
                       )}
@@ -1401,19 +1445,23 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                           className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
                           title="Kanseller"
                         >
-                          {processingId === booking.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                                <Trash2 className="w-4 h-4" />
-                          )}
+                          {processingId === booking.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                         </button>
                       )}
-                    </>
-                  )}
-                </div>
+                      {(activeTab === "history" || activeTab === "rejected") && (
+                        <button
+                          onClick={() => handleDelete(booking.id)}
+                          disabled={processingId === booking.id}
+                          className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                          title="Slett permanent"
+                        >
+                          {processingId === booking.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
-          ))}
+              ))}
             </tbody>
           </table>
         </div>
