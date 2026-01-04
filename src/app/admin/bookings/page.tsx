@@ -1,5 +1,9 @@
 "use client"
 
+// Force dynamic - no caching (v2)
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import { useSession } from "next-auth/react"
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
@@ -481,12 +485,12 @@ export default function AdminBookingsPage() {
           />
         </div>
 
-        {/* Debug info - remove after fixing */}
-        <div className="mb-4 p-3 bg-yellow-100 border border-yellow-400 rounded-lg text-sm">
-          <strong>Debug:</strong> Groups: {Object.keys(groupedBookings.groups).length}, 
-          Standalone: {groupedBookings.standalone.length}, 
-          Filtered: {filteredBookings.length},
-          Test med _groupId: {filteredBookings.filter((b: any) => b.title === 'Test' && b._groupId).length}
+        {/* DEBUG v2 - must show */}
+        <div className="mb-4 p-4 bg-red-500 text-white rounded-lg text-lg font-bold">
+          🔧 DEBUG v2: Groups={Object.keys(groupedBookings.groups).length} | 
+          Standalone={groupedBookings.standalone.length} | 
+          FilteredTotal={filteredBookings.length} |
+          TestWithGroupId={filteredBookings.filter((b: any) => b.title === 'Test' && b._groupId).length}
         </div>
 
         {/* Bookings list */}
