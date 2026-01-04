@@ -1043,7 +1043,7 @@ export default function BookResourcePage({ params }: Props) {
             {/* Price and Payment Method (kun hvis pricing er aktivert) */}
             {pricingEnabled && (
               <div className="pt-6 border-t border-gray-200">
-                <h3 className="font-medium text-gray-900 mb-4">Pris og betaling</h3>
+                <h3 className="font-medium text-gray-900 mb-4">Betaling</h3>
                 
                 {/* Vis pris hvis den er beregnet */}
                 {calculatedPrice ? (

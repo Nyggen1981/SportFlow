@@ -1061,7 +1061,7 @@ export default function MyBookingsPage() {
               {/* Price and payment info */}
               {pricingEnabled && (
                 <div className="border-t pt-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Pris og betaling</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Betaling</h4>
                   {selectedBooking.totalAmount && selectedBooking.totalAmount > 0 ? (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">

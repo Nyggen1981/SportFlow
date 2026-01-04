@@ -131,7 +131,7 @@ export function LicenseStatusCard() {
               if (license.modules) {
                 const activeModules: string[] = []
                 if (license.modules.pricing) {
-                  activeModules.push("Pris & Betaling")
+                  activeModules.push("Betalingsmodul")
                 }
                 // Legg til flere moduler her hvis nødvendig
                 

@@ -10,7 +10,7 @@ import Link from "next/link"
 export default async function SalgsvilkårPage() {
   const session = await getServerSession(authOptions)
   
-  // Sjekk om "pris og betaling" modulen er aktivert
+  // Sjekk om betalingsmodulen er aktivert
   const pricingEnabled = await isPricingEnabled()
   
   // Hvis modulen ikke er aktivert, vis melding
@@ -28,13 +28,13 @@ export default async function SalgsvilkårPage() {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">Siden ikke tilgjengelig</h1>
-                  <p className="text-gray-500 text-sm">Salgsvilkår-siden er kun tilgjengelig når "pris og betaling" modulen er aktivert</p>
+                  <p className="text-gray-500 text-sm">Salgsvilkår-siden er kun tilgjengelig når betalingsmodulen er aktivert</p>
                 </div>
               </div>
               
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
                 <p className="text-sm text-yellow-800">
-                  Denne siden er kun synlig når "pris og betaling" modulen er aktivert i systemet.
+                  Denne siden er kun synlig når betalingsmodulen er aktivert i systemet.
                 </p>
               </div>
               

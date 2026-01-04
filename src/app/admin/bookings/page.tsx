@@ -1150,7 +1150,7 @@ export default function AdminBookingsPage() {
               {/* Price and payment info */}
               {pricingEnabled && selectedBooking.totalAmount && selectedBooking.totalAmount > 0 && (
                 <div className="border-t pt-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Pris og betaling</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Betaling</h4>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600">Totalpris:</span>

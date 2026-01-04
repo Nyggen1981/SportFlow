@@ -196,7 +196,7 @@ model Resource {
   // Each rule has: { forRoles: ["admin", "roleId"], model: "FREE"|"HOURLY"|"DAILY"|"FIXED"|"FIXED_DURATION", pricePerHour?, pricePerDay?, fixedPrice?, fixedPriceDuration? }
   // If forRoles is null/empty, it's the default pricing for all roles not covered by other rules
   pricingRules String? // JSON array: [{ forRoles: ["admin"], model: "FREE" }, { forRoles: [], model: "HOURLY", pricePerHour: 500 }]
-  visPrislogikk Boolean? @default(false) // Whether pricing logic should be shown on facility page (kun for "pris & betaling" modul)
+  visPrislogikk Boolean? @default(false) // Whether pricing logic should be shown on facility page (kun for betalingsmodulen)
   visDelinfoKort Boolean? @default(true) // Whether "Mer informasjon" card with parts details should be shown
   
   // Legacy fields (deprecated, bruk pricingRules i stedet)

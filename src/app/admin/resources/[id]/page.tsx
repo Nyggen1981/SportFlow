@@ -906,7 +906,7 @@ export default function EditResourcePage({ params }: Props) {
               </div>
             </div>
 
-            {/* Price info - Kun for standardlisens (ikke "pris & betaling" modul) */}
+            {/* Price info - Kun for standardlisens (ikke betalingsmodul) */}
             {!pricingEnabled && (
               <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
                 <div className="flex items-center gap-2 border-b border-gray-200 pb-3 mb-4">

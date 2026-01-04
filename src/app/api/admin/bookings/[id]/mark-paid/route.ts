@@ -28,7 +28,7 @@ export async function POST(
   const pricingEnabled = await isPricingEnabled()
   if (!pricingEnabled) {
     return NextResponse.json({ 
-      error: "Pris og betalingsmodulen er ikke aktivert" 
+      error: "Betalingsmodulen er ikke aktivert" 
     }, { status: 403 })
   }
 

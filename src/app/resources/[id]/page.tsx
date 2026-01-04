@@ -632,7 +632,7 @@ export default async function ResourcePage({ params }: Props) {
               </div>
             )}
 
-            {/* Price info - Kun for standardlisens (ikke "pris & betaling" modul) */}
+            {/* Price info - Kun for standardlisens (ikke betalingsmodul) */}
             {!pricingEnabled && resource.visPrisInfo && resource.prisInfo && (
               <div className="card p-6">
                 <h3 className="font-semibold text-gray-900 mb-4">
@@ -644,7 +644,7 @@ export default async function ResourcePage({ params }: Props) {
               </div>
             )}
 
-            {/* Pricing Logic (kun hvis "pris & betaling" modul er aktivert og visPrislogikk er true) */}
+            {/* Pricing Logic (kun hvis betalingsmodulen er aktivert og visPrislogikk er true) */}
             {pricingEnabled && resource.visPrislogikk && (
               <PricingInfoCard
                 resourceName={resource.name}

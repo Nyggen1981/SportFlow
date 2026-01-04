@@ -1462,7 +1462,7 @@ export default function AdminSettingsPage() {
                       if (licenseInfo.modules) {
                         const activeModules: string[] = []
                         if (licenseInfo.modules.pricing) {
-                          activeModules.push("Pris & Betaling")
+                          activeModules.push("Betalingsmodul")
                         }
                         // Legg til flere moduler her hvis nødvendig
                         

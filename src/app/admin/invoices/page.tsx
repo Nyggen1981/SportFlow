@@ -72,7 +72,7 @@ export default function AdminInvoicesPage() {
             </div>
           ) : (
             <div className="card p-6 text-center">
-              <p className="text-gray-500">Fakturafunksjonen er kun tilgjengelig når "pris og betaling" modulen er aktivert.</p>
+              <p className="text-gray-500">Fakturafunksjonen er kun tilgjengelig når betalingsmodulen er aktivert.</p>
             </div>
           )}
         </div>
