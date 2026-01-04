@@ -992,8 +992,9 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-          <table className="w-full min-w-[1000px]">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[1000px] table-fixed">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 {canDelete && (
@@ -1096,24 +1097,24 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                             className="w-3 h-3 rounded-full flex-shrink-0"
                             style={{ backgroundColor: firstBooking.resource.color || "#3b82f6" }}
                           />
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 overflow-hidden">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-blue-900">{firstBooking.title}</span>
-                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-200 text-blue-800">
-                                📅 Serie: {groupBookings.length} bookinger
+                              <span className="font-semibold text-blue-900 truncate max-w-[150px]">{firstBooking.title}</span>
+                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-200 text-blue-800 whitespace-nowrap">
+                                📅 {groupBookings.length}x
                               </span>
                               {pendingCount > 0 && (
-                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">
+                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700 whitespace-nowrap">
                                   {pendingCount} venter
                                 </span>
                               )}
                               {approvedCount > 0 && (
-                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 whitespace-nowrap">
                                   {approvedCount} godkjent
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-blue-600 mt-1">
+                            <p className="text-xs text-blue-600 mt-1 truncate">
                               {firstBooking.resource.name}
                               {firstBooking.resourcePart && ` → ${firstBooking.resourcePart.name}`}
                             </p>
@@ -1469,6 +1470,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
