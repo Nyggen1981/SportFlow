@@ -1832,6 +1832,24 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                   })()}
                 </div>
               )}
+
+              {/* Cancel button for approved bookings that aren't past */}
+              {selectedBooking.status === "approved" && new Date(selectedBooking.startTime) > new Date() && (
+                <div className="border-t pt-4">
+                  <button
+                    onClick={() => handleAction(selectedBooking.id, "cancel")}
+                    disabled={processingId === selectedBooking.id}
+                    className="w-full px-4 py-2 bg-white border border-gray-300 text-red-600 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    {processingId === selectedBooking.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                    Kanseller booking
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

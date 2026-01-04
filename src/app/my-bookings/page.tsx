@@ -1308,6 +1308,44 @@ export default function MyBookingsPage() {
                   <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{selectedBooking.statusNote}</p>
                 </div>
               )}
+
+              {/* Action buttons for approved/pending bookings */}
+              {(() => {
+                const isPast = new Date(selectedBooking.startTime) < new Date()
+                const canEdit = (selectedBooking.status === "pending" || selectedBooking.status === "approved") && !isPast
+                
+                if (canEdit) {
+                  return (
+                    <div className="border-t pt-4 space-y-2">
+                      <p className="text-xs text-gray-500 text-center">Dette er din booking</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingBooking(selectedBooking)
+                            setSelectedBooking(null)
+                          }}
+                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          Rediger
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCancellingId(selectedBooking.id)
+                            setSelectedBooking(null)
+                          }}
+                          disabled={isProcessing}
+                          className="flex-1 px-4 py-2 bg-white border border-gray-300 text-red-600 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Kanseller
+                        </button>
+                      </div>
+                    </div>
+                  )
+                }
+                return null
+              })()}
             </div>
           </div>
         </div>
