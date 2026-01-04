@@ -26,9 +26,11 @@ import {
   FileText,
   Send,
   Eye,
-  ClipboardList
+  ClipboardList,
+  Pencil
 } from "lucide-react"
 import Link from "next/link"
+import { EditBookingModal } from "@/components/EditBookingModal"
 
 interface Booking {
   id: string
@@ -84,6 +86,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
   
   // Mark as paid modal state
   const [markPaidModalOpen, setMarkPaidModalOpen] = useState(false)
@@ -555,36 +558,6 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
     return true
   }
 
-  // Filter groups to only include those with at least one matching booking
-  const filteredGroups = Object.entries(groupedBookings.groups)
-    .map(([groupId, group]) => {
-      const matchingBookings = group.filter(matchesTabFilter)
-      return { groupId, bookings: matchingBookings, allBookings: group }
-    })
-    .filter(g => g.bookings.length > 0)
-
-  // Filter standalone bookings
-  const filteredStandalone = groupedBookings.standalone.filter(matchesTabFilter)
-
-  // Toggle group expansion
-  const toggleGroupExpansion = (groupId: string) => {
-    setExpandedGroups(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(groupId)) {
-        newSet.delete(groupId)
-      } else {
-        newSet.add(groupId)
-      }
-      return newSet
-    })
-  }
-
-  // For counting and other purposes, create a flat filtered list
-  const filteredBookings = [
-    ...filteredStandalone,
-    ...filteredGroups.flatMap(g => g.bookings)
-  ]
-
   // Additional filters (applied to individual bookings)
   const applyAdditionalFilters = (b: Booking) => {
     // Payment status filter (only if pricing enabled)
@@ -634,6 +607,39 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
     
     return true
   }
+
+  // Combined filter function (tab + additional filters)
+  const applyAllFilters = (b: Booking) => matchesTabFilter(b) && applyAdditionalFilters(b)
+
+  // Filter groups to only include those with at least one matching booking
+  const filteredGroups = Object.entries(groupedBookings.groups)
+    .map(([groupId, group]) => {
+      const matchingBookings = group.filter(applyAllFilters)
+      return { groupId, bookings: matchingBookings, allBookings: group }
+    })
+    .filter(g => g.bookings.length > 0)
+
+  // Filter standalone bookings
+  const filteredStandalone = groupedBookings.standalone.filter(applyAllFilters)
+
+  // Toggle group expansion
+  const toggleGroupExpansion = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(groupId)) {
+        newSet.delete(groupId)
+      } else {
+        newSet.add(groupId)
+      }
+      return newSet
+    })
+  }
+
+  // For counting and other purposes, create a flat filtered list
+  const filteredBookings = [
+    ...filteredStandalone,
+    ...filteredGroups.flatMap(g => g.bookings)
+  ]
 
   // Sort function for bookings
   const sortBookings = (bookingsToSort: Booking[]) => bookingsToSort.sort((a, b) => {
@@ -1312,7 +1318,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
               })}
               
               {/* Render standalone bookings */}
-              {sortBookings(filteredStandalone.filter(applyAdditionalFilters)).map((booking) => (
+              {sortBookings([...filteredStandalone]).map((booking) => (
                 <tr 
                   key={booking.id} 
                   className={`hover:bg-gray-50 transition-colors cursor-pointer ${
@@ -1833,21 +1839,34 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                 </div>
               )}
 
-              {/* Cancel button for approved bookings that aren't past */}
-              {selectedBooking.status === "approved" && new Date(selectedBooking.startTime) > new Date() && (
-                <div className="border-t pt-4">
-                  <button
-                    onClick={() => handleAction(selectedBooking.id, "cancel")}
-                    disabled={processingId === selectedBooking.id}
-                    className="w-full px-4 py-2 bg-white border border-gray-300 text-red-600 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                  >
-                    {processingId === selectedBooking.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                    Kanseller booking
-                  </button>
+              {/* Edit and Cancel buttons for approved/pending bookings that aren't past */}
+              {(selectedBooking.status === "approved" || selectedBooking.status === "pending") && 
+               new Date(selectedBooking.startTime) > new Date() && (
+                <div className="border-t pt-4 space-y-2">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingBooking(selectedBooking)
+                        setSelectedBooking(null)
+                      }}
+                      className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      Rediger
+                    </button>
+                    <button
+                      onClick={() => handleAction(selectedBooking.id, "cancel")}
+                      disabled={processingId === selectedBooking.id}
+                      className="flex-1 px-4 py-2 bg-white border border-gray-300 text-red-600 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                    >
+                      {processingId === selectedBooking.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                      Kanseller
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -2143,6 +2162,24 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit Booking Modal */}
+      {editingBooking && (
+        <EditBookingModal
+          booking={{
+            ...editingBooking,
+            resourceId: editingBooking.resource.id,
+            resourceName: editingBooking.resource.name,
+            resourcePartId: editingBooking.resourcePart?.id || null,
+            resourcePartName: editingBooking.resourcePart?.name || null
+          }}
+          onClose={() => setEditingBooking(null)}
+          onSave={async () => {
+            setEditingBooking(null)
+            await fetchBookings()
+          }}
+        />
       )}
     </div>
   )
