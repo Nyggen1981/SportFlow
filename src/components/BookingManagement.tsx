@@ -1072,21 +1072,26 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                 
                 return (
                   <React.Fragment key={`group-${groupId}`}>
-                    {/* Folder Header Row */}
-                    <tr className="bg-blue-50/50 hover:bg-blue-100/50 transition-colors">
+                    {/* Folder Header Row - hele raden er klikkbar */}
+                    <tr 
+                      className="bg-blue-50/50 hover:bg-blue-100/50 transition-colors cursor-pointer"
+                      onClick={(e) => {
+                        // Ikke toggle hvis man klikker på action-knapper
+                        const target = e.target as HTMLElement
+                        if (target.closest('button')) return
+                        toggleGroupExpansion(groupId)
+                      }}
+                    >
                       {canDelete && <td className="px-4 py-3"></td>}
                       <td className="px-4 py-3" colSpan={2}>
                         <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => toggleGroupExpansion(groupId)}
-                            className="p-1 rounded hover:bg-blue-200 transition-colors"
-                          >
+                          <div className="p-1">
                             {isExpanded ? (
                               <ChevronUp className="w-5 h-5 text-blue-600" />
                             ) : (
                               <ChevronDown className="w-5 h-5 text-blue-600" />
                             )}
-                          </button>
+                          </div>
                           <div 
                             className="w-3 h-3 rounded-full flex-shrink-0"
                             style={{ backgroundColor: firstBooking.resource.color || "#3b82f6" }}
