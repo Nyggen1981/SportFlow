@@ -163,9 +163,15 @@ Gå til **Admin → Innstillinger → Vipps-innstillinger** og fyll inn:
 ### Cron Jobs
 | Variabel | Verdi | Beskrivelse |
 |----------|-------|-------------|
-| `CRON_SECRET` | Tilfeldig streng | Secret for å sikre cron-endepunkter (f.eks. `/api/cron/license-expiry`) |
+| `CRON_SECRET` | Tilfeldig streng | Secret for å sikre cron-endepunkter |
 
 **Merk:** Brukes for å sikre at cron-jobs kun kan kjøres av Vercel, ikke eksterne requests.
+
+**Aktive cron-jobs:**
+| Endpoint | Tidspunkt | Beskrivelse |
+|----------|-----------|-------------|
+| `/api/cron/license-expiry` | 08:00 daglig | Sjekker lisensutløp og sender varsel-epost |
+| `/api/cron/report-stats` | 03:00 daglig | Sender bruksstatistikk til lisensserver |
 
 ### Backup Database (Hvis du bruker dual-write)
 | Variabel | Verdi | Beskrivelse |

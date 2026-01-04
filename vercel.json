@@ -6,6 +6,10 @@
     {
       "path": "/api/cron/license-expiry",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/report-stats",
+      "schedule": "0 3 * * *"
     }
   ]
 }
