@@ -1148,27 +1148,33 @@ export default function AdminBookingsPage() {
               </div>
 
               {/* Price and payment info */}
-              {pricingEnabled && selectedBooking.totalAmount && selectedBooking.totalAmount > 0 && (
+              {pricingEnabled && (
                 <div className="border-t pt-4">
                   <h4 className="text-sm font-semibold text-gray-700 mb-3">Betaling</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Totalpris:</span>
-                      <span className="text-lg font-bold text-gray-900">
-                        {Math.round(Number(selectedBooking.totalAmount))} kr
-                      </span>
-                    </div>
-                    {selectedBooking.preferredPaymentMethod && (
-                      <div>
-                        <span className="text-sm text-gray-600">Betalingsmetode: </span>
-                        <span className="text-sm font-medium text-gray-900">
-                          {selectedBooking.preferredPaymentMethod === "INVOICE" && "Faktura"}
-                          {selectedBooking.preferredPaymentMethod === "VIPPS" && "Vipps"}
-                          {selectedBooking.preferredPaymentMethod === "CARD" && "Kort"}
+                  {selectedBooking.totalAmount && selectedBooking.totalAmount > 0 ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Totalpris:</span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {Math.round(Number(selectedBooking.totalAmount))} kr
                         </span>
                       </div>
-                    )}
-                  </div>
+                      {selectedBooking.preferredPaymentMethod && (
+                        <div>
+                          <span className="text-sm text-gray-600">Betalingsmetode: </span>
+                          <span className="text-sm font-medium text-gray-900">
+                            {selectedBooking.preferredPaymentMethod === "INVOICE" && "Faktura"}
+                            {selectedBooking.preferredPaymentMethod === "VIPPS" && "Vipps"}
+                            {selectedBooking.preferredPaymentMethod === "CARD" && "Kort"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <span className="text-sm font-medium text-green-700">Gratis booking</span>
+                    </div>
+                  )}
                 </div>
               )}
 

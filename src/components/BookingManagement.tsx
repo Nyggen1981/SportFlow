@@ -1115,29 +1115,34 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         )}
                       </td>
                       <td className="px-4 py-4">
-                        {booking.preferredPaymentMethod ? (
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
-                              {booking.preferredPaymentMethod === "INVOICE" && "Faktura"}
-                              {booking.preferredPaymentMethod === "VIPPS" && "Vipps"}
-                              {booking.preferredPaymentMethod === "CARD" && "Kort"}
-                    </span>
-                            {booking.preferredPaymentMethod === "INVOICE" && booking.invoice && (
-                              <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
-                                (booking.invoice.status === "PAID" || booking.invoice.status === "SENT")
-                                  ? "bg-blue-100 text-blue-700"
-                                  : booking.invoice.status === "DRAFT"
-                                  ? "bg-gray-100 text-gray-600"
-                                  : "bg-orange-100 text-orange-700"
-                              }`}>
-                                {(booking.invoice.status === "PAID" || booking.invoice.status === "SENT") && "Sendt"}
-                                {booking.invoice.status === "DRAFT" && "Kladd"}
-                                {booking.invoice.status === "OVERDUE" && "Forfalt"}
-                    </span>
-                            )}
-                  </div>
+                        {/* Vis betalingsmetode kun hvis det er en betalt booking (ikke gratis) */}
+                        {booking.totalAmount && booking.totalAmount > 0 ? (
+                          booking.preferredPaymentMethod ? (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
+                                {booking.preferredPaymentMethod === "INVOICE" && "Faktura"}
+                                {booking.preferredPaymentMethod === "VIPPS" && "Vipps"}
+                                {booking.preferredPaymentMethod === "CARD" && "Kort"}
+                              </span>
+                              {booking.preferredPaymentMethod === "INVOICE" && booking.invoice && (
+                                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
+                                  (booking.invoice.status === "PAID" || booking.invoice.status === "SENT")
+                                    ? "bg-blue-100 text-blue-700"
+                                    : booking.invoice.status === "DRAFT"
+                                    ? "bg-gray-100 text-gray-600"
+                                    : "bg-orange-100 text-orange-700"
+                                }`}>
+                                  {(booking.invoice.status === "PAID" || booking.invoice.status === "SENT") && "Sendt"}
+                                  {booking.invoice.status === "DRAFT" && "Kladd"}
+                                  {booking.invoice.status === "OVERDUE" && "Forfalt"}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-400">—</p>
+                          )
                         ) : (
-                          <p className="text-xs text-gray-400">—</p>
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-50 text-green-700">Gratis</span>
                         )}
                       </td>
                       <td className="px-4 py-4">

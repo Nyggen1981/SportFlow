@@ -485,8 +485,8 @@ export default function BookResourcePage({ params }: Props) {
           isRecurring,
           recurringType: isRecurring ? recurringType : undefined,
           recurringEndDate: isRecurring ? recurringEndDate : undefined,
-          // Legg til betalingsmetode hvis pricing er aktivert og det er valgt
-          ...(pricingEnabled && preferredPaymentMethod ? {
+          // Legg til betalingsmetode KUN hvis pricing er aktivert, det er valgt, og bookingen IKKE er gratis
+          ...(pricingEnabled && preferredPaymentMethod && calculatedPrice && !calculatedPrice.isFree && calculatedPrice.price > 0 ? {
             preferredPaymentMethod
           } : {}),
           // Legg til fastprispakke hvis valgt
