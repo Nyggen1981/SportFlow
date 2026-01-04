@@ -45,6 +45,8 @@ interface Booking {
   invoiceId: string | null
   invoice?: { id: string; status: string; invoiceNumber: string } | null
   preferredPaymentMethod: string | null
+  isRecurring?: boolean
+  parentBookingId?: string | null
   resource: {
     id: string
     name: string
@@ -199,15 +201,19 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
     await executeAction(bookingId, action)
   }
 
-  const executeAction = async (bookingId: string, action: "approve" | "reject" | "cancel") => {
+  const executeAction = async (bookingId: string, action: "approve" | "reject" | "cancel", applyToAll: boolean = false) => {
     setProcessingId(bookingId)
     try {
+      const booking = bookings.find(b => b.id === bookingId)
+      const shouldApplyToAll = applyToAll && booking?.isRecurring
+      
       const response = await fetch(`/api/admin/bookings/${bookingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           action: action === "cancel" ? "reject" : action,
-          statusNote: action === "cancel" ? "Kansellert av administrator" : undefined
+          statusNote: action === "cancel" ? "Kansellert av administrator" : undefined,
+          applyToAll: shouldApplyToAll
         })
       })
 
@@ -505,7 +511,40 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
     maxPriceFilter !== ""
   ].filter(Boolean).length
 
-  const filteredBookings = bookings.filter(b => {
+  // Group recurring bookings
+  const groupedBookings = (() => {
+    const groups: { [key: string]: Booking[] } = {}
+    const standalone: Booking[] = []
+
+    bookings.forEach(booking => {
+      if (booking.isRecurring) {
+        const groupId = booking.parentBookingId || booking.id
+        if (!groups[groupId]) groups[groupId] = []
+        groups[groupId].push(booking)
+      } else {
+        standalone.push(booking)
+      }
+    })
+
+    // Sort each group by date
+    Object.values(groups).forEach(group => {
+      group.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+    })
+
+    return { groups, standalone }
+  })()
+
+  // Create display list: standalone + one representative per group
+  const displayBookings: (Booking & { _groupId?: string; _groupCount?: number })[] = [
+    ...groupedBookings.standalone,
+    ...Object.entries(groupedBookings.groups).map(([groupId, group]) => ({
+      ...group[0],
+      _groupId: groupId,
+      _groupCount: group.length
+    }))
+  ]
+
+  const filteredBookings = displayBookings.filter(b => {
     const isPast = new Date(b.endTime) < now
     
     // Tab filtering
@@ -1031,6 +1070,12 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-medium text-gray-900">{booking.title}</span>
+                          {/* Badge for recurring series */}
+                          {(booking as any)._groupCount > 1 && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+                              {(booking as any)._groupCount} ganger
+                            </span>
+                          )}
                           {booking.status === "pending" && (
                             <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>
                           )}
@@ -1239,18 +1284,45 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                     <>
                       {booking.status === "pending" && (
                         <>
-                          <button
-                            onClick={() => handleAction(booking.id, "approve")}
-                            disabled={processingId === booking.id}
-                            className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors disabled:opacity-50"
-                            title="Godkjenn"
-                          >
-                            {processingId === booking.id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                  <CheckCircle2 className="w-4 h-4" />
-                            )}
-                          </button>
+                          {/* Hvis dette er en gruppert recurring booking, vis "Godkjenn alle" */}
+                          {(booking as any)._groupCount > 1 ? (
+                            <>
+                              <button
+                                onClick={() => executeAction(booking.id, "approve", true)}
+                                disabled={processingId === booking.id}
+                                className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                title={`Godkjenn alle ${(booking as any)._groupCount} bookinger`}
+                              >
+                                {processingId === booking.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="w-3 h-3" />
+                                )}
+                                Alle ({(booking as any)._groupCount})
+                              </button>
+                              <button
+                                onClick={() => handleAction(booking.id, "approve")}
+                                disabled={processingId === booking.id}
+                                className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors disabled:opacity-50"
+                                title="Godkjenn kun denne"
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => handleAction(booking.id, "approve")}
+                              disabled={processingId === booking.id}
+                              className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors disabled:opacity-50"
+                              title="Godkjenn"
+                            >
+                              {processingId === booking.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
                           <button
                             onClick={() => handleAction(booking.id, "reject")}
                             disabled={processingId === booking.id}

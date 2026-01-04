@@ -134,14 +134,6 @@ export default function AdminBookingsPage() {
       group.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
     })
 
-    // Debug logging
-    console.log('[Booking Groups]', {
-      totalBookings: bookings.length,
-      recurringGroups: Object.keys(groups).length,
-      standaloneCount: standalone.length,
-      groups: Object.entries(groups).map(([id, g]) => ({ groupId: id, count: g.length, firstTitle: g[0]?.title }))
-    })
-
     return { groups, standalone }
   }, [bookings])
 
@@ -182,18 +174,6 @@ export default function AdminBookingsPage() {
 
     return filtered
   }, [groupedBookings, activeTab, searchQuery])
-
-  // Debug: Log filtering results
-  useEffect(() => {
-    if (bookings.length > 0) {
-      const testBookings = filteredBookings.filter((b: any) => b.title === 'Test')
-      console.log('[DEBUG] FilteredBookings Test:', {
-        totalFiltered: filteredBookings.length,
-        testCount: testBookings.length,
-        testHasGroupId: testBookings.map((b: any) => ({ id: b.id, _groupId: b._groupId, _groupCount: b._groupCount }))
-      })
-    }
-  }, [filteredBookings, bookings.length])
 
   // Counts for tabs
   const counts = useMemo(() => ({
@@ -479,14 +459,6 @@ export default function AdminBookingsPage() {
             placeholder="Søk etter tittel, fasilitet, bruker..."
             className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
           />
-        </div>
-
-        {/* DEBUG v2 - must show */}
-        <div className="mb-4 p-4 bg-red-500 text-white rounded-lg text-lg font-bold">
-          🔧 DEBUG v2: Groups={Object.keys(groupedBookings.groups).length} | 
-          Standalone={groupedBookings.standalone.length} | 
-          FilteredTotal={filteredBookings.length} |
-          TestWithGroupId={filteredBookings.filter((b: any) => b.title === 'Test' && b._groupId).length}
         </div>
 
         {/* Bookings list */}
