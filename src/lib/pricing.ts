@@ -485,18 +485,12 @@ export async function findPricingRuleForUser(
       return { rule: null }
     }
     
-    // 2. Sjekk om brukeren er verifisert medlem og "member" er i listen
-    if (isMember) {
-      const memberRule = rules.find(r => r.forRoles.includes("member"))
-      if (memberRule) {
-        return { 
-          rule: memberRule, 
-          reason: memberRule.model === "FREE" ? "Gratis for medlemmer" : undefined 
-        }
-      }
-    }
+    // PRIORITET FOR VANLIGE BRUKERE:
+    // 2. Custom role (f.eks. Lagleder, Trener) - sjekkes FØRST
+    // 3. Verifisert medlem (isMember: true)
+    // 4. Ikke-medlem ("user") - KUN hvis ingen custom role
     
-    // 3. Sjekk om brukeren har en custom role som er i listen
+    // 2. Sjekk om brukeren har en custom role som er i listen - FØRST
     if (roleInfo.customRole) {
       const customRoleRule = rules.find(r => r.forRoles.includes(roleInfo.customRole!.id))
       if (customRoleRule) {
@@ -507,8 +501,20 @@ export async function findPricingRuleForUser(
       }
     }
     
+    // 3. Sjekk om brukeren er verifisert medlem og "member" er i listen
+    if (isMember) {
+      const memberRule = rules.find(r => r.forRoles.includes("member"))
+      if (memberRule) {
+        return { 
+          rule: memberRule, 
+          reason: memberRule.model === "FREE" ? "Gratis for medlemmer" : undefined 
+        }
+      }
+    }
+    
     // 4. Sjekk om brukeren IKKE er verifisert medlem og "user" er i listen
-    if (!isMember && roleInfo.systemRole === "user") {
+    // VIKTIG: Kun hvis bruker ikke har custom role (forhindrer at Lagleder ser "ikke medlem"-priser)
+    if (!roleInfo.customRole && !isMember && roleInfo.systemRole === "user") {
       const userRule = rules.find(r => r.forRoles.includes("user"))
       if (userRule) {
         return { 

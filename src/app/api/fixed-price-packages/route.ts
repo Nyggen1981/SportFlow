@@ -75,14 +75,20 @@ export async function GET(request: NextRequest) {
           return allowedRoles.includes("admin")
         }
         
-        // "member" = verified member (isMember: true)
-        // "user" = logged in but NOT verified member (isMember: false)
-        // When membership is verified, user transitions from "user" to "member"
-        if (isMember && allowedRoles.includes("member")) return true
-        if (!isMember && allowedRoles.includes("user")) return true
+        // PRIORITET FOR VANLIGE BRUKERE:
+        // 1. Custom role (f.eks. Lagleder, Trener) - sjekkes FØRST
+        // 2. Verifisert medlem (isMember: true)
+        // 3. Ikke-medlem ("user") - KUN hvis ingen custom role
         
-        // Check custom role ID
+        // 1. Sjekk custom role først - brukere med custom role skal IKKE falle tilbake til "user"
         if (userRoleId && allowedRoles.includes(userRoleId)) return true
+        
+        // 2. Sjekk om bruker er verifisert medlem
+        if (isMember && allowedRoles.includes("member")) return true
+        
+        // 3. Sjekk "user" (ikke-medlem) KUN hvis bruker ikke har custom role
+        // Dette forhindrer at f.eks. en Lagleder ser "ikke medlem"-priser
+        if (!userRoleId && !isMember && allowedRoles.includes("user")) return true
         
         return false
       } catch {

@@ -234,10 +234,20 @@ export default async function ResourcePage({ params }: Props) {
               return allowedRoles.includes("admin")
             }
             
-            // For vanlige brukere: sjekk rolle-match
-            if (isMember && allowedRoles.includes("member")) return true
-            if (!isMember && allowedRoles.includes("user")) return true
+            // PRIORITET FOR VANLIGE BRUKERE:
+            // 1. Custom role (f.eks. Lagleder, Trener) - sjekkes FØRST
+            // 2. Verifisert medlem (isMember: true)
+            // 3. Ikke-medlem ("user") - KUN hvis ingen custom role
+            
+            // 1. Sjekk custom role først - brukere med custom role skal IKKE falle tilbake til "user"
             if (userRoleId && allowedRoles.includes(userRoleId)) return true
+            
+            // 2. Sjekk om bruker er verifisert medlem
+            if (isMember && allowedRoles.includes("member")) return true
+            
+            // 3. Sjekk "user" (ikke-medlem) KUN hvis bruker ikke har custom role
+            if (!userRoleId && !isMember && allowedRoles.includes("user")) return true
+            
             return false
           } catch {
             return userSystemRole !== "admin"
