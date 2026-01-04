@@ -183,6 +183,18 @@ export default function AdminBookingsPage() {
     return filtered
   }, [groupedBookings, activeTab, searchQuery])
 
+  // Debug: Log filtering results
+  useEffect(() => {
+    if (bookings.length > 0) {
+      const testBookings = filteredBookings.filter((b: any) => b.title === 'Test')
+      console.log('[DEBUG] FilteredBookings Test:', {
+        totalFiltered: filteredBookings.length,
+        testCount: testBookings.length,
+        testHasGroupId: testBookings.map((b: any) => ({ id: b.id, _groupId: b._groupId, _groupCount: b._groupCount }))
+      })
+    }
+  }, [filteredBookings, bookings.length])
+
   // Counts for tabs
   const counts = useMemo(() => ({
     pending: bookings.filter(b => b.status === "pending").length,
