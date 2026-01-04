@@ -83,6 +83,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
   const [rejectModalOpen, setRejectModalOpen] = useState(false)
   const [rejectingBookingId, setRejectingBookingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
+  const [rejectAllInGroup, setRejectAllInGroup] = useState(false)
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
@@ -371,7 +372,8 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           action: "reject",
-          statusNote: rejectReason.trim() || undefined
+          statusNote: rejectReason.trim() || undefined,
+          applyToAll: rejectAllInGroup
         })
       })
 
@@ -386,6 +388,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
       setProcessingId(null)
       setRejectingBookingId(null)
       setRejectReason("")
+      setRejectAllInGroup(false)
     }
   }
 
@@ -1176,6 +1179,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                   if (firstPending) {
                                     setRejectingBookingId(firstPending.id)
                                     setRejectReason("")
+                                    setRejectAllInGroup(true)
                                     setRejectModalOpen(true)
                                   }
                                 }}
@@ -1488,10 +1492,13 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
               <XCircle className="w-6 h-6 text-red-600" />
             </div>
             <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
-              Avslå booking?
+              {rejectAllInGroup ? "Avslå alle bookinger i serien?" : "Avslå booking?"}
             </h3>
             <p className="text-gray-600 text-center mb-4">
-              Brukeren vil bli varslet på e-post.
+              {rejectAllInGroup 
+                ? "Alle ventende bookinger i serien vil bli avslått. Brukeren vil bli varslet på e-post."
+                : "Brukeren vil bli varslet på e-post."
+              }
             </p>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1511,6 +1518,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                   setRejectModalOpen(false)
                   setRejectingBookingId(null)
                   setRejectReason("")
+                  setRejectAllInGroup(false)
                 }}
                 className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
               >
@@ -1526,7 +1534,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                 ) : (
                   <>
                     <XCircle className="w-4 h-4" />
-                    Avslå
+                    {rejectAllInGroup ? "Avslå alle" : "Avslå"}
                   </>
                 )}
               </button>
