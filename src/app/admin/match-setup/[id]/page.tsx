@@ -407,7 +407,7 @@ export default function CompetitionDetailPage() {
       endDate: competition.endDate ? new Date(competition.endDate).toISOString().split('T')[0] : "",
       matchDuration: competition.matchDuration,
       breakDuration: competition.breakDuration,
-      matchesPerDay: competition.matchesPerDay,
+      matchesPerDay: competition.matchesPerDay ?? null,
       pointsForWin: competition.pointsForWin,
       pointsForDraw: competition.pointsForDraw,
       pointsForLoss: competition.pointsForLoss,
