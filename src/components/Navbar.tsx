@@ -35,6 +35,7 @@ export function Navbar() {
   const [pendingCount, setPendingCount] = useState(0)
   const [unreadBookings, setUnreadBookings] = useState(0)
   const [hasMatchSetupAccess, setHasMatchSetupAccess] = useState(false)
+  const [matchSetupEnabled, setMatchSetupEnabled] = useState(false)
 
   // Sjekk både systemRole og role (legacy) for bakoverkompatibilitet
   const isAdmin = session?.user?.systemRole === "admin" || session?.user?.role === "admin"
@@ -102,21 +103,31 @@ export function Navbar() {
     }
   }, [isLoggedIn])
 
-  // Check match setup access for non-admin users
+  // Check match setup module status and access
   useEffect(() => {
-    if (isLoggedIn && !isAdmin) {
-      const checkMatchSetupAccess = async () => {
+    if (isLoggedIn) {
+      const checkMatchSetup = async () => {
         try {
-          const response = await fetch("/api/match-setup/access")
-          if (response.ok) {
-            const data = await response.json()
-            setHasMatchSetupAccess(data.hasAccess && !data.isAdmin)
+          // Sjekk om modulen er aktivert
+          const statusRes = await fetch("/api/match-setup/status")
+          if (statusRes.ok) {
+            const statusData = await statusRes.json()
+            setMatchSetupEnabled(statusData.enabled)
+          }
+          
+          // Sjekk tilgang for ikke-admin brukere
+          if (!isAdmin) {
+            const accessRes = await fetch("/api/match-setup/access")
+            if (accessRes.ok) {
+              const accessData = await accessRes.json()
+              setHasMatchSetupAccess(accessData.hasAccess && !accessData.isAdmin)
+            }
           }
         } catch (error) {
-          console.error("Failed to check match setup access:", error)
+          console.error("Failed to check match setup:", error)
         }
       }
-      checkMatchSetupAccess()
+      checkMatchSetup()
     }
   }, [isLoggedIn, isAdmin])
 
@@ -190,7 +201,18 @@ export function Navbar() {
                   )}
                 </Link>
 
-                {/* Kampoppsett for brukere med tilgang (ikke admin) */}
+                {/* Konkurranser - vises for alle når modulen er aktivert */}
+                {matchSetupEnabled && (
+                  <Link 
+                    href="/competitions" 
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                  >
+                    <Trophy className="w-4 h-4" />
+                    Konkurranser
+                  </Link>
+                )}
+
+                {/* Kampoppsett admin for brukere med tilgang (ikke admin) */}
                 {hasMatchSetupAccess && !canAccessAdmin && (
                   <Link 
                     href="/match-admin" 
@@ -293,7 +315,19 @@ export function Navbar() {
                   )}
                 </Link>
 
-                {/* Kampoppsett for brukere med tilgang (ikke admin) - mobil */}
+                {/* Konkurranser - vises for alle når modulen er aktivert - mobil */}
+                {matchSetupEnabled && (
+                  <Link 
+                    href="/competitions" 
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Trophy className="w-5 h-5" />
+                    Konkurranser
+                  </Link>
+                )}
+
+                {/* Kampoppsett admin for brukere med tilgang (ikke admin) - mobil */}
                 {hasMatchSetupAccess && !canAccessAdmin && (
                   <Link 
                     href="/match-admin" 
@@ -301,7 +335,7 @@ export function Navbar() {
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <Trophy className="w-5 h-5" />
-                    Kampoppsett
+                    Kampoppsett admin
                   </Link>
                 )}
 

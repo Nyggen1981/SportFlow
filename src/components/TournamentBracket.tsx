@@ -29,12 +29,14 @@ interface Match {
 
 interface TournamentBracketProps {
   matches: Match[]
-  competitionId: string
+  competitionId?: string
   competitionStatus: string
   onMatchUpdate?: () => void
+  onResultRegistered?: () => void
+  readOnly?: boolean
 }
 
-export function TournamentBracket({ matches, competitionId, competitionStatus, onMatchUpdate }: TournamentBracketProps) {
+export function TournamentBracket({ matches, competitionId, competitionStatus, onMatchUpdate, onResultRegistered, readOnly = false }: TournamentBracketProps) {
   const [editingMatch, setEditingMatch] = useState<Match | null>(null)
   const [matchScores, setMatchScores] = useState({ home: 0, away: 0 })
   const [savingScore, setSavingScore] = useState(false)
@@ -272,7 +274,7 @@ export function TournamentBracket({ matches, competitionId, competitionStatus, o
                   {roundMatches.map((match) => {
                     const home = getTeamDisplay(match, true)
                     const away = getTeamDisplay(match, false)
-                    const canEdit = competitionStatus === "ACTIVE" && home.hasTeam && away.hasTeam
+                    const canEdit = !readOnly && competitionStatus === "ACTIVE" && home.hasTeam && away.hasTeam
                     const isCompleted = match.status === "COMPLETED"
                     const isFinal = isLastRound && roundMatches.length === 1
                     
