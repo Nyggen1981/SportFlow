@@ -13,7 +13,7 @@ interface Team {
 interface Match {
   id: string
   matchNumber: number
-  round: number
+  round?: number | null
   roundName?: string
   scheduledTime: string
   status: string
