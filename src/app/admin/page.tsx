@@ -10,11 +10,13 @@ import {
   Users, 
   Settings,
   Layers,
-  Shield
+  Shield,
+  Trophy
 } from "lucide-react"
 import { BookingManagement } from "@/components/BookingManagement"
 import { LicenseStatusCard } from "@/components/LicenseStatusCard"
 import { isPricingEnabled } from "@/lib/pricing"
+import { isMatchSetupEnabled } from "@/lib/match-setup"
 import { FileText } from "lucide-react"
 
 async function getModeratorResources(userId: string) {
@@ -77,6 +79,7 @@ export default async function AdminPage() {
       : null
 
     const pricingEnabled = isAdmin ? await isPricingEnabled() : false
+    const matchSetupEnabled = isAdmin ? await isMatchSetupEnabled() : false
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -204,6 +207,22 @@ export default async function AdminPage() {
                     <div>
                       <p className="font-medium text-gray-900">Fakturaer</p>
                       <p className="text-sm text-gray-500">Fakturaoversikt</p>
+                    </div>
+                  </div>
+                </Link>
+              )}
+              {matchSetupEnabled && (
+                <Link 
+                  href="/admin/match-setup" 
+                  className="card p-4 hover:shadow-md transition-shadow group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+                      <Trophy className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">Kampoppsett</p>
+                      <p className="text-sm text-gray-500">Turneringer & serier</p>
                     </div>
                   </div>
                 </Link>

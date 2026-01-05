@@ -16,6 +16,7 @@ interface LicenseInfo {
   modules?: {
     booking?: boolean
     pricing?: boolean
+    "match-setup"?: boolean
     [key: string]: boolean | undefined
   }
 }
@@ -133,7 +134,9 @@ export function LicenseStatusCard() {
                 if (license.modules.pricing) {
                   activeModules.push("Betalingsmodul")
                 }
-                // Legg til flere moduler her hvis nødvendig
+                if (license.modules["match-setup"]) {
+                  activeModules.push("Kampoppsett")
+                }
                 
                 if (activeModules.length > 0) {
                   typeParts.push(...activeModules)

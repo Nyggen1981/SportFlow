@@ -133,6 +133,7 @@ export default function AdminSettingsPage() {
     modules?: {
       booking?: boolean
       pricing?: boolean
+      "match-setup"?: boolean
       [key: string]: boolean | undefined
     }
   } | null>(null)
@@ -1464,7 +1465,9 @@ export default function AdminSettingsPage() {
                         if (licenseInfo.modules.pricing) {
                           activeModules.push("Betalingsmodul")
                         }
-                        // Legg til flere moduler her hvis nødvendig
+                        if (licenseInfo.modules["match-setup"]) {
+                          activeModules.push("Kampoppsett")
+                        }
                         
                         if (activeModules.length > 0) {
                           typeParts.push(...activeModules)

@@ -11,6 +11,7 @@ export interface LicenseValidationResult {
   modules?: { // ✨ NYTT: Modulbasert lisenssystem
     booking: boolean // Alltid true (unntatt inaktiv lisens)
     pricing?: boolean // Hvis aktivert
+    "match-setup"?: boolean // Kampoppsett-modul
     [key: string]: boolean | undefined
   }
   pricing?: { // ✨ NYTT: Prisinformasjon

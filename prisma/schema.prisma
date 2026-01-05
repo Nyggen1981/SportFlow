@@ -49,6 +49,7 @@ model Organization {
   invoices  Invoice[]
   payments  Payment[]
   customRoles CustomRole[] // Egendefinerte roller
+  competitions Competition[] // Kampoppsett-modul
   
   // Vipps API settings
   vippsClientId     String?  // Vipps API client ID
@@ -75,6 +76,9 @@ model CustomRole {
   
   // Moderator-tilgang - kan denne rollen moderere ressurser?
   hasModeratorAccess Boolean @default(false)
+  
+  // Kampoppsett-tilgang - kan denne rollen administrere kampoppsett?
+  hasMatchSetupAccess Boolean @default(false)
   
   // Organisasjon
   organizationId    String
@@ -540,4 +544,217 @@ enum PaymentMethod {
   BANK_TRANSFER
   CASH
   OTHER
+}
+
+// ======================================
+// KAMPOPPSETT MODULE (Match Setup)
+// ======================================
+
+// Competition - Hovedmodell for seriespill eller turnering
+model Competition {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  type            CompetitionType  // LEAGUE (seriespill) or TOURNAMENT (cup/sluttspill)
+  status          CompetitionStatus @default(DRAFT)
+  
+  // Dato og sted
+  startDate       DateTime
+  endDate         DateTime?
+  venue           String?   // Arena/sted
+  
+  // Regler og innstillinger
+  pointsForWin    Int       @default(3)
+  pointsForDraw   Int       @default(1)
+  pointsForLoss   Int       @default(0)
+  hasOvertime     Boolean   @default(false)
+  overtimeMinutes Int?      // Lengde på overtid
+  hasPenalties    Boolean   @default(false)  // Kun for turneringer (straffespark etc.)
+  
+  // Kampinnstillinger
+  matchDuration   Int       @default(60)  // Varighet per kamp i minutter
+  breakDuration   Int       @default(15)  // Pause mellom kamper i minutter
+  matchesPerDay   Int?      // Maks antall kamper per dag (null = ingen grense)
+  
+  // Gruppe/divisjon (for turneringer med grupper)
+  hasGroups       Boolean   @default(false)
+  groupCount      Int?      // Antall grupper
+  teamsPerGroup   Int?      // Lag per gruppe
+  advancePerGroup Int?      // Hvor mange går videre fra hver gruppe
+  
+  // Sluttspill-innstillinger
+  playoffRounds   Int?      // Antall sluttspillrunder (for turneringer)
+  thirdPlaceMatch Boolean   @default(false)  // Bronsefinale
+  
+  // Organisasjon
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Kobling til fasilitet/ressurs (valgfritt)
+  resourceId      String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relasjoner
+  teams           CompetitionTeam[]
+  matches         Match[]
+  groups          CompetitionGroup[]
+  
+  @@index([organizationId])
+  @@index([status])
+  @@index([type])
+  @@index([startDate])
+}
+
+// Turneringstype
+enum CompetitionType {
+  LEAGUE      // Seriespill (alle mot alle)
+  TOURNAMENT  // Turnering/cup (sluttspill)
+}
+
+// Status for konkurranse
+enum CompetitionStatus {
+  DRAFT       // Under opprettelse
+  SCHEDULED   // Kampene er satt opp, venter på start
+  ACTIVE      // Pågår
+  COMPLETED   // Ferdig
+  CANCELLED   // Avlyst
+}
+
+// Gruppe i turnering
+model CompetitionGroup {
+  id              String   @id @default(cuid())
+  name            String   // F.eks. "Gruppe A", "Pulje 1"
+  sortOrder       Int      @default(0)
+  
+  competitionId   String
+  competition     Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  
+  teams           CompetitionTeam[]
+  matches         Match[]
+  
+  @@index([competitionId])
+}
+
+// Lag i konkurranse
+model CompetitionTeam {
+  id              String   @id @default(cuid())
+  name            String
+  shortName       String?  // Kortversjon av navn (for visning)
+  color           String?  // Lagfarge for visning
+  logo            String?  // Logo (base64 eller URL)
+  contactName     String?
+  contactEmail    String?
+  contactPhone    String?
+  
+  // Spillere (lagres som JSON-array med navn)
+  players         String[] @default([])  // Array av spillernavn
+  
+  // Seeding/rangering
+  seed            Int?     // Seedingnummer (1 = toppet seed)
+  
+  // Statistikk (oppdateres automatisk)
+  played          Int      @default(0)
+  wins            Int      @default(0)
+  draws           Int      @default(0)
+  losses          Int      @default(0)
+  goalsFor        Int      @default(0)
+  goalsAgainst    Int      @default(0)
+  goalDifference  Int      @default(0)
+  points          Int      @default(0)
+  
+  // Gruppe (for turneringer med gruppespill)
+  groupId         String?
+  group           CompetitionGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  
+  // Konkurranse
+  competitionId   String
+  competition     Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Kamper
+  homeMatches     Match[]  @relation("HomeTeam")
+  awayMatches     Match[]  @relation("AwayTeam")
+  wonMatches      Match[]  @relation("MatchWinner")
+  
+  @@index([competitionId])
+  @@index([groupId])
+  @@index([points, goalDifference, goalsFor])  // For tabellsortering
+}
+
+// Kamp
+model Match {
+  id              String   @id @default(cuid())
+  matchNumber     Int      // Kampnummer i turneringen
+  round           Int?     // Runde (1, 2, 3... for seriespill, eller 1=kvartfinale, 2=semi, etc.)
+  roundName       String?  // F.eks. "Kvartfinale", "Semifinale", "Finale"
+  
+  // Tidspunkt
+  scheduledTime   DateTime
+  actualStartTime DateTime?
+  actualEndTime   DateTime?
+  
+  // Sted
+  venue           String?
+  court           String?  // Bane/arena (f.eks. "Bane 1")
+  
+  // Lag
+  homeTeamId      String?
+  homeTeam        CompetitionTeam? @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: SetNull)
+  awayTeamId      String?
+  awayTeam        CompetitionTeam? @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: SetNull)
+  
+  // For sluttspill: placeholder for lag som ikke er bestemt ennå
+  homeTeamPlaceholder String?  // F.eks. "Vinner Gruppe A" eller "Vinner kamp 5"
+  awayTeamPlaceholder String?
+  
+  // Resultat
+  status          MatchStatus @default(SCHEDULED)
+  homeScore       Int?
+  awayScore       Int?
+  
+  // Ekstra tid (om aktuelt)
+  homeOvertimeScore Int?
+  awayOvertimeScore Int?
+  homePenaltyScore  Int?  // Straffespark
+  awayPenaltyScore  Int?
+  
+  // Vinner (beregnes automatisk)
+  winnerId        String?
+  winner          CompetitionTeam? @relation("MatchWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  isDraw          Boolean  @default(false)
+  
+  // Notater
+  notes           String?
+  
+  // Gruppe (for gruppespill)
+  groupId         String?
+  group           CompetitionGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  
+  // Konkurranse
+  competitionId   String
+  competition     Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([competitionId])
+  @@index([groupId])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+  @@index([scheduledTime])
+  @@index([status])
+  @@index([round])
+}
+
+// Status for kamp
+enum MatchStatus {
+  SCHEDULED   // Planlagt
+  LIVE        // Pågår
+  COMPLETED   // Ferdig
+  POSTPONED   // Utsatt
+  CANCELLED   // Avlyst
 }

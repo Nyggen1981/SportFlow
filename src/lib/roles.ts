@@ -3,6 +3,7 @@ import { prisma } from "./prisma"
 export interface RoleInfo {
   isAdmin: boolean
   isModerator: boolean
+  hasMatchSetupAccess: boolean
   isUser: boolean
   customRole: {
     id: string
@@ -10,6 +11,7 @@ export interface RoleInfo {
     description: string | null
     color: string | null
     hasModeratorAccess: boolean
+    hasMatchSetupAccess: boolean
   } | null
   roleName: string // "Admin", "Bruker", eller custom role name
   systemRole: "admin" | "user"
@@ -39,6 +41,7 @@ export async function getUserRoleInfo(
     return {
       isAdmin: true,
       isModerator: true, // Admin kan alltid moderere
+      hasMatchSetupAccess: true, // Admin har alltid tilgang
       isUser: false,
       customRole: null,
       roleName: "Admin",
@@ -51,6 +54,7 @@ export async function getUserRoleInfo(
     return {
       isAdmin: false,
       isModerator: false,
+      hasMatchSetupAccess: false,
       isUser: true,
       customRole: null,
       roleName: "Bruker",
@@ -63,13 +67,15 @@ export async function getUserRoleInfo(
     return {
       isAdmin: false,
       isModerator: user.customRole.hasModeratorAccess,
+      hasMatchSetupAccess: user.customRole.hasMatchSetupAccess,
       isUser: false,
       customRole: {
         id: user.customRole.id,
         name: user.customRole.name,
         description: user.customRole.description,
         color: user.customRole.color,
-        hasModeratorAccess: user.customRole.hasModeratorAccess
+        hasModeratorAccess: user.customRole.hasModeratorAccess,
+        hasMatchSetupAccess: user.customRole.hasMatchSetupAccess
       },
       roleName: user.customRole.name,
       systemRole: user.systemRole as "admin" | "user"
@@ -80,6 +86,7 @@ export async function getUserRoleInfo(
   return {
     isAdmin: false,
     isModerator: false,
+    hasMatchSetupAccess: false,
     isUser: true,
     customRole: null,
     roleName: "Bruker",
@@ -101,6 +108,14 @@ export async function isAdmin(userId: string): Promise<boolean> {
 export async function canModerate(userId: string): Promise<boolean> {
   const roleInfo = await getUserRoleInfo(userId)
   return roleInfo.isModerator
+}
+
+/**
+ * Sjekker om en bruker har tilgang til kampoppsett-administrasjon
+ */
+export async function canAccessMatchSetup(userId: string): Promise<boolean> {
+  const roleInfo = await getUserRoleInfo(userId)
+  return roleInfo.isAdmin || roleInfo.hasMatchSetupAccess
 }
 
 /**
@@ -128,6 +143,7 @@ export async function createCustomRole(
     description?: string | null
     color?: string | null
     hasModeratorAccess: boolean
+    hasMatchSetupAccess?: boolean
   }
 ) {
   return await prisma.customRole.create({
@@ -149,6 +165,7 @@ export async function updateCustomRole(
     description?: string | null
     color?: string | null
     hasModeratorAccess?: boolean
+    hasMatchSetupAccess?: boolean
   }
 ) {
   // Sjekk at rollen tilhører organisasjonen

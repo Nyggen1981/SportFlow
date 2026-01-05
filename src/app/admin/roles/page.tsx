@@ -18,7 +18,8 @@ import {
   Check,
   Users,
   ShieldCheck,
-  ShieldOff
+  ShieldOff,
+  Trophy
 } from "lucide-react"
 
 interface CustomRole {
@@ -27,6 +28,7 @@ interface CustomRole {
   description: string | null
   color: string | null
   hasModeratorAccess: boolean
+  hasMatchSetupAccess: boolean
   createdAt: string
   _count: {
     users: number
@@ -47,8 +49,12 @@ export default function AdminRolesPage() {
   const [description, setDescription] = useState("")
   const [color, setColor] = useState("#3b82f6")
   const [hasModeratorAccess, setHasModeratorAccess] = useState(false)
+  const [hasMatchSetupAccess, setHasMatchSetupAccess] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
+  
+  // Module status
+  const [matchSetupEnabled, setMatchSetupEnabled] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -61,8 +67,21 @@ export default function AdminRolesPage() {
   useEffect(() => {
     if (session?.user?.systemRole === "admin" || session?.user?.role === "admin") {
       fetchRoles()
+      checkMatchSetupModule()
     }
   }, [session])
+
+  const checkMatchSetupModule = async () => {
+    try {
+      const response = await fetch("/api/match-setup/status")
+      if (response.ok) {
+        const data = await response.json()
+        setMatchSetupEnabled(data.enabled)
+      }
+    } catch (error) {
+      console.error("Error checking match setup module:", error)
+    }
+  }
 
   const fetchRoles = async () => {
     try {
@@ -83,6 +102,7 @@ export default function AdminRolesPage() {
     setDescription("")
     setColor("#3b82f6")
     setHasModeratorAccess(false)
+    setHasMatchSetupAccess(false)
     setError("")
     setEditingRole(null)
     setShowAddModal(true)
@@ -93,6 +113,7 @@ export default function AdminRolesPage() {
     setDescription(role.description || "")
     setColor(role.color || "#3b82f6")
     setHasModeratorAccess(role.hasModeratorAccess)
+    setHasMatchSetupAccess(role.hasMatchSetupAccess)
     setError("")
     setEditingRole(role)
     setShowAddModal(true)
@@ -124,7 +145,8 @@ export default function AdminRolesPage() {
           name: name.trim(),
           description: description.trim() || null,
           color: color || null,
-          hasModeratorAccess
+          hasModeratorAccess,
+          hasMatchSetupAccess
         })
       })
 
@@ -400,6 +422,12 @@ export default function AdminRolesPage() {
                         </>
                       )}
                     </div>
+                    {matchSetupEnabled && role.hasMatchSetupAccess && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Trophy className="w-4 h-4 text-orange-500" />
+                        <span className="text-gray-700">Har kampoppsett-tilgang</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                       <Users className="w-4 h-4" />
                       <span>
@@ -503,6 +531,27 @@ export default function AdminRolesPage() {
                     </div>
                   </label>
                 </div>
+
+                {matchSetupEnabled && (
+                  <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <input
+                      type="checkbox"
+                      id="hasMatchSetupAccess"
+                      checked={hasMatchSetupAccess}
+                      onChange={(e) => setHasMatchSetupAccess(e.target.checked)}
+                      className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
+                    />
+                    <label htmlFor="hasMatchSetupAccess" className="flex-1 cursor-pointer">
+                      <div className="font-medium text-gray-900 flex items-center gap-2">
+                        <Trophy className="w-4 h-4 text-orange-500" />
+                        Kampoppsett-tilgang
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        Kan administrere konkurranser, lag og kamper
+                      </div>
+                    </label>
+                  </div>
+                )}
 
                 <div className="flex gap-3 pt-4">
                   <button

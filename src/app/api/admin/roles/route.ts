@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { name, description, color, hasModeratorAccess } = body
+    const { name, description, color, hasModeratorAccess, hasMatchSetupAccess } = body
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -51,7 +51,8 @@ export async function POST(request: Request) {
       name: name.trim(),
       description: description?.trim() || null,
       color: color || null,
-      hasModeratorAccess: Boolean(hasModeratorAccess)
+      hasModeratorAccess: Boolean(hasModeratorAccess),
+      hasMatchSetupAccess: Boolean(hasMatchSetupAccess)
     })
 
     return NextResponse.json(role, { status: 201 })

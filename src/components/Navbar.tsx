@@ -12,7 +12,8 @@ import {
   User, 
   X,
   Building2,
-  ClipboardList
+  ClipboardList,
+  Trophy
 } from "lucide-react"
 
 interface Organization {
@@ -33,6 +34,7 @@ export function Navbar() {
   const [org, setOrg] = useState<Organization | null>(orgCache?.data || null)
   const [pendingCount, setPendingCount] = useState(0)
   const [unreadBookings, setUnreadBookings] = useState(0)
+  const [hasMatchSetupAccess, setHasMatchSetupAccess] = useState(false)
 
   // Sjekk både systemRole og role (legacy) for bakoverkompatibilitet
   const isAdmin = session?.user?.systemRole === "admin" || session?.user?.role === "admin"
@@ -99,6 +101,24 @@ export function Navbar() {
       return () => clearInterval(interval)
     }
   }, [isLoggedIn])
+
+  // Check match setup access for non-admin users
+  useEffect(() => {
+    if (isLoggedIn && !isAdmin) {
+      const checkMatchSetupAccess = async () => {
+        try {
+          const response = await fetch("/api/match-setup/access")
+          if (response.ok) {
+            const data = await response.json()
+            setHasMatchSetupAccess(data.hasAccess && !data.isAdmin)
+          }
+        } catch (error) {
+          console.error("Failed to check match setup access:", error)
+        }
+      }
+      checkMatchSetupAccess()
+    }
+  }, [isLoggedIn, isAdmin])
 
   const orgName = org?.name || session?.user?.organizationName || "Sportflow Booking"
   const orgColor = org?.primaryColor || session?.user?.organizationColor || "#2563eb"
@@ -169,6 +189,17 @@ export function Navbar() {
                     </span>
                   )}
                 </Link>
+
+                {/* Kampoppsett for brukere med tilgang (ikke admin) */}
+                {hasMatchSetupAccess && !canAccessAdmin && (
+                  <Link 
+                    href="/match-admin" 
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-orange-600 hover:text-orange-700 hover:bg-orange-50 transition-colors"
+                  >
+                    <Trophy className="w-4 h-4" />
+                    Kampoppsett
+                  </Link>
+                )}
 
                 {canAccessAdmin && (
                   <Link 
@@ -261,6 +292,18 @@ export function Navbar() {
                     </span>
                   )}
                 </Link>
+
+                {/* Kampoppsett for brukere med tilgang (ikke admin) - mobil */}
+                {hasMatchSetupAccess && !canAccessAdmin && (
+                  <Link 
+                    href="/match-admin" 
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg text-orange-600 hover:bg-orange-50"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Trophy className="w-5 h-5" />
+                    Kampoppsett
+                  </Link>
+                )}
 
                 {canAccessAdmin && (
                   <Link 

@@ -17,13 +17,14 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await request.json()
-    const { name, description, color, hasModeratorAccess } = body
+    const { name, description, color, hasModeratorAccess, hasMatchSetupAccess } = body
 
     const role = await updateCustomRole(id, session.user.organizationId, {
       name: name?.trim(),
       description: description?.trim() || null,
       color: color || null,
-      hasModeratorAccess: hasModeratorAccess !== undefined ? Boolean(hasModeratorAccess) : undefined
+      hasModeratorAccess: hasModeratorAccess !== undefined ? Boolean(hasModeratorAccess) : undefined,
+      hasMatchSetupAccess: hasMatchSetupAccess !== undefined ? Boolean(hasMatchSetupAccess) : undefined
     })
 
     return NextResponse.json(role)
