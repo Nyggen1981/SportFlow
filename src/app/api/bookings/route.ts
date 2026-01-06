@@ -263,15 +263,7 @@ export async function POST(request: Request) {
               {
                 matches: {
                   some: {
-                    NOT: { scheduledTime: null },
-                    OR: [
-                      {
-                        AND: [
-                          { scheduledTime: { lte: bookingStart } },
-                          // scheduledTime + matchDuration overlapper
-                        ]
-                      }
-                    ]
+                    scheduledTime: { lte: bookingStart }
                   }
                 }
               },
@@ -296,9 +288,6 @@ export async function POST(request: Request) {
             dailyEndTime: true,
             matchDuration: true,
             matches: {
-              where: {
-                NOT: { scheduledTime: null }
-              },
               select: {
                 scheduledTime: true
               }

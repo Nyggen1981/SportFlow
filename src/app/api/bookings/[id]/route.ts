@@ -183,7 +183,6 @@ export async function PATCH(
             dailyEndTime: true,
             matchDuration: true,
             matches: {
-              where: { NOT: { scheduledTime: null } },
               select: { scheduledTime: true }
             }
           }
