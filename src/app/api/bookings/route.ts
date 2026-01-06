@@ -263,7 +263,7 @@ export async function POST(request: Request) {
               {
                 matches: {
                   some: {
-                    scheduledTime: { not: null },
+                    NOT: { scheduledTime: null },
                     OR: [
                       {
                         AND: [
@@ -297,7 +297,7 @@ export async function POST(request: Request) {
             matchDuration: true,
             matches: {
               where: {
-                scheduledTime: { not: null }
+                NOT: { scheduledTime: null }
               },
               select: {
                 scheduledTime: true
