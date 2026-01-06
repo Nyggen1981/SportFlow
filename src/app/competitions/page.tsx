@@ -1,6 +1,5 @@
 "use client"
 
-import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
 import { Navbar } from "@/components/Navbar"
 import { Footer } from "@/components/Footer"
@@ -13,8 +12,7 @@ import {
   ArrowRight,
   Swords,
   Medal,
-  MapPin,
-  Clock
+  MapPin
 } from "lucide-react"
 
 interface Competition {
@@ -32,7 +30,6 @@ interface Competition {
 }
 
 export default function CompetitionsPage() {
-  const { status } = useSession()
   const [competitions, setCompetitions] = useState<Competition[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [moduleEnabled, setModuleEnabled] = useState(false)

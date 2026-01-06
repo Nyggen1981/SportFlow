@@ -248,6 +248,115 @@ export async function POST(request: Request) {
           { status: 409 }
         )
       }
+
+      // Sjekk også for konkurranser som blokkerer denne fasiliteten (kun hvis kampoppsett-modulen er aktivert)
+      const { isMatchSetupEnabled } = await import("@/lib/match-setup")
+      const matchSetupEnabled = await isMatchSetupEnabled()
+      
+      if (matchSetupEnabled) {
+        const conflictingCompetitions = await prisma.competition.findMany({
+          where: {
+            resourceId,
+            status: { in: ["DRAFT", "SCHEDULED", "ACTIVE"] },
+            OR: [
+              // Konkurransen har individuelle kamper som overlapper
+              {
+                matches: {
+                  some: {
+                    scheduledTime: { not: null },
+                    OR: [
+                      {
+                        AND: [
+                          { scheduledTime: { lte: bookingStart } },
+                          // scheduledTime + matchDuration overlapper
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              // Konkurransen blokkerer med daglige tidspunkter
+              {
+                dailyStartTime: { not: null },
+                dailyEndTime: { not: null },
+                startDate: { lte: bookingEnd },
+                OR: [
+                  { endDate: { gte: bookingStart } },
+                  { endDate: null }
+                ]
+              }
+            ]
+          },
+          select: {
+            id: true,
+            name: true,
+            startDate: true,
+            endDate: true,
+            dailyStartTime: true,
+            dailyEndTime: true,
+            matchDuration: true,
+            matches: {
+              where: {
+                scheduledTime: { not: null }
+              },
+              select: {
+                scheduledTime: true
+              }
+            }
+          }
+        })
+
+        // Sjekk om noen av konkurransene faktisk overlapper med booking-tiden
+        for (const comp of conflictingCompetitions) {
+          // Sjekk individuelle kamper
+          for (const match of comp.matches) {
+            if (match.scheduledTime) {
+              const matchStart = new Date(match.scheduledTime)
+              const matchEnd = new Date(matchStart.getTime() + (comp.matchDuration * 60 * 1000))
+              
+              // Sjekk om kampens tidspunkt overlapper med bookingen
+              if (matchStart < bookingEnd && matchEnd > bookingStart) {
+                const conflictDate = bookingStart.toLocaleDateString("nb-NO")
+                return NextResponse.json(
+                  { error: `Konflikt ${conflictDate}: Fasiliteten er reservert for konkurransen "${comp.name}"` },
+                  { status: 409 }
+                )
+              }
+            }
+          }
+
+          // Sjekk daglige blokkeringer
+          if (comp.dailyStartTime && comp.dailyEndTime) {
+            const compStart = new Date(comp.startDate)
+            const compEnd = comp.endDate ? new Date(comp.endDate) : compStart
+            
+            // Sjekk om booking-datoen er innenfor konkurranseperioden
+            const bookingDate = new Date(bookingStart)
+            bookingDate.setHours(0, 0, 0, 0)
+            
+            if (bookingDate >= compStart && bookingDate <= compEnd) {
+              // Sjekk om tidspunktet overlapper med daglig blokkering
+              const [startHour, startMin] = comp.dailyStartTime.split(":").map(Number)
+              const [endHour, endMin] = comp.dailyEndTime.split(":").map(Number)
+              
+              const blockStart = new Date(bookingDate)
+              blockStart.setHours(startHour, startMin, 0, 0)
+              
+              const blockEnd = new Date(bookingDate)
+              blockEnd.setHours(endHour, endMin, 0, 0)
+              
+              // Sjekk overlapp
+              if (blockStart < bookingEnd && blockEnd > bookingStart) {
+                const conflictDate = bookingStart.toLocaleDateString("nb-NO")
+                return NextResponse.json(
+                  { error: `Konflikt ${conflictDate}: Fasiliteten er reservert for konkurransen "${comp.name}" (${comp.dailyStartTime}-${comp.dailyEndTime})` },
+                  { status: 409 }
+                )
+              }
+            }
+          }
+        }
+      }
     }
 
     // Create all bookings

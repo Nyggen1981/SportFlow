@@ -38,6 +38,7 @@ interface Booking {
   userEmail?: string | null
   isRecurring?: boolean
   parentBookingId?: string | null
+  isCompetition?: boolean // For competition matches
 }
 
 interface Part {
@@ -529,6 +530,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
                           
                           const durationHours = (cappedEnd.getTime() - start.getTime()) / (1000 * 60 * 60)
                           const isPending = booking.status === "pending"
+                          const isCompetition = booking.status === "competition"
                           
                           // Add minimal gap between bookings vertically
                           const gapPx = 1
@@ -551,21 +553,45 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
                             ? 'calc(100% - 4px)' 
                             : `calc(${widthPercent}% - ${gapPxHorizontal}px)`
 
+                          // Determine colors based on status
+                          const getColors = () => {
+                            if (isCompetition) {
+                              return {
+                                bg: '#f97316', // Orange for competitions
+                                border: '#ea580c',
+                                text: 'white'
+                              }
+                            }
+                            if (isPending) {
+                              return {
+                                bg: '#dcfce7',
+                                border: '#22c55e',
+                                text: '#15803d'
+                              }
+                            }
+                            return {
+                              bg: '#22c55e',
+                              border: undefined,
+                              text: 'white'
+                            }
+                          }
+                          const colors = getColors()
+
                           return (
                             <div
                               key={booking.id}
-                              onClick={() => setSelectedBooking(booking)}
-                              className={`absolute rounded-md px-2 py-1 text-xs overflow-hidden pointer-events-auto cursor-pointer ${
+                              onClick={() => !isCompetition && setSelectedBooking(booking)}
+                              className={`absolute rounded-md px-2 py-1 text-xs overflow-hidden pointer-events-auto ${
                                 isPending ? 'border-2 border-dashed' : ''
-                              }`}
+                              } ${isCompetition ? 'cursor-default' : 'cursor-pointer'}`}
                               style={{
                                 top: `${topPx}px`,
                                 left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${gapPxHorizontal / 2}px)`,
                                 width: boxWidth,
                                 height: `${Math.max(heightPx, 36)}px`,
-                                backgroundColor: isPending ? '#dcfce7' : '#22c55e',
-                                borderColor: isPending ? '#22c55e' : undefined,
-                                color: isPending ? '#15803d' : 'white',
+                                backgroundColor: colors.bg,
+                                borderColor: colors.border,
+                                color: colors.text,
                                 boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                                 zIndex: 10,
                                 display: 'flex',
@@ -573,7 +599,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
                                 justifyContent: 'flex-start',
                                 alignItems: 'flex-start'
                               }}
-                              title={`${booking.title}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''}`}
+                              title={`${booking.title}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''}${isCompetition ? ' (Turneringskamp)' : ''}`}
                             >
                               <p className="font-medium truncate">{booking.title}</p>
                               {booking.resourcePartName && (
@@ -630,17 +656,25 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
                   <div className="space-y-1">
                     {dayBookings.slice(0, 3).map((booking) => {
                       const isPending = booking.status === "pending"
+                      const isCompetition = booking.status === "competition"
+                      
+                      // Get class names based on status
+                      const getClassNames = () => {
+                        if (isCompetition) {
+                          return "bg-orange-500 text-white"
+                        }
+                        if (isPending) {
+                          return "bg-green-50 text-green-700 border border-dashed border-green-400"
+                        }
+                        return "bg-green-500 text-white"
+                      }
                       
                       return (
                         <div
                           key={booking.id}
-                          onClick={() => setSelectedBooking(booking)}
-                          className={`px-1.5 py-0.5 rounded text-xs truncate cursor-pointer ${
-                            isPending 
-                              ? "bg-green-50 text-green-700 border border-dashed border-green-400" 
-                              : "bg-green-500 text-white"
-                          }`}
-                          title={`${booking.title} - ${format(parseISO(booking.startTime), "HH:mm")}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter)' : ''}`}
+                          onClick={() => !isCompetition && setSelectedBooking(booking)}
+                          className={`px-1.5 py-0.5 rounded text-xs truncate ${isCompetition ? 'cursor-default' : 'cursor-pointer'} ${getClassNames()}`}
+                          title={`${booking.title} - ${format(parseISO(booking.startTime), "HH:mm")}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter)' : ''}${isCompetition ? ' (Turneringskamp)' : ''}`}
                         >
                           {format(parseISO(booking.startTime), "HH:mm")} {booking.title}
                         </div>

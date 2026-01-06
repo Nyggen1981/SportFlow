@@ -14,7 +14,8 @@ import {
   ArrowRight,
   Lock,
   Swords,
-  Medal
+  Medal,
+  Building2
 } from "lucide-react"
 
 export const dynamic = 'force-dynamic'
@@ -23,6 +24,13 @@ async function getCompetitions(organizationId: string) {
   return prisma.competition.findMany({
     where: { organizationId },
     include: {
+      resource: {
+        select: {
+          id: true,
+          name: true,
+          location: true
+        }
+      },
       _count: {
         select: {
           teams: true,
@@ -195,9 +203,10 @@ export default async function MatchSetupPage() {
                             year: "numeric"
                           })}
                         </span>
-                        {competition.venue && (
-                          <span className="text-gray-400">
-                            {competition.venue}
+                        {competition.resource && (
+                          <span className="flex items-center gap-1.5 text-orange-600">
+                            <Building2 className="w-4 h-4" />
+                            {competition.resource.name}
                           </span>
                         )}
                       </div>

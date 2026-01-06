@@ -11,16 +11,23 @@ import {
   Swords,
   Medal,
   Calendar,
-  MapPin,
   Clock,
   Users,
   Settings,
   Loader2,
   CheckCircle,
-  Info
+  Info,
+  Building2
 } from "lucide-react"
 
 type CompetitionType = "LEAGUE" | "TOURNAMENT"
+
+interface Resource {
+  id: string
+  name: string
+  location?: string
+  parts: { id: string; name: string }[]
+}
 
 interface FormData {
   name: string
@@ -28,7 +35,10 @@ interface FormData {
   type: CompetitionType
   startDate: string
   endDate: string
+  dailyStartTime: string
+  dailyEndTime: string
   venue: string
+  resourceId: string | null
   pointsForWin: number
   pointsForDraw: number
   pointsForLoss: number
@@ -51,6 +61,8 @@ export default function NewCompetitionPage() {
   const [error, setError] = useState<string | null>(null)
   const [step, setStep] = useState(1)
   const [isFullAdmin, setIsFullAdmin] = useState(true)
+  const [resources, setResources] = useState<Resource[]>([])
+  const [loadingResources, setLoadingResources] = useState(true)
   
   // Sjekk om brukeren er full admin eller bare har kampoppsett-tilgang
   useEffect(() => {
@@ -68,6 +80,24 @@ export default function NewCompetitionPage() {
     checkAccess()
   }, [])
 
+  // Hent tilgjengelige fasiliteter
+  useEffect(() => {
+    const fetchResources = async () => {
+      try {
+        const res = await fetch("/api/resources")
+        if (res.ok) {
+          const data = await res.json()
+          setResources(data)
+        }
+      } catch (error) {
+        console.error("Kunne ikke hente fasiliteter:", error)
+      } finally {
+        setLoadingResources(false)
+      }
+    }
+    fetchResources()
+  }, [])
+
   const backLink = isFullAdmin ? "/admin/match-setup" : "/match-admin"
   
   const [formData, setFormData] = useState<FormData>({
@@ -76,7 +106,10 @@ export default function NewCompetitionPage() {
     type: "LEAGUE",
     startDate: "",
     endDate: "",
+    dailyStartTime: "09:00",
+    dailyEndTime: "18:00",
     venue: "",
+    resourceId: null,
     pointsForWin: 3,
     pointsForDraw: 1,
     pointsForLoss: 0,
@@ -295,22 +328,104 @@ export default function NewCompetitionPage() {
                       />
                     </div>
                   </div>
+                  
+                  {/* Daglige tidspunkter */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="dailyStartTime" className="block text-sm font-medium text-gray-700 mb-1">
+                        <Clock className="w-4 h-4 inline mr-1" />
+                        Starttid hver dag
+                      </label>
+                      <input
+                        type="time"
+                        id="dailyStartTime"
+                        name="dailyStartTime"
+                        value={formData.dailyStartTime}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="dailyEndTime" className="block text-sm font-medium text-gray-700 mb-1">
+                        <Clock className="w-4 h-4 inline mr-1" />
+                        Sluttid hver dag
+                      </label>
+                      <input
+                        type="time"
+                        id="dailyEndTime"
+                        name="dailyEndTime"
+                        value={formData.dailyEndTime}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                  </div>
 
-                  {/* Venue */}
+                  {/* Fasilitet - påkrevd */}
                   <div>
-                    <label htmlFor="venue" className="block text-sm font-medium text-gray-700 mb-1">
-                      <MapPin className="w-4 h-4 inline mr-1" />
-                      Arena/Sted
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <Building2 className="w-4 h-4 inline mr-1" />
+                      Fasilitet <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      id="venue"
-                      name="venue"
-                      value={formData.venue}
-                      onChange={handleChange}
-                      placeholder="F.eks. Idrettshallen"
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    />
+                    {loadingResources ? (
+                      <div className="flex items-center gap-2 text-gray-500 py-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Laster fasiliteter...
+                      </div>
+                    ) : resources.length === 0 ? (
+                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm">
+                        Ingen fasiliteter er opprettet. Opprett en fasilitet først.
+                      </div>
+                    ) : (
+                      <>
+                        <select
+                          value={formData.resourceId || ""}
+                          onChange={(e) => {
+                            const resourceId = e.target.value || null
+                            const resource = resources.find(r => r.id === resourceId)
+                            setFormData(prev => ({
+                              ...prev,
+                              resourceId,
+                              venue: resource?.name || ""
+                            }))
+                          }}
+                          className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
+                            !formData.resourceId ? "border-gray-300" : "border-orange-300 bg-orange-50"
+                          }`}
+                        >
+                          <option value="">Velg fasilitet...</option>
+                          {resources.map(resource => (
+                            <option key={resource.id} value={resource.id}>
+                              {resource.name} {resource.location ? `- ${resource.location}` : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Turneringen låses til denne fasiliteten og vises i bookingkalenderen
+                        </p>
+                      </>
+                    )}
+
+                    {/* Valgt fasilitet info */}
+                    {formData.resourceId && (
+                      <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-sm text-orange-700">
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="font-medium">
+                            {resources.find(r => r.id === formData.resourceId)?.name}
+                          </span>
+                        </div>
+                        {resources.find(r => r.id === formData.resourceId)?.parts?.length ? (
+                          <p className="mt-1 text-xs text-orange-600">
+                            {resources.find(r => r.id === formData.resourceId)?.parts.length} baner tilgjengelig for kampfordeling
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-xs text-orange-600">
+                            Hele fasiliteten brukes til turneringen
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -318,7 +433,7 @@ export default function NewCompetitionPage() {
                   <button
                     type="button"
                     onClick={() => setStep(2)}
-                    disabled={!formData.name || !formData.startDate}
+                    disabled={!formData.name || !formData.startDate || !formData.resourceId}
                     className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Neste: Innstillinger

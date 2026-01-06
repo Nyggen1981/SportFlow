@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isMatchSetupEnabled } from "@/lib/match-setup"
+import { canAccessMatchSetup } from "@/lib/roles"
 
 // GET - Hent enkelt konkurranse med detaljer
 export async function GET(
@@ -81,9 +82,10 @@ export async function PATCH(
       return NextResponse.json({ error: "Ikke autentisert" }, { status: 401 })
     }
     
-    const isAdmin = session.user.systemRole === "admin" || session.user.role === "admin"
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Kun admin kan oppdatere konkurranser" }, { status: 403 })
+    // Sjekk om brukeren har tilgang til kampoppsett
+    const hasAccess = await canAccessMatchSetup(session.user.id)
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Du har ikke tilgang til å oppdatere konkurranser" }, { status: 403 })
     }
     
     const enabled = await isMatchSetupEnabled()
@@ -124,8 +126,11 @@ export async function PATCH(
         ...(body.description !== undefined && { description: body.description }),
         ...(body.status && { status: body.status }),
         ...(body.venue !== undefined && { venue: body.venue }),
+        ...(body.resourceId !== undefined && { resourceId: body.resourceId }),
         ...(body.startDate && { startDate: new Date(body.startDate) }),
         ...(body.endDate !== undefined && { endDate: body.endDate ? new Date(body.endDate) : null }),
+        ...(body.dailyStartTime !== undefined && { dailyStartTime: body.dailyStartTime }),
+        ...(body.dailyEndTime !== undefined && { dailyEndTime: body.dailyEndTime }),
         ...(body.pointsForWin !== undefined && { pointsForWin: body.pointsForWin }),
         ...(body.pointsForDraw !== undefined && { pointsForDraw: body.pointsForDraw }),
         ...(body.pointsForLoss !== undefined && { pointsForLoss: body.pointsForLoss }),
@@ -162,9 +167,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Ikke autentisert" }, { status: 401 })
     }
     
-    const isAdmin = session.user.systemRole === "admin" || session.user.role === "admin"
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Kun admin kan slette konkurranser" }, { status: 403 })
+    // Sjekk om brukeren har tilgang til kampoppsett
+    const hasAccess = await canAccessMatchSetup(session.user.id)
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Du har ikke tilgang til å slette konkurranser" }, { status: 403 })
     }
     
     const enabled = await isMatchSetupEnabled()

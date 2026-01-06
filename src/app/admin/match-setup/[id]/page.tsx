@@ -131,12 +131,16 @@ export default function CompetitionDetailPage() {
   
   // Settings management
   const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [resources, setResources] = useState<{ id: string; name: string; location?: string }[]>([])
   const [editedSettings, setEditedSettings] = useState({
     name: "",
     description: "",
     venue: "",
+    resourceId: null as string | null,
     startDate: "",
     endDate: "",
+    dailyStartTime: "09:00",
+    dailyEndTime: "18:00",
     matchDuration: 60,
     breakDuration: 15,
     matchesPerDay: null as number | null,
@@ -166,6 +170,22 @@ export default function CompetitionDetailPage() {
   useEffect(() => {
     fetchCompetition()
   }, [fetchCompetition])
+
+  // Hent tilgjengelige fasiliteter
+  useEffect(() => {
+    const fetchResources = async () => {
+      try {
+        const res = await fetch("/api/resources")
+        if (res.ok) {
+          const data = await res.json()
+          setResources(data)
+        }
+      } catch (error) {
+        console.error("Error fetching resources:", error)
+      }
+    }
+    fetchResources()
+  }, [])
 
   // Sjekk om brukeren er full admin eller bare har kampoppsett-tilgang
   useEffect(() => {
@@ -403,8 +423,11 @@ export default function CompetitionDetailPage() {
       name: competition.name,
       description: competition.description || "",
       venue: competition.venue || "",
+      resourceId: competition.resourceId || null,
       startDate: competition.startDate ? new Date(competition.startDate).toISOString().split('T')[0] : "",
       endDate: competition.endDate ? new Date(competition.endDate).toISOString().split('T')[0] : "",
+      dailyStartTime: (competition as any).dailyStartTime || "09:00",
+      dailyEndTime: (competition as any).dailyEndTime || "18:00",
       matchDuration: competition.matchDuration,
       breakDuration: competition.breakDuration,
       matchesPerDay: competition.matchesPerDay ?? null,
@@ -430,8 +453,11 @@ export default function CompetitionDetailPage() {
           name: editedSettings.name,
           description: editedSettings.description,
           venue: editedSettings.venue,
+          resourceId: editedSettings.resourceId,
           startDate: editedSettings.startDate || undefined,
           endDate: editedSettings.endDate || undefined,
+          dailyStartTime: editedSettings.dailyStartTime,
+          dailyEndTime: editedSettings.dailyEndTime,
           matchDuration: editedSettings.matchDuration,
           breakDuration: editedSettings.breakDuration,
           matchesPerDay: editedSettings.matchesPerDay,
@@ -1194,17 +1220,69 @@ export default function CompetitionDetailPage() {
                     </div>
                   </div>
                   
+                  {/* Daglige tidspunkter */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <Clock className="w-4 h-4 inline mr-1" />
+                        Starttid hver dag
+                      </label>
+                      <input
+                        type="time"
+                        value={editedSettings.dailyStartTime}
+                        onChange={(e) => setEditedSettings(prev => ({ ...prev, dailyStartTime: e.target.value }))}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <Clock className="w-4 h-4 inline mr-1" />
+                        Sluttid hver dag
+                      </label>
+                      <input
+                        type="time"
+                        value={editedSettings.dailyEndTime}
+                        onChange={(e) => setEditedSettings(prev => ({ ...prev, dailyEndTime: e.target.value }))}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 -mt-2">
+                    Disse tidspunktene blokkerer fasiliteten i kalenderen
+                  </p>
+                  
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       <MapPin className="w-4 h-4 inline mr-1" />
-                      Arena/Sted
+                      Fasilitet <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      value={editedSettings.venue}
-                      onChange={(e) => setEditedSettings(prev => ({ ...prev, venue: e.target.value }))}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    />
+                    <select
+                      value={editedSettings.resourceId || ""}
+                      onChange={(e) => {
+                        const resourceId = e.target.value || null
+                        const resource = resources.find(r => r.id === resourceId)
+                        setEditedSettings(prev => ({
+                          ...prev,
+                          resourceId,
+                          venue: resource?.name || ""
+                        }))
+                      }}
+                      className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
+                        !editedSettings.resourceId ? "border-red-300 bg-red-50" : "border-gray-300"
+                      }`}
+                    >
+                      <option value="">Velg fasilitet...</option>
+                      {resources.map(resource => (
+                        <option key={resource.id} value={resource.id}>
+                          {resource.name} {resource.location ? `- ${resource.location}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {!editedSettings.resourceId && (
+                      <p className="mt-1 text-xs text-red-500">
+                        Fasilitet er påkrevd for å vise kamper i kalenderen
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

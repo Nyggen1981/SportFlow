@@ -241,6 +241,7 @@ model Resource {
   bookings Booking[]
   moderators ResourceModerator[]
   fixedPricePackages FixedPricePackage[]
+  competitions Competition[]  // Konkurranser knyttet til denne fasiliteten
 
   // Indexes for faster queries
   @@index([organizationId, isActive])
@@ -321,6 +322,7 @@ model ResourcePart {
 
   bookings Booking[]
   fixedPricePackages FixedPricePackage[]
+  matches  Match[]  // Kamper som spilles på denne banen
   
   @@index([parentId])
   @@index([resourceId])
@@ -563,6 +565,10 @@ model Competition {
   endDate         DateTime?
   venue           String?   // Arena/sted
   
+  // Daglige tidspunkter for konkurransen
+  dailyStartTime  String?   // Starttidspunkt hver dag (f.eks. "09:00")
+  dailyEndTime    String?   // Sluttidspunkt hver dag (f.eks. "18:00")
+  
   // Regler og innstillinger
   pointsForWin    Int       @default(3)
   pointsForDraw   Int       @default(1)
@@ -592,6 +598,7 @@ model Competition {
   
   // Kobling til fasilitet/ressurs (valgfritt)
   resourceId      String?
+  resource        Resource? @relation(fields: [resourceId], references: [id], onDelete: SetNull)
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -605,6 +612,7 @@ model Competition {
   @@index([status])
   @@index([type])
   @@index([startDate])
+  @@index([resourceId])
 }
 
 // Turneringstype
@@ -697,9 +705,13 @@ model Match {
   actualStartTime DateTime?
   actualEndTime   DateTime?
   
-  // Sted
+  // Sted - kan være fritekst eller koblet til ResourcePart
   venue           String?
-  court           String?  // Bane/arena (f.eks. "Bane 1")
+  court           String?  // Bane/arena (f.eks. "Bane 1") - fritekst
+  
+  // Kobling til spesifikk bane/del av fasilitet
+  resourcePartId  String?
+  resourcePart    ResourcePart? @relation(fields: [resourcePartId], references: [id], onDelete: SetNull)
   
   // Lag
   homeTeamId      String?
@@ -748,6 +760,7 @@ model Match {
   @@index([scheduledTime])
   @@index([status])
   @@index([round])
+  @@index([resourcePartId])
 }
 
 // Status for kamp

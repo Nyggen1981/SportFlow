@@ -1,6 +1,5 @@
 "use client"
 
-import { useSession } from "next-auth/react"
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
@@ -78,17 +77,12 @@ interface Competition {
 
 export default function CompetitionViewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: competitionId } = use(params)
-  const { status } = useSession()
   const router = useRouter()
   const [competition, setCompetition] = useState<Competition | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<"overview" | "teams" | "matches" | "standings" | "bracket">("overview")
 
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-    }
-  }, [status, router])
+  // Ingen innlogging kreves - offentlig side
 
   useEffect(() => {
     if (competitionId) {
@@ -150,7 +144,7 @@ export default function CompetitionViewPage({ params }: { params: Promise<{ id: 
       )
     : []
 
-  if (status === "loading" || isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <Navbar />

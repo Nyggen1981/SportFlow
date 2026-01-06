@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { isMatchSetupEnabled } from "@/lib/match-setup"
+import { canAccessMatchSetup } from "@/lib/roles"
 
 // GET - Hent alle lag i en konkurranse
 export async function GET(
@@ -65,9 +66,10 @@ export async function POST(
       return NextResponse.json({ error: "Ikke autentisert" }, { status: 401 })
     }
     
-    const isAdmin = session.user.systemRole === "admin" || session.user.role === "admin"
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Kun admin kan legge til lag" }, { status: 403 })
+    // Sjekk om brukeren har tilgang til kampoppsett
+    const hasAccess = await canAccessMatchSetup(session.user.id)
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Du har ikke tilgang til å legge til lag" }, { status: 403 })
     }
     
     const enabled = await isMatchSetupEnabled()
@@ -142,9 +144,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Ikke autentisert" }, { status: 401 })
     }
     
-    const isAdmin = session.user.systemRole === "admin" || session.user.role === "admin"
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Kun admin kan fjerne lag" }, { status: 403 })
+    // Sjekk om brukeren har tilgang til kampoppsett
+    const hasAccess = await canAccessMatchSetup(session.user.id)
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Du har ikke tilgang til å fjerne lag" }, { status: 403 })
     }
     
     const enabled = await isMatchSetupEnabled()

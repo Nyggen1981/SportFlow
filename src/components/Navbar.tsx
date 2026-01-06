@@ -103,31 +103,37 @@ export function Navbar() {
     }
   }, [isLoggedIn])
 
-  // Check match setup module status and access
+  // Check match setup module status (for all users, including not logged in)
   useEffect(() => {
-    if (isLoggedIn) {
-      const checkMatchSetup = async () => {
+    const checkMatchSetupStatus = async () => {
+      try {
+        const statusRes = await fetch("/api/match-setup/status")
+        if (statusRes.ok) {
+          const statusData = await statusRes.json()
+          setMatchSetupEnabled(statusData.enabled)
+        }
+      } catch (error) {
+        console.error("Failed to check match setup status:", error)
+      }
+    }
+    checkMatchSetupStatus()
+  }, [])
+
+  // Check match setup access for logged in non-admin users
+  useEffect(() => {
+    if (isLoggedIn && !isAdmin) {
+      const checkMatchSetupAccess = async () => {
         try {
-          // Sjekk om modulen er aktivert
-          const statusRes = await fetch("/api/match-setup/status")
-          if (statusRes.ok) {
-            const statusData = await statusRes.json()
-            setMatchSetupEnabled(statusData.enabled)
-          }
-          
-          // Sjekk tilgang for ikke-admin brukere
-          if (!isAdmin) {
-            const accessRes = await fetch("/api/match-setup/access")
-            if (accessRes.ok) {
-              const accessData = await accessRes.json()
-              setHasMatchSetupAccess(accessData.hasAccess && !accessData.isAdmin)
-            }
+          const accessRes = await fetch("/api/match-setup/access")
+          if (accessRes.ok) {
+            const accessData = await accessRes.json()
+            setHasMatchSetupAccess(accessData.hasAccess && !accessData.isAdmin)
           }
         } catch (error) {
-          console.error("Failed to check match setup:", error)
+          console.error("Failed to check match setup access:", error)
         }
       }
-      checkMatchSetup()
+      checkMatchSetupAccess()
     }
   }, [isLoggedIn, isAdmin])
 
@@ -201,8 +207,8 @@ export function Navbar() {
                   )}
                 </Link>
 
-                {/* Konkurranser - vises for alle når modulen er aktivert */}
-                {matchSetupEnabled && (
+                {/* Konkurranser - vises kun for vanlige brukere (ikke admins eller kampoppsett-admins) */}
+                {matchSetupEnabled && !canAccessAdmin && !hasMatchSetupAccess && (
                   <Link 
                     href="/competitions" 
                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
@@ -257,13 +263,34 @@ export function Navbar() {
                 </div>
               </>
             ) : (
-              <Link 
-                href="/login" 
-                className="ml-4 btn btn-primary"
-              >
-                <User className="w-4 h-4" />
-                Logg inn
-              </Link>
+              <>
+                {/* Kalender og Konkurranser for ikke-innloggede */}
+                <Link 
+                  href="/kalender" 
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                >
+                  <Calendar className="w-4 h-4" />
+                  Kalender
+                </Link>
+                
+                {matchSetupEnabled && (
+                  <Link 
+                    href="/competitions" 
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                  >
+                    <Trophy className="w-4 h-4" />
+                    Konkurranser
+                  </Link>
+                )}
+                
+                <Link 
+                  href="/login" 
+                  className="ml-4 btn btn-primary"
+                >
+                  <User className="w-4 h-4" />
+                  Logg inn
+                </Link>
+              </>
             )}
           </div>
 
@@ -315,8 +342,8 @@ export function Navbar() {
                   )}
                 </Link>
 
-                {/* Konkurranser - vises for alle når modulen er aktivert - mobil */}
-                {matchSetupEnabled && (
+                {/* Konkurranser - vises kun for vanlige brukere (ikke admins eller kampoppsett-admins) - mobil */}
+                {matchSetupEnabled && !canAccessAdmin && !hasMatchSetupAccess && (
                   <Link 
                     href="/competitions" 
                     className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100"
@@ -377,14 +404,39 @@ export function Navbar() {
                 </div>
               </>
             ) : (
-              <Link 
-                href="/login" 
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-blue-600 hover:bg-blue-50"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <User className="w-5 h-5" />
-                Logg inn
-              </Link>
+              <>
+                {/* Kalender og Konkurranser for ikke-innloggede - mobil */}
+                <Link 
+                  href="/kalender" 
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Calendar className="w-5 h-5" />
+                  Kalender
+                </Link>
+                
+                {matchSetupEnabled && (
+                  <Link 
+                    href="/competitions" 
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Trophy className="w-5 h-5" />
+                    Konkurranser
+                  </Link>
+                )}
+
+                <div className="pt-3 mt-3 border-t border-gray-200">
+                  <Link 
+                    href="/login" 
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg text-blue-600 hover:bg-blue-50"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <User className="w-5 h-5" />
+                    Logg inn
+                  </Link>
+                </div>
+              </>
             )}
           </div>
         </div>

@@ -15,9 +15,12 @@ interface Booking {
   title: string
   startTime: string
   endTime: string
-  status: "approved" | "pending"
+  status: "approved" | "pending" | "competition"
   userId: string
   isRecurring?: boolean
+  isCompetition?: boolean
+  competitionName?: string
+  roundName?: string
   resource: {
     id: string
     name: string
@@ -602,6 +605,20 @@ export default function CalendarPage() {
     if (!timelineData) return []
     
     return timelineData.bookings.filter(b => {
+      // Always show competition events (they block the whole facility)
+      if (b.status === "competition") {
+        // If a specific resource is selected, only show competitions for that resource
+        if (selectedResourceId) {
+          return b.resource.id === selectedResourceId
+        }
+        // If a category is selected, show competitions for resources in that category
+        if (selectedCategoryId) {
+          return b.resource.category?.id === selectedCategoryId
+        }
+        // Show all competitions if no filter
+        return true
+      }
+      
       // Filter out whole facility bookings if allowWholeBooking is false
       const resource = timelineData.resources.find(r => r.id === b.resource.id)
       if (resource && !resource.allowWholeBooking && !b.resourcePart) {
@@ -1221,7 +1238,8 @@ export default function CalendarPage() {
                               const heightPx = ((endMinutes - startMinutes) / 60) * 60
                               
                               const isPending = booking.status === "pending"
-                              const resourceColor = booking.resource.color || booking.resource.category?.color || "#3b82f6"
+                              const isCompetition = booking.status === "competition"
+                              const resourceColor = isCompetition ? "#f97316" : (booking.resource.color || booking.resource.category?.color || "#3b82f6")
                               
                               // Get column info for this booking
                               const columnInfo = bookingColumns.get(booking.id) || { column: 0, totalColumns: 1 }
@@ -1270,9 +1288,10 @@ export default function CalendarPage() {
                               return (
                                 <div
                                   key={booking.id}
-                                  onClick={() => setSelectedBooking(booking)}
-                                  className={`absolute rounded-md px-2 py-1 text-xs cursor-pointer pointer-events-auto hover:opacity-90 transition-opacity ${
-                                    isPending ? 'border-2 border-dashed' : ''
+                                  onClick={() => !isCompetition && setSelectedBooking(booking)}
+                                  className={`absolute rounded-md px-2 py-1 text-xs pointer-events-auto transition-opacity ${
+                                    isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
+                                    isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
                                   }`}
                                   style={{
                                     top: `${topPx}px`,
@@ -1280,15 +1299,17 @@ export default function CalendarPage() {
                                     width: boxWidth,
                                     height: `${Math.max(heightPx, 40)}px`,
                                     minHeight: '40px',
-                                    backgroundColor: isPending 
-                                      ? `${resourceColor}20`
-                                      : resourceColor,
-                                    borderColor: isPending ? resourceColor : 'black',
-                                    color: 'black',
-                                    borderTop: isPending ? '2px dashed' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                    borderBottom: isPending ? '2px dashed' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                    borderLeft: isPending ? '2px dashed' : '1px solid black',
-                                    borderRight: isPending ? '2px dashed' : '1px solid black',
+                                    backgroundColor: isCompetition 
+                                      ? '#fdba74' 
+                                      : isPending 
+                                        ? `${resourceColor}20`
+                                        : resourceColor,
+                                    borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
+                                    color: isCompetition ? '#9a3412' : 'black',
+                                    borderTop: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                    borderBottom: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                    borderLeft: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                    borderRight: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
                                     boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                                     zIndex: 10,
                                     display: 'flex',
@@ -1296,7 +1317,7 @@ export default function CalendarPage() {
                                     justifyContent: 'flex-start',
                                     alignItems: 'flex-start'
                                   }}
-                                  title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : ''} - Klikk for mer info`}
+                                  title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
                                 >
                                   <p className="font-medium truncate w-full">{booking.title}</p>
                                   <p className={`truncate text-[10px] w-full ${isPending ? 'opacity-70' : 'opacity-80'}`}>
@@ -1355,18 +1376,21 @@ export default function CalendarPage() {
                       <div className="space-y-1 flex-1 overflow-y-auto min-h-0">
                         {dayBookings.map((booking) => {
                           const isPending = booking.status === "pending"
-                          const bookingColor = booking.resource.color || booking.resource.category?.color || "#3b82f6"
+                          const isCompetition = booking.status === "competition"
+                          const bookingColor = isCompetition ? "#f97316" : (booking.resource.color || booking.resource.category?.color || "#3b82f6")
                           
                           return (
                             <div
                               key={booking.id}
-                              onClick={() => setSelectedBooking(booking)}
-                              className={`px-1.5 py-0.5 rounded text-xs cursor-pointer hover:opacity-90 transition-opacity flex-shrink-0 flex flex-col ${
+                              onClick={() => !isCompetition && setSelectedBooking(booking)}
+                              className={`px-1.5 py-0.5 rounded text-xs transition-opacity flex-shrink-0 flex flex-col ${
                                 isPending 
-                                  ? "bg-green-50 text-green-700 border border-dashed border-green-400" 
-                                  : "text-black border border-black"
+                                  ? "bg-green-50 text-green-700 border border-dashed border-green-400 cursor-pointer hover:opacity-90" 
+                                  : isCompetition
+                                    ? "bg-orange-100 text-orange-800 border-2 border-orange-500 cursor-default"
+                                    : "text-black border border-black cursor-pointer hover:opacity-90"
                               }`}
-                              style={!isPending ? { 
+                              style={!isPending && !isCompetition ? { 
                                 backgroundColor: bookingColor,
                                 display: 'flex',
                                 flexDirection: 'column',
@@ -1378,7 +1402,7 @@ export default function CalendarPage() {
                                 justifyContent: 'flex-start',
                                 alignItems: 'flex-start'
                               }}
-                              title={`${format(parseISO(booking.startTime), "HH:mm")}-${format(parseISO(booking.endTime), "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : ''} - Klikk for mer info`}
+                              title={`${format(parseISO(booking.startTime), "HH:mm")}-${format(parseISO(booking.endTime), "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
                             >
                               <p className="font-medium truncate w-full">{booking.title}</p>
                               <p className={`truncate text-[10px] w-full ${isPending ? 'opacity-70' : 'opacity-80'}`}>
@@ -1608,7 +1632,8 @@ export default function CalendarPage() {
                                   {bookings.map((booking) => {
                                     const style = getBookingStyle(booking, bookings)
                                     const isPending = booking.status === "pending"
-                                    const color = resource.color || resource.category?.color || "#3b82f6"
+                                    const isCompetition = booking.status === "competition"
+                                    const color = isCompetition ? "#f97316" : (resource.color || resource.category?.color || "#3b82f6")
                                     const startTime = parseISO(booking.startTime)
                                     const endTime = parseISO(booking.endTime)
                                     const timeStr = `${format(startTime, "HH:mm")} - ${format(endTime, "HH:mm")}`
@@ -1616,20 +1641,25 @@ export default function CalendarPage() {
                                     return (
                                       <button
                                         key={booking.id}
-                                        onClick={() => setSelectedBooking(booking)}
-                                        className="absolute top-1 bottom-1 rounded px-2 py-1 text-white text-xs font-medium cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all overflow-hidden text-left"
+                                        onClick={() => !isCompetition && setSelectedBooking(booking)}
+                                        className={`absolute top-1 bottom-1 rounded px-2 py-1 text-xs font-medium transition-all overflow-hidden text-left ${
+                                          isCompetition 
+                                            ? 'cursor-default' 
+                                            : 'cursor-pointer hover:shadow-lg hover:scale-[1.02]'
+                                        }`}
                                         style={{
                                           ...style,
-                                          backgroundColor: isPending ? `${color}80` : color,
-                                          border: isPending ? `2px dashed ${color}` : 'none',
+                                          backgroundColor: isCompetition ? '#fdba74' : (isPending ? `${color}80` : color),
+                                          border: isCompetition ? '2px solid #f97316' : (isPending ? `2px dashed ${color}` : 'none'),
+                                          color: isCompetition ? '#9a3412' : 'white',
                                         }}
-                                        title={`Klikk for mer info`}
+                                        title={isCompetition ? `${booking.title} (konkurranse)` : `Klikk for mer info`}
                                       >
                                         <div className="truncate font-semibold">{booking.title}</div>
                                         <div className="truncate text-[10px] opacity-90">
                                           {timeStr}
                                         </div>
-                                        {booking.user?.name && (
+                                        {!isCompetition && booking.user?.name && (
                                           <div className="truncate text-[10px] opacity-75">
                                             {booking.user.name}
                                           </div>
@@ -1732,7 +1762,8 @@ export default function CalendarPage() {
                           const heightPx = ((endMinutes - startMinutes) / 60) * 60
                           
                           const isPending = booking.status === "pending"
-                          const resourceColor = booking.resource.color || booking.resource.category?.color || "#3b82f6"
+                          const isCompetition = booking.status === "competition"
+                          const resourceColor = isCompetition ? "#f97316" : (booking.resource.color || booking.resource.category?.color || "#3b82f6")
                           
                           // Get column info for this booking
                           const columnInfo = bookingColumns.get(booking.id) || { column: 0, totalColumns: 1 }
@@ -1781,9 +1812,10 @@ export default function CalendarPage() {
                           return (
                             <div
                               key={booking.id}
-                              onClick={() => setSelectedBooking(booking)}
-                              className={`absolute rounded-md px-2 py-1 text-xs cursor-pointer pointer-events-auto hover:opacity-90 transition-opacity ${
-                                isPending ? 'border-2 border-dashed' : ''
+                              onClick={() => !isCompetition && setSelectedBooking(booking)}
+                              className={`absolute rounded-md px-2 py-1 text-xs pointer-events-auto transition-opacity ${
+                                isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
+                                isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
                               }`}
                               style={{
                                 top: `${topPx}px`,
@@ -1791,15 +1823,17 @@ export default function CalendarPage() {
                                 width: boxWidth,
                                 height: `${Math.max(heightPx, 40)}px`,
                                 minHeight: '40px',
-                                backgroundColor: isPending 
-                                  ? `${resourceColor}20`
-                                  : resourceColor,
-                                borderColor: isPending ? resourceColor : 'black',
-                                color: 'black',
-                                borderTop: isPending ? '2px dashed' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                borderBottom: isPending ? '2px dashed' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                borderLeft: isPending ? '2px dashed' : '1px solid black',
-                                borderRight: isPending ? '2px dashed' : '1px solid black',
+                                backgroundColor: isCompetition 
+                                  ? '#fdba74' 
+                                  : isPending 
+                                    ? `${resourceColor}20`
+                                    : resourceColor,
+                                borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
+                                color: isCompetition ? '#9a3412' : 'black',
+                                borderTop: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                borderBottom: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                borderLeft: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                borderRight: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
                                 boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                                 zIndex: 10,
                                 display: 'flex',
@@ -1807,7 +1841,7 @@ export default function CalendarPage() {
                                 justifyContent: 'flex-start',
                                 alignItems: 'flex-start'
                               }}
-                              title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : ''} - Klikk for mer info`}
+                              title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
                             >
                               <p className="font-medium truncate w-full">{booking.title}</p>
                               <p className={`truncate text-[10px] w-full ${isPending ? 'opacity-70' : 'opacity-80'}`}>

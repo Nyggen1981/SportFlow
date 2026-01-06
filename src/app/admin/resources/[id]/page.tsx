@@ -133,15 +133,27 @@ export default function EditResourcePage({ params }: Props) {
   }, [status, session, router])
 
   useEffect(() => {
+    // Helper to safely fetch arrays - returns empty array on error or non-array response
+    const fetchArray = async (url: string) => {
+      try {
+        const res = await fetch(url)
+        if (!res.ok) return []
+        const data = await res.json()
+        return Array.isArray(data) ? data : []
+      } catch {
+        return []
+      }
+    }
+    
     Promise.all([
       fetch("/api/admin/categories").then(res => res.json()),
       fetch(`/api/admin/resources/${id}`).then(res => res.json()),
-      fetch(`/api/admin/resources/${id}/moderators`).then(res => res.json()).catch(() => []),
-      fetch("/api/admin/users").then(res => res.json()).catch(() => []),
-      fetch("/api/admin/roles").then(res => res.json()).catch(() => []),
+      fetchArray(`/api/admin/resources/${id}/moderators`),
+      fetchArray("/api/admin/users"),
+      fetchArray("/api/admin/roles"),
       fetch("/api/pricing/status").then(res => res.json()).catch(() => ({ enabled: false }))
     ]).then(async ([cats, resource, mods, users, roles, pricingStatus]) => {
-      setCategories(cats)
+      setCategories(Array.isArray(cats) ? cats : [])
       
       setName(resource.name || "")
       setDescription(resource.description || "")
@@ -1171,12 +1183,15 @@ export default function EditResourcePage({ params }: Props) {
                           method: "DELETE"
                         })
                         // Reload moderators
-                        const updated = await fetch(`/api/admin/resources/${id}/moderators`).then(res => res.json())
-                        setModerators(updated || [])
+                        const modsRes = await fetch(`/api/admin/resources/${id}/moderators`)
+                        const updated = modsRes.ok ? await modsRes.json() : []
+                        setModerators(Array.isArray(updated) ? updated : [])
                         // Update available moderators
-                        const users = await fetch("/api/admin/users").then(res => res.json())
-                        const moderatorUserIds = (updated || []).map((m: any) => m.user.id)
-                        const available = users.filter((u: any) => 
+                        const usersRes = await fetch("/api/admin/users")
+                        const users = usersRes.ok ? await usersRes.json() : []
+                        const usersArray = Array.isArray(users) ? users : []
+                        const moderatorUserIds = (Array.isArray(updated) ? updated : []).map((m: any) => m.user.id)
+                        const available = usersArray.filter((u: any) => 
                           u.role === "moderator" && u.isApproved && !moderatorUserIds.includes(u.id)
                         )
                         setAvailableModerators(available)
@@ -1232,13 +1247,16 @@ export default function EditResourcePage({ params }: Props) {
                           })
                           
                           // Reload moderators
-                          const updated = await fetch(`/api/admin/resources/${id}/moderators`).then(res => res.json())
-                          setModerators(updated || [])
+                          const modsRes = await fetch(`/api/admin/resources/${id}/moderators`)
+                          const updated = modsRes.ok ? await modsRes.json() : []
+                          setModerators(Array.isArray(updated) ? updated : [])
                           
                           // Update available moderators
-                          const users = await fetch("/api/admin/users").then(res => res.json())
-                          const moderatorUserIds = (updated || []).map((m: any) => m.user.id)
-                          const available = users.filter((u: any) => 
+                          const usersRes = await fetch("/api/admin/users")
+                          const users = usersRes.ok ? await usersRes.json() : []
+                          const usersArray = Array.isArray(users) ? users : []
+                          const moderatorUserIds = (Array.isArray(updated) ? updated : []).map((m: any) => m.user.id)
+                          const available = usersArray.filter((u: any) => 
                             u.role === "moderator" && u.isApproved && !moderatorUserIds.includes(u.id)
                           )
                           setAvailableModerators(available)

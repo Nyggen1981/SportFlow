@@ -8,6 +8,7 @@ import {
   generateTournamentBracket,
   generateGroupStageSchedule
 } from "@/lib/match-setup"
+import { canAccessMatchSetup } from "@/lib/roles"
 
 // POST - Generer kampoppsett automatisk
 export async function POST(
@@ -22,9 +23,10 @@ export async function POST(
       return NextResponse.json({ error: "Ikke autentisert" }, { status: 401 })
     }
     
-    const isAdmin = session.user.systemRole === "admin" || session.user.role === "admin"
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Kun admin kan generere kampoppsett" }, { status: 403 })
+    // Sjekk om brukeren har tilgang til kampoppsett
+    const hasAccess = await canAccessMatchSetup(session.user.id)
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Du har ikke tilgang til å generere kampoppsett" }, { status: 403 })
     }
     
     const enabled = await isMatchSetupEnabled()
