@@ -76,6 +76,7 @@ interface Competition {
   startDate: string
   endDate?: string
   venue?: string
+  resourceId?: string | null
   pointsForWin: number
   pointsForDraw: number
   pointsForLoss: number
