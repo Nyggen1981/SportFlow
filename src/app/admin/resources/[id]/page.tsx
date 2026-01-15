@@ -1019,6 +1019,7 @@ export default function EditResourcePage({ params }: Props) {
                     </div>
                     <p className="text-sm text-gray-600">
                       Konfigurer prising for hver del. Hvis ingen prislogikk er satt for en del, brukes fasilitetens prislogikk.
+                      <span className="text-xs text-gray-400 ml-2">({parts.length} deler totalt)</span>
                     </p>
                     
                     {/* Sorter hierarkisk: hoveddeler først, deretter underdeler rekursivt */}

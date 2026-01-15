@@ -89,51 +89,59 @@ export function MapViewer({ mapImage, parts, onPartClick, selectedPartId, select
           className="absolute inset-0 w-full h-full"
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
+          style={{ pointerEvents: "none" }} // Disable pointer events on SVG, let labels handle clicks
         >
           {partsWithCoords.map((part) => {
             const isSelected = selectedPartIds ? selectedPartIds.includes(part.id) : selectedPartId === part.id
             const isHovered = hoveredPartId === part.id
             const isLocked = lockedPartIds.includes(part.id)
+            // Fade if something is hovered OR selected (and this is not the hovered/selected one)
+            const hasSelection = (selectedPartIds && selectedPartIds.length > 0) || selectedPartId
+            const hasHover = hoveredPartId !== null
+            const isFaded = (hasHover || hasSelection) && !isHovered && !isSelected
             
             return (
               <path
                 key={part.id}
                 d={getPolygonPath(part.points)}
-                fill={isLocked ? `${part.color}11` : isSelected || isHovered ? `${part.color}55` : `${part.color}33`}
-                stroke={isLocked ? "#9ca3af" : part.color}
-                strokeWidth={isSelected ? "0.4" : "0.2"}
+                fill={isLocked ? `${part.color}11` : isSelected || isHovered ? `${part.color}66` : isFaded ? `${part.color}15` : `${part.color}33`}
+                stroke={isLocked ? "#9ca3af" : isFaded ? `${part.color}66` : part.color}
+                strokeWidth={isSelected || isHovered ? "0.5" : "0.2"}
                 strokeDasharray={isLocked ? "2,2" : "none"}
-                className={`transition-all duration-200 ${onPartClick && !isLocked ? "cursor-pointer" : isLocked ? "cursor-not-allowed opacity-50" : ""}`}
-                onClick={() => !isLocked && onPartClick?.(part.id)}
-                onMouseEnter={() => !isLocked && setHoveredPartId(part.id)}
-                onMouseLeave={() => setHoveredPartId(null)}
+                className="transition-all duration-200"
+                style={{ opacity: isFaded ? 0.4 : 1 }}
               />
             )
           })}
         </svg>
 
-        {/* Labels - centered in polygons */}
+        {/* Labels - centered in polygons - these are the primary click targets */}
         {partsWithCoords.map((part) => {
           const centerX = part.points.reduce((sum, p) => sum + p.x, 0) / part.points.length
           const centerY = part.points.reduce((sum, p) => sum + p.y, 0) / part.points.length
           const isSelected = selectedPartIds ? selectedPartIds.includes(part.id) : selectedPartId === part.id
           const isHovered = hoveredPartId === part.id
           const isLocked = lockedPartIds.includes(part.id)
+          // Fade if something is hovered OR selected (and this is not the hovered/selected one)
+          const hasSelection = (selectedPartIds && selectedPartIds.length > 0) || selectedPartId
+          const hasHover = hoveredPartId !== null
+          const isFaded = (hasHover || hasSelection) && !isHovered && !isSelected
           
           return (
             <div
               key={`label-${part.id}`}
-              className={`absolute px-2 py-1 rounded text-xs font-bold text-white whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2 transition-all ${
-                onPartClick && !isLocked ? "cursor-pointer" : isLocked ? "cursor-not-allowed" : "pointer-events-none"
+              className={`absolute px-2 py-1 rounded text-xs font-bold text-white whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${
+                onPartClick && !isLocked ? "cursor-pointer hover:scale-105" : isLocked ? "cursor-not-allowed" : "pointer-events-none"
               } ${
-                isSelected || isHovered ? "scale-110 shadow-lg z-10" : ""
-              } ${isLocked ? "opacity-50" : ""}`}
+                isSelected ? "scale-110 shadow-lg ring-2 ring-white ring-offset-1" : ""
+              } ${isHovered && !isSelected ? "scale-105 shadow-md" : ""}`}
               style={{ 
                 left: `${centerX}%`, 
                 top: `${centerY}%`,
                 backgroundColor: isLocked ? "#9ca3af" : part.color,
-                opacity: isLocked ? 0.5 : (isSelected || isHovered ? 1 : 0.95),
-                textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                opacity: isLocked ? 0.4 : isFaded ? 0.4 : 1,
+                textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                zIndex: isSelected ? 20 : isHovered ? 15 : 10
               }}
               onClick={() => !isLocked && onPartClick?.(part.id)}
               onMouseEnter={() => !isLocked && setHoveredPartId(part.id)}
