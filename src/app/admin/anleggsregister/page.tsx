@@ -578,8 +578,10 @@ function AssetModal({
     notes: asset?.notes || ""
   })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!formData.name.trim()) return
+    
     setIsSubmitting(true)
 
     try {
@@ -597,9 +599,14 @@ function AssetModal({
 
       if (response.ok) {
         onSave()
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("Error creating asset:", response.status, errorData)
+        alert("Kunne ikke opprette anlegg. Sjekk at databasen er synkronisert.")
       }
     } catch (error) {
       console.error("Error saving asset:", error)
+      alert("Noe gikk galt. Prøv igjen.")
     } finally {
       setIsSubmitting(false)
     }
