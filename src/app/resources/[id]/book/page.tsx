@@ -178,6 +178,7 @@ export default function BookResourcePage({ params }: Props) {
   }, [resource, selectedParts, lockedPartIds])
 
   // Handle part selection with hierarchy rules
+  // When pricing is enabled, only allow one part at a time
   const handlePartToggle = useCallback((partId: string) => {
     if (!resource) return
     
@@ -185,6 +186,21 @@ export default function BookResourcePage({ params }: Props) {
     if (!part) return
     
     setSelectedParts(prev => {
+      // When pricing is enabled, only allow one part selection (radio button behavior)
+      if (pricingEnabled) {
+        if (prev.includes(partId)) {
+          // Deselecting - remove it
+          return []
+        } else {
+          // Selecting - replace with just this part
+          if (!canSelectPart(partId)) {
+            return prev // Can't select, return unchanged
+          }
+          return [partId]
+        }
+      }
+      
+      // Original behavior for non-pricing (checkbox/multi-select)
       if (prev.includes(partId)) {
         // Deselecting - just remove it
         return prev.filter(id => id !== partId)
@@ -206,7 +222,7 @@ export default function BookResourcePage({ params }: Props) {
         }
       }
     })
-  }, [resource, canSelectPart])
+  }, [resource, canSelectPart, pricingEnabled])
   const [contactName, setContactName] = useState("")
   const [contactEmail, setContactEmail] = useState("")
   const [contactPhone, setContactPhone] = useState("")
@@ -649,7 +665,9 @@ export default function BookResourcePage({ params }: Props) {
                           ? "border-red-300 bg-red-50"
                           : "border-gray-200 bg-gray-50"
                     }`}>
-                      <p className="text-sm text-gray-500 mb-1">Valgte deler:</p>
+                      <p className="text-sm text-gray-500 mb-1">
+                        {pricingEnabled ? "Valgt del:" : "Valgte deler:"}
+                      </p>
                       <p className="font-semibold text-gray-900">
                         {selectedParts.length > 0 
                           ? selectedParts.map(id => resource.parts.find(p => p.id === id)?.name).filter(Boolean).join(", ")
@@ -658,6 +676,11 @@ export default function BookResourcePage({ params }: Props) {
                             : "Velg del"
                         }
                       </p>
+                      {pricingEnabled && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Kun én del kan velges per booking når prising er aktivert
+                        </p>
+                      )}
                     </div>
                     
                     <p className="text-xs text-gray-500">
@@ -687,7 +710,8 @@ export default function BookResourcePage({ params }: Props) {
                             } ${isChild ? 'ml-6' : ''}`}
                           >
                             <input
-                              type="checkbox"
+                              type={pricingEnabled ? "radio" : "checkbox"}
+                              name={pricingEnabled ? "selectedPart" : undefined}
                               checked={selectedParts.includes(part.id)}
                               disabled={isLocked || isDisabled}
                               onChange={(e) => {
@@ -695,7 +719,7 @@ export default function BookResourcePage({ params }: Props) {
                                   handlePartToggle(part.id)
                                 }
                               }}
-                              className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className={`w-5 h-5 border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed ${pricingEnabled ? 'rounded-full' : 'rounded'}`}
                             />
                             <span className={`text-sm ${isLocked || isDisabled ? 'text-gray-400' : 'text-gray-900'}`}>
                               {isChild && parent ? `${part.name} (${parent.name})` : part.name}
