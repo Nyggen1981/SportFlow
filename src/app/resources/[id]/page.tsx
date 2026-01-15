@@ -49,7 +49,16 @@ async function getResource(id: string) {
           include: {
             children: {
               where: { isActive: true },
-              select: { id: true, name: true }
+              select: { 
+                id: true, 
+                name: true,
+                parentId: true,
+                // Nivå 3 (grandchildren)
+                children: {
+                  where: { isActive: true },
+                  select: { id: true, name: true, parentId: true }
+                }
+              }
             }
           },
           orderBy: { name: "asc" }

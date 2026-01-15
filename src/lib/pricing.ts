@@ -293,6 +293,7 @@ export async function getPricingConfig(
         where: { id: resourcePartId },
         select: {
           pricingRules: true,
+          parentId: true,
           // Legacy fields for bakoverkompatibilitet
           pricingModel: true,
           pricePerHour: true,
@@ -300,6 +301,31 @@ export async function getPricingConfig(
           fixedPrice: true,
           fixedPriceDuration: true,
           freeForRoles: true,
+          // Parent part (for fallback)
+          parent: {
+            select: {
+              pricingRules: true,
+              parentId: true,
+              pricingModel: true,
+              pricePerHour: true,
+              pricePerDay: true,
+              fixedPrice: true,
+              fixedPriceDuration: true,
+              freeForRoles: true,
+              // Grandparent (for 3+ levels)
+              parent: {
+                select: {
+                  pricingRules: true,
+                  pricingModel: true,
+                  pricePerHour: true,
+                  pricePerDay: true,
+                  fixedPrice: true,
+                  fixedPriceDuration: true,
+                  freeForRoles: true
+                }
+              }
+            }
+          },
           resource: {
             select: {
               pricingRules: true,
@@ -317,8 +343,11 @@ export async function getPricingConfig(
 
       if (!part) return null
 
-      // Bruk part pricingRules hvis satt, ellers fallback til resource
-      const pricingRulesJson = part.pricingRules || part.resource.pricingRules
+      // Bruk part pricingRules hvis satt, ellers fallback til parent, grandparent, then resource
+      const pricingRulesJson = part.pricingRules 
+        || part.parent?.pricingRules 
+        || part.parent?.parent?.pricingRules 
+        || part.resource.pricingRules
       
       if (pricingRulesJson) {
         try {
@@ -329,11 +358,21 @@ export async function getPricingConfig(
         }
       }
 
-      // Fallback til legacy format (konverter til nytt format)
-      const legacyModel = (part.pricingModel || part.resource.pricingModel || "FREE") as PricingModel
+      // Fallback til legacy format (konverter til nytt format) - check hierarchy
+      const legacyModel = (
+        part.pricingModel 
+        || part.parent?.pricingModel 
+        || part.parent?.parent?.pricingModel 
+        || part.resource.pricingModel 
+        || "FREE"
+      ) as PricingModel
       const legacyFreeForRoles = part.freeForRoles 
         ? JSON.parse(part.freeForRoles) 
-        : (part.resource.freeForRoles ? JSON.parse(part.resource.freeForRoles) : [])
+        : (part.parent?.freeForRoles 
+            ? JSON.parse(part.parent.freeForRoles) 
+            : (part.parent?.parent?.freeForRoles 
+                ? JSON.parse(part.parent.parent.freeForRoles) 
+                : (part.resource.freeForRoles ? JSON.parse(part.resource.freeForRoles) : [])))
       
       const rules: PricingRule[] = []
       
@@ -345,14 +384,31 @@ export async function getPricingConfig(
         })
       }
       
-      // Legg til standard regel for alle andre
+      // Legg til standard regel for alle andre - check hierarchy for prices
+      const pricePerHour = part.pricePerHour 
+        || part.parent?.pricePerHour 
+        || part.parent?.parent?.pricePerHour 
+        || part.resource.pricePerHour
+      const pricePerDay = part.pricePerDay 
+        || part.parent?.pricePerDay 
+        || part.parent?.parent?.pricePerDay 
+        || part.resource.pricePerDay
+      const fixedPrice = part.fixedPrice 
+        || part.parent?.fixedPrice 
+        || part.parent?.parent?.fixedPrice 
+        || part.resource.fixedPrice
+      const fixedPriceDuration = part.fixedPriceDuration 
+        ?? part.parent?.fixedPriceDuration 
+        ?? part.parent?.parent?.fixedPriceDuration 
+        ?? part.resource.fixedPriceDuration
+      
       rules.push({
         forRoles: [], // Tom array = standard for alle andre
         model: legacyModel,
-        pricePerHour: part.pricePerHour ? Number(part.pricePerHour) : (part.resource.pricePerHour ? Number(part.resource.pricePerHour) : null),
-        pricePerDay: part.pricePerDay ? Number(part.pricePerDay) : (part.resource.pricePerDay ? Number(part.resource.pricePerDay) : null),
-        fixedPrice: part.fixedPrice ? Number(part.fixedPrice) : (part.resource.fixedPrice ? Number(part.resource.fixedPrice) : null),
-        fixedPriceDuration: part.fixedPriceDuration ?? part.resource.fixedPriceDuration ?? null
+        pricePerHour: pricePerHour ? Number(pricePerHour) : null,
+        pricePerDay: pricePerDay ? Number(pricePerDay) : null,
+        fixedPrice: fixedPrice ? Number(fixedPrice) : null,
+        fixedPriceDuration: fixedPriceDuration ?? null
       })
       
       return { rules }

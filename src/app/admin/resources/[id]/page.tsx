@@ -1021,40 +1021,40 @@ export default function EditResourcePage({ params }: Props) {
                       Konfigurer prising for hver del. Hvis ingen prislogikk er satt for en del, brukes fasilitetens prislogikk.
                     </p>
                     
-                    {/* Sorter hierarkisk: hoveddeler først, deretter underdeler under hver hoveddel */}
+                    {/* Sorter hierarkisk: hoveddeler først, deretter underdeler rekursivt */}
                     {(() => {
-                      // Finn alle hoveddeler (uten parentId)
-                      const mainParts = parts.filter(p => !p.parentId)
-                      // Sorter hoveddeler alfabetisk
-                      const sortedMainParts = [...mainParts].sort((a, b) => a.name.localeCompare(b.name, 'no'))
-                      
-                      // Bygg sortert liste med hoveddeler og deres underdeler
-                      const sortedParts: Array<{ part: Part; partIndex: number; isSubPart: boolean }> = []
-                      for (const mainPart of sortedMainParts) {
-                        const mainPartIndex = parts.findIndex(p => (p.id && p.id === mainPart.id) || (p.tempId && p.tempId === mainPart.tempId))
-                        sortedParts.push({ part: mainPart, partIndex: mainPartIndex, isSubPart: false })
-                        
-                        // Finn underdeler for denne hoveddelen
-                        const subParts = parts.filter(p => {
-                          if (!p.parentId) return false
-                          return p.parentId === mainPart.id || p.parentId === mainPart.tempId
+                      // Rekursiv funksjon for å bygge hierarkisk liste med alle nivåer
+                      const buildHierarchy = (parentId: string | null, level: number): Array<{ part: Part; partIndex: number; level: number }> => {
+                        const children = parts.filter(p => {
+                          const pParentId = p.parentId || null
+                          if (parentId === null) return pParentId === null
+                          return pParentId === parentId
                         })
-                        // Sorter underdeler alfabetisk
-                        const sortedSubParts = [...subParts].sort((a, b) => a.name.localeCompare(b.name, 'no'))
-                        for (const subPart of sortedSubParts) {
-                          const subPartIndex = parts.findIndex(p => (p.id && p.id === subPart.id) || (p.tempId && p.tempId === subPart.tempId))
-                          sortedParts.push({ part: subPart, partIndex: subPartIndex, isSubPart: true })
+                        const sortedChildren = [...children].sort((a, b) => a.name.localeCompare(b.name, 'no'))
+                        
+                        const result: Array<{ part: Part; partIndex: number; level: number }> = []
+                        for (const child of sortedChildren) {
+                          const childIndex = parts.findIndex(p => (p.id && p.id === child.id) || (p.tempId && p.tempId === child.tempId))
+                          result.push({ part: child, partIndex: childIndex, level })
+                          // Rekursivt legg til barn av denne delen
+                          const childId = child.id || child.tempId || null
+                          if (childId) {
+                            result.push(...buildHierarchy(childId, level + 1))
+                          }
                         }
+                        return result
                       }
                       
-                      return sortedParts.map(({ part, partIndex, isSubPart }) => (
+                      const sortedParts = buildHierarchy(null, 0)
+                      
+                      return sortedParts.map(({ part, partIndex, level }) => (
                         <div 
                           key={part.id || part.tempId || partIndex} 
-                          className={`p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4 ${isSubPart ? 'ml-6 border-l-4 border-l-blue-300' : ''}`}
+                          className={`p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4 ${level > 0 ? 'border-l-4' : ''} ${level === 1 ? 'ml-6 border-l-blue-300' : ''} ${level === 2 ? 'ml-12 border-l-green-300' : ''} ${level >= 3 ? 'ml-16 border-l-purple-300' : ''}`}
                         >
                           <div className="border-b border-gray-200 pb-2">
                             <h4 className="font-medium text-gray-900">{part.name}</h4>
-                            <p className="text-xs text-gray-500">{isSubPart ? "Underdel" : "Hoveddel"}</p>
+                            <p className="text-xs text-gray-500">{level === 0 ? "Hoveddel" : level === 1 ? "Underdel" : `Nivå ${level + 1}`}</p>
                           </div>
                         
                           {/* Varighetspriser for denne delen */}
