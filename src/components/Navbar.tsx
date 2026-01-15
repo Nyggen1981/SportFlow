@@ -399,8 +399,8 @@ export function Navbar() {
 
                 <div className="pt-3 mt-3 border-t border-gray-200">
                   <div className="px-4 py-2">
-                    <p className="font-medium text-gray-900">{session.user?.name}</p>
-                    <p className="text-sm text-gray-500">{session.user?.email}</p>
+                    <p className="font-medium text-gray-900">{session?.user?.name}</p>
+                    <p className="text-sm text-gray-500">{session?.user?.email}</p>
                   </div>
                   <button
                     onClick={() => {
