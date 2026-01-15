@@ -117,7 +117,7 @@ export default async function ResourcesPage() {
             Fasiliteter
           </h1>
           <p className="text-sm sm:text-base text-gray-500">
-            Utforsk alle tilgjengelige fasiliteter og book din neste treningsøkt
+            Utforsk alle tilgjengelige fasiliteter og book det du trenger
           </p>
         </div>
 

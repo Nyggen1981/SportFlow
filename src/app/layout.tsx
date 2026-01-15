@@ -11,7 +11,7 @@ const outfit = Outfit({
 
 export const metadata: Metadata = {
   title: "SportFlow - Smartere Klubbdrift",
-  description: "Book treningsøkter, haller og fasiliteter for ditt idrettslag",
+  description: "Book haller, rom og fasiliteter enkelt og oversiktlig",
 };
 
 export default function RootLayout({
