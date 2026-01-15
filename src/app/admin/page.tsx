@@ -200,7 +200,7 @@ export default async function AdminPage() {
               {pricingEnabled && (
                 <Link 
                   href="/admin/invoices" 
-                  className="card p-4 hover:shadow-md transition-shadow group"
+                  className="card p-4 hover:shadow-md transition-shadow group h-full flex items-center"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
@@ -216,7 +216,7 @@ export default async function AdminPage() {
               {matchSetupEnabled && (
                 <Link 
                   href="/admin/match-setup" 
-                  className="card p-4 hover:shadow-md transition-shadow group"
+                  className="card p-4 hover:shadow-md transition-shadow group h-full flex items-center"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center group-hover:bg-orange-200 transition-colors">
@@ -232,7 +232,7 @@ export default async function AdminPage() {
               {assetRegisterEnabled && (
                 <Link 
                   href="/admin/anleggsregister" 
-                  className="card p-4 hover:shadow-md transition-shadow group"
+                  className="card p-4 hover:shadow-md transition-shadow group h-full flex items-center"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center group-hover:bg-teal-200 transition-colors">

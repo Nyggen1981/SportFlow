@@ -117,44 +117,33 @@ export function LicenseStatusCard() {
               </div>
             )}
 
-            {(() => {
-              // Bygg lisens-type streng med moduler
-              const typeParts: string[] = []
-              
-              // Bruk licenseTypeName hvis tilgjengelig, ellers formater licenseType
-              if (license.licenseTypeName) {
-                typeParts.push(license.licenseTypeName)
-              } else if (license.licenseType) {
-                typeParts.push(license.licenseType.charAt(0).toUpperCase() + license.licenseType.slice(1))
-              }
-              
-              // Legg til aktive moduler (unntatt booking som alltid er aktiv)
-              if (license.modules) {
-                const activeModules: string[] = []
-                if (license.modules.pricing) {
-                  activeModules.push("Betalingsmodul")
-                }
-                if (license.modules["match-setup"]) {
-                  activeModules.push("Kampoppsett")
-                }
-                if (license.modules["asset-register"]) {
-                  activeModules.push("Anleggsregister")
-                }
-                
-                if (activeModules.length > 0) {
-                  typeParts.push(...activeModules)
-                }
-              }
-              
-              if (typeParts.length > 0) {
-                return (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Type: {typeParts.join(" + ")}
-                  </p>
-                )
-              }
-              return null
-            })()}
+            {/* Lisens-type */}
+            {(license.licenseTypeName || license.licenseType) && (
+              <p className="text-xs text-gray-500 mt-1">
+                Type: <span className="font-medium text-gray-700">{license.licenseTypeName || (license.licenseType?.charAt(0).toUpperCase() + license.licenseType?.slice(1))}</span>
+              </p>
+            )}
+            
+            {/* Aktive moduler som badges */}
+            {license.modules && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {license.modules.pricing && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
+                    Betalingsmodul
+                  </span>
+                )}
+                {license.modules["match-setup"] && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700">
+                    Kampoppsett
+                  </span>
+                )}
+                {license.modules["asset-register"] && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
+                    Anleggsregister
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
