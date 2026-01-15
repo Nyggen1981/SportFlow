@@ -177,6 +177,36 @@ export default function BookResourcePage({ params }: Props) {
     }
   }, [resource, selectedParts, lockedPartIds])
 
+  const [contactName, setContactName] = useState("")
+  const [contactEmail, setContactEmail] = useState("")
+  const [contactPhone, setContactPhone] = useState("")
+  
+  // Set phone from session when available
+  useEffect(() => {
+    if (session?.user?.phone) {
+      setContactPhone(session.user.phone)
+    }
+  }, [session])
+  
+  // Recurring booking state
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [recurringType, setRecurringType] = useState<"weekly" | "biweekly" | "monthly">("weekly")
+  const [recurringEndDate, setRecurringEndDate] = useState("")
+  
+  // Pricing state (kun hvis pricing er aktivert)
+  const [pricingEnabled, setPricingEnabled] = useState(false)
+  const [calculatedPrice, setCalculatedPrice] = useState<{ price: number; isFree: boolean; reason?: string } | null>(null)
+  const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<"INVOICE" | "VIPPS" | "CARD" | null>("INVOICE")
+  
+  // Fixed price packages state
+  const [availablePackages, setAvailablePackages] = useState<FixedPricePackage[]>([])
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null)
+  const [usePackage, setUsePackage] = useState(false)
+  
+  // Pricing access state - tracks if user has hourly/daily pricing access
+  const [hasHourlyAccess, setHasHourlyAccess] = useState(false)
+  const [isPricingLoading, setIsPricingLoading] = useState(false)
+
   // Handle part selection with hierarchy rules
   // When pricing is enabled, only allow one part at a time
   const handlePartToggle = useCallback((partId: string) => {
@@ -223,35 +253,6 @@ export default function BookResourcePage({ params }: Props) {
       }
     })
   }, [resource, canSelectPart, pricingEnabled])
-  const [contactName, setContactName] = useState("")
-  const [contactEmail, setContactEmail] = useState("")
-  const [contactPhone, setContactPhone] = useState("")
-  
-  // Set phone from session when available
-  useEffect(() => {
-    if (session?.user?.phone) {
-      setContactPhone(session.user.phone)
-    }
-  }, [session])
-  
-  // Recurring booking state
-  const [isRecurring, setIsRecurring] = useState(false)
-  const [recurringType, setRecurringType] = useState<"weekly" | "biweekly" | "monthly">("weekly")
-  const [recurringEndDate, setRecurringEndDate] = useState("")
-  
-  // Pricing state (kun hvis pricing er aktivert)
-  const [pricingEnabled, setPricingEnabled] = useState(false)
-  const [calculatedPrice, setCalculatedPrice] = useState<{ price: number; isFree: boolean; reason?: string } | null>(null)
-  const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<"INVOICE" | "VIPPS" | "CARD" | null>("INVOICE")
-  
-  // Fixed price packages state
-  const [availablePackages, setAvailablePackages] = useState<FixedPricePackage[]>([])
-  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null)
-  const [usePackage, setUsePackage] = useState(false)
-  
-  // Pricing access state - tracks if user has hourly/daily pricing access
-  const [hasHourlyAccess, setHasHourlyAccess] = useState(false)
-  const [isPricingLoading, setIsPricingLoading] = useState(false)
 
   const fetchResource = useCallback(async () => {
     try {
