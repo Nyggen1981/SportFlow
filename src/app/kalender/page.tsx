@@ -1359,10 +1359,10 @@ export default function CalendarPage() {
                                       : isPending 
                                         ? `${resourceColor}20`
                                         : resourceColor,
-                                    borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
+                                    borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : '#6b7280'),
                                     color: isCompetition ? '#9a3412' : 'black',
-                                    border: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid rgba(0,0,0,0.6)',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                    border: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid #6b7280',
+                                    boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
                                     zIndex: 10,
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -1883,13 +1883,13 @@ export default function CalendarPage() {
                                   : isPending 
                                     ? `${resourceColor}20`
                                     : resourceColor,
-                                borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
+                                borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : '#6b7280'),
                                 color: isCompetition ? '#9a3412' : 'black',
-                                borderTop: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                borderBottom: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                borderLeft: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                borderRight: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                borderTop: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid #9ca3af' : '1px solid #6b7280',
+                                borderBottom: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid #9ca3af' : '1px solid #6b7280',
+                                borderLeft: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid #6b7280',
+                                borderRight: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid #6b7280',
+                                boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
                                 zIndex: 10,
                                 display: 'flex',
                                 flexDirection: 'column',
