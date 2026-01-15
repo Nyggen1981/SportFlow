@@ -137,6 +137,9 @@ export function LicenseStatusCard() {
                 if (license.modules["match-setup"]) {
                   activeModules.push("Kampoppsett")
                 }
+                if (license.modules["asset-register"]) {
+                  activeModules.push("Anleggsregister")
+                }
                 
                 if (activeModules.length > 0) {
                   typeParts.push(...activeModules)

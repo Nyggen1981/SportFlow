@@ -1468,6 +1468,9 @@ export default function AdminSettingsPage() {
                         if (licenseInfo.modules["match-setup"]) {
                           activeModules.push("Kampoppsett")
                         }
+                        if (licenseInfo.modules["asset-register"]) {
+                          activeModules.push("Anleggsregister")
+                        }
                         
                         if (activeModules.length > 0) {
                           typeParts.push(...activeModules)
