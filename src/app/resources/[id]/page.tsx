@@ -18,7 +18,6 @@ import { ResourceCalendar } from "@/components/ResourceCalendar"
 import { MapViewer } from "@/components/MapViewer"
 import { PartsList } from "@/components/PartsList"
 import { PricingInfoCardLoader } from "@/components/PricingInfoCardLoader"
-import { isPricingEnabled, hasPricingRulesForParts } from "@/lib/pricing"
 
 // Kort cache for at endringer vises raskt
 export const revalidate = 60 // 1 minutt
@@ -27,12 +26,9 @@ interface Props {
   params: Promise<{ id: string }>
 }
 
-// Fetch resource data directly without unstable_cache to avoid caching issues
+// Fetch resource data - alt tunge (pricing, bookings) hentes client-side for instant load
 async function getResource(id: string) {
   try {
-    const pricingEnabled = await isPricingEnabled()
-
-    // Bookings hentes nå client-side via ResourceCalendar for raskere initial load
     const resource = await prisma.resource.findUnique({
       where: { id },
       include: {
@@ -61,18 +57,7 @@ async function getResource(id: string) {
       }
     })
 
-    if (!resource) return null
-
-    // Hvis pricing er aktivert, filtrer ut deler uten prisregler
-    // OPTIMALISERT: Bruker batch-spørring i stedet for N+1 spørringer
-    if (pricingEnabled && resource.parts.length > 0) {
-      const partIds = resource.parts.map(p => p.id)
-      const partsWithPricingSet = await hasPricingRulesForParts(id, partIds)
-      resource.parts = resource.parts.filter(p => partsWithPricingSet.has(p.id))
-    }
-
-    // Bookings og konkurranser hentes nå client-side via ResourceCalendar
-    return { ...resource, pricingEnabled }
+    return resource
   } catch (error) {
     console.error("Error fetching resource:", error)
     return null
@@ -151,8 +136,7 @@ export default async function ResourcePage({ params }: Props) {
     sunday: "Søndag"
   }
 
-  // Pricing hentes nå client-side via PricingInfoCardLoader
-  const pricingEnabled = resource.pricingEnabled
+  // Pricing-sjekk og data hentes nå client-side via PricingInfoCardLoader
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -325,8 +309,17 @@ export default async function ResourcePage({ params }: Props) {
               </div>
             )}
 
-            {/* Price info - Kun for standardlisens (ikke betalingsmodul) */}
-            {!pricingEnabled && resource.visPrisInfo && resource.prisInfo && (
+            {/* Pricing Logic - hentes client-side for instant page load */}
+            {/* PricingInfoCardLoader viser ingenting hvis pricing ikke er aktivert */}
+            {resource.visPrislogikk && (
+              <PricingInfoCardLoader
+                resourceId={resource.id}
+                resourceName={resource.name}
+              />
+            )}
+            
+            {/* Legacy prisinfo tekst - vises hvis satt (for kunder uten betalingsmodul) */}
+            {resource.visPrisInfo && resource.prisInfo && (
               <div className="card p-6">
                 <h3 className="font-semibold text-gray-900 mb-4">
                   Prisinfo
@@ -335,14 +328,6 @@ export default async function ResourcePage({ params }: Props) {
                   {resource.prisInfo}
                 </div>
               </div>
-            )}
-
-            {/* Pricing Logic (hentes client-side for raskere page load) */}
-            {pricingEnabled && resource.visPrislogikk && (
-              <PricingInfoCardLoader
-                resourceId={resource.id}
-                resourceName={resource.name}
-              />
             )}
 
             {/* Parts - Mer informasjon */}
