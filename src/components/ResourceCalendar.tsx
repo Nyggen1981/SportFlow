@@ -306,8 +306,9 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
   }, [])
 
   // Scroll to bottom of week view on mount and when viewMode/date/part changes
+  // Also scroll when loading finishes (isLoadingBookings becomes false)
   useEffect(() => {
-    if (viewMode === "week" && weekViewScrollRef.current) {
+    if (viewMode === "week" && weekViewScrollRef.current && !isLoadingBookings) {
       // Small delay to ensure content is rendered
       setTimeout(() => {
         if (weekViewScrollRef.current) {
@@ -315,7 +316,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
         }
       }, 100)
     }
-  }, [viewMode, currentDate, selectedPart])
+  }, [viewMode, currentDate, selectedPart, isLoadingBookings])
 
   const handleBookingAction = useCallback(async (bookingId: string, action: "approve" | "reject" | "cancel", statusNote?: string) => {
     setIsProcessing(true)
