@@ -89,7 +89,7 @@ export function MapViewer({ mapImage, parts, onPartClick, selectedPartId, select
           className="absolute inset-0 w-full h-full"
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
-          style={{ pointerEvents: "none" }} // Disable pointer events on SVG, let labels handle clicks
+          style={{ pointerEvents: "none" }}
         >
           {partsWithCoords.map((part) => {
             const isSelected = selectedPartIds ? selectedPartIds.includes(part.id) : selectedPartId === part.id
@@ -131,7 +131,7 @@ export function MapViewer({ mapImage, parts, onPartClick, selectedPartId, select
             <div
               key={`label-${part.id}`}
               className={`absolute px-2 py-1 rounded text-xs font-bold text-white whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${
-                onPartClick && !isLocked ? "cursor-pointer hover:scale-105" : isLocked ? "cursor-not-allowed" : "pointer-events-none"
+                onPartClick && !isLocked ? "cursor-pointer hover:scale-105" : isLocked ? "cursor-not-allowed" : "cursor-default"
               } ${
                 isSelected ? "scale-110 shadow-lg ring-2 ring-white ring-offset-1" : ""
               } ${isHovered && !isSelected ? "scale-105 shadow-md" : ""}`}

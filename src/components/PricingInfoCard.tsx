@@ -118,14 +118,25 @@ export function PricingInfoCard({
 }: PricingInfoCardProps) {
   const [selectedPricing, setSelectedPricing] = useState<SelectedPricing | null>(null)
 
-  // Sort parts pricing hierarchically
-  const sortedPartsPricing = [...partsPricing].sort((a, b) => {
-    if (a.parentId === null && b.parentId !== null) return -1
-    if (a.parentId !== null && b.parentId === null) return 1
-    if (a.parentId === b.partId) return 1
-    if (b.parentId === a.partId) return -1
-    return a.partName.localeCompare(b.partName, 'no')
-  })
+  // Build hierarchical list with correct order and levels
+  const buildHierarchy = (parts: PartPricing[]): Array<PartPricing & { level: number }> => {
+    const result: Array<PartPricing & { level: number }> = []
+    
+    const addChildren = (parentId: string | null, level: number) => {
+      const children = parts.filter(p => p.parentId === parentId)
+      const sorted = [...children].sort((a, b) => a.partName.localeCompare(b.partName, 'no'))
+      
+      for (const child of sorted) {
+        result.push({ ...child, level })
+        addChildren(child.partId, level + 1)
+      }
+    }
+    
+    addChildren(null, 0)
+    return result
+  }
+  
+  const sortedPartsPricing = buildHierarchy(partsPricing)
 
   // Beregn besparelser
   const calculateSavings = (userRule: PricingRule, memRule: PricingRule | null): { savings: number; memberPrice: number } | null => {
@@ -186,27 +197,28 @@ export function PricingInfoCard({
         {/* Deler */}
         {sortedPartsPricing.length > 0 && (
           <div className="space-y-2">
-            {sortedPartsPricing.map(({ partId, partName, parentId, rule, fixedPackages, memberRule: partMemberRule }) => {
-              const isChildPart = !!parentId
+            {sortedPartsPricing.map(({ partId, partName, rule, fixedPackages, memberRule: partMemberRule, level }) => {
+              // Calculate indentation based on level (0=none, 1=ml-4, 2=ml-8, etc.)
+              const marginLeft = level * 16 // 16px per level
+              const isSubPart = level > 0
               
               return (
                 <div 
                   key={partId} 
-                  className={`p-3 rounded-lg border bg-gray-50 border-gray-200 ${
-                    isChildPart ? 'ml-4' : ''
-                  }`}
+                  className="p-3 rounded-lg border bg-gray-50 border-gray-200"
+                  style={{ marginLeft: `${marginLeft}px` }}
                 >
                   {rule ? (
                     <button
                       onClick={() => setSelectedPricing({ name: partName, rule, memberRule: partMemberRule })}
-                      className={`w-full flex items-center justify-between text-sm font-medium ${isChildPart ? 'text-gray-700' : 'text-gray-900'} hover:text-blue-700 transition-colors cursor-pointer`}
+                      className={`w-full flex items-center justify-between text-sm font-medium ${isSubPart ? 'text-gray-700' : 'text-gray-900'} hover:text-blue-700 transition-colors cursor-pointer`}
                       title="Klikk for mer info"
                     >
                       <span>{partName}</span>
                       <span className="text-blue-700 hover:underline">{getPricingDescription(rule)}</span>
                     </button>
                   ) : (
-                    <span className={`text-sm font-medium ${isChildPart ? 'text-gray-700' : 'text-gray-900'}`}>
+                    <span className={`text-sm font-medium ${isSubPart ? 'text-gray-700' : 'text-gray-900'}`}>
                       {partName}
                     </span>
                   )}
