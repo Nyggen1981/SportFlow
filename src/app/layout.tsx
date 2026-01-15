@@ -12,6 +12,22 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "SportFlow - Smartere Klubbdrift",
   description: "Book haller, rom og fasiliteter enkelt og oversiktlig",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "SportFlow",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  themeColor: "#0d9488",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
 };
 
 export default function RootLayout({
@@ -21,6 +37,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="no" suppressHydrationWarning>
+      <head>
+        <link rel="apple-touch-icon" href="/kvadratisk-logo.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+      </head>
       <body className={`${outfit.variable} font-sans antialiased`} suppressHydrationWarning>
         <Providers>
           {children}

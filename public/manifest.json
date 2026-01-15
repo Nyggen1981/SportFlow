@@ -1,0 +1,28 @@
+{
+  "name": "SportFlow",
+  "short_name": "SportFlow",
+  "description": "Smartere Klubbdrift - Book haller, rom og fasiliteter enkelt og oversiktlig",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0d9488",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/kvadratisk-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/kvadratisk-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["sports", "productivity", "utilities"],
+  "lang": "no",
+  "dir": "ltr"
+}
+
