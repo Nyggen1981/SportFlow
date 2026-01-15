@@ -4,8 +4,10 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { getBookingApprovedEmail } from "@/lib/email"
 import { getInvoiceEmailPreview, getVippsPaymentEmailPreview } from "@/lib/email-preview"
-import { format } from "date-fns"
 import { nb } from "date-fns/locale"
+import { formatInTimeZone } from "date-fns-tz"
+
+const TIMEZONE = "Europe/Oslo"
 import { isPricingEnabled } from "@/lib/pricing"
 import { createInvoiceForBooking } from "@/lib/invoice"
 
@@ -64,8 +66,8 @@ export async function GET(
 
   if (!hasCost) {
     // Ingen kostnad - returner standard godkjenningsmail
-    const date = format(new Date(booking.startTime), "EEEE d. MMMM yyyy", { locale: nb })
-    const time = `${format(new Date(booking.startTime), "HH:mm")} - ${format(new Date(booking.endTime), "HH:mm")}`
+    const date = formatInTimeZone(new Date(booking.startTime), TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb })
+    const time = `${formatInTimeZone(new Date(booking.startTime), TIMEZONE, "HH:mm")} - ${formatInTimeZone(new Date(booking.endTime), TIMEZONE, "HH:mm")}`
     const resourceName = booking.resourcePart 
       ? `${booking.resource.name} → ${booking.resourcePart.name}`
       : booking.resource.name
@@ -89,8 +91,8 @@ export async function GET(
 
   // Booking har kostnad - hent preview basert på betalingsmetode
   const method = booking.preferredPaymentMethod || "INVOICE"
-  const date = format(new Date(booking.startTime), "EEEE d. MMMM yyyy", { locale: nb })
-  const time = `${format(new Date(booking.startTime), "HH:mm")} - ${format(new Date(booking.endTime), "HH:mm")}`
+  const date = formatInTimeZone(new Date(booking.startTime), TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb })
+  const time = `${formatInTimeZone(new Date(booking.startTime), TIMEZONE, "HH:mm")} - ${formatInTimeZone(new Date(booking.endTime), TIMEZONE, "HH:mm")}`
   const resourceName = booking.resourcePart 
     ? `${booking.resource.name} → ${booking.resourcePart.name}`
     : booking.resource.name

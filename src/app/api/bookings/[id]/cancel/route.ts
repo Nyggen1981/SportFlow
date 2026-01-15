@@ -3,8 +3,10 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { sendEmail, getBookingCancelledByAdminEmail, getBookingCancelledByUserEmail } from "@/lib/email"
-import { format } from "date-fns"
 import { nb } from "date-fns/locale"
+import { formatInTimeZone } from "date-fns-tz"
+
+const TIMEZONE = "Europe/Oslo"
 
 export async function POST(
   request: Request,
@@ -62,8 +64,8 @@ export async function POST(
     })
 
     // Format date and time for email
-    const date = format(new Date(booking.startTime), "EEEE d. MMMM yyyy", { locale: nb })
-    const time = `${format(new Date(booking.startTime), "HH:mm")} - ${format(new Date(booking.endTime), "HH:mm")}`
+    const date = formatInTimeZone(new Date(booking.startTime), TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb })
+    const time = `${formatInTimeZone(new Date(booking.startTime), TIMEZONE, "HH:mm")} - ${formatInTimeZone(new Date(booking.endTime), TIMEZONE, "HH:mm")}`
     const resourceName = booking.resourcePart 
       ? `${booking.resource.name} → ${booking.resourcePart.name}`
       : booking.resource.name

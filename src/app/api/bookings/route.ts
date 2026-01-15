@@ -2,9 +2,12 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { addWeeks, addMonths, format } from "date-fns"
+import { addWeeks, addMonths } from "date-fns"
 import { nb } from "date-fns/locale"
+import { formatInTimeZone } from "date-fns-tz"
 import { sendEmail, getNewBookingRequestEmail } from "@/lib/email"
+
+const TIMEZONE = "Europe/Oslo"
 import { validateLicense } from "@/lib/license"
 import { calculateBookingPrice } from "@/lib/pricing"
 
@@ -521,8 +524,8 @@ export async function POST(request: Request) {
           
           const allRecipients = [...new Set([...adminEmails, ...moderatorEmails])]
 
-          const date = format(new Date(firstBooking.startTime), "EEEE d. MMMM yyyy", { locale: nb })
-          const time = `${format(new Date(firstBooking.startTime), "HH:mm")} - ${format(new Date(firstBooking.endTime), "HH:mm")}`
+          const date = formatInTimeZone(new Date(firstBooking.startTime), TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb })
+          const time = `${formatInTimeZone(new Date(firstBooking.startTime), TIMEZONE, "HH:mm")} - ${formatInTimeZone(new Date(firstBooking.endTime), TIMEZONE, "HH:mm")}`
           
           let resourceName = resource.name
           if (resourcePartId) {
