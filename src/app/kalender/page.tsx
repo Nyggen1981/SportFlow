@@ -1448,12 +1448,13 @@ export default function CalendarPage() {
               </div>
             </div>
           ) : viewMode === "month" ? (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-[calc(100vh-300px)] flex flex-col">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-[calc(100vh-180px)] sm:h-[calc(100vh-300px)] flex flex-col">
               {/* Calendar Header */}
               <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200 flex-shrink-0">
-                {["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"].map((day) => (
-                  <div key={day} className="p-3 text-center text-sm font-medium text-gray-500">
-                    {day}
+                {["Ma", "Ti", "On", "To", "Fr", "Lø", "Sø"].map((day, i) => (
+                  <div key={day} className="p-1 sm:p-3 text-center text-[10px] sm:text-sm font-medium text-gray-500">
+                    <span className="sm:hidden">{day}</span>
+                    <span className="hidden sm:inline">{["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"][i]}</span>
                   </div>
                 ))}
               </div>
@@ -1470,14 +1471,14 @@ export default function CalendarPage() {
                   return (
                     <div 
                       key={day.toISOString()} 
-                      className={`p-2 border-b border-r border-gray-100 min-h-0 ${
+                      className={`p-0.5 sm:p-2 border-b border-r border-gray-100 min-h-0 ${
                         index % 7 === 0 ? 'border-l-0' : ''
                       } ${!isCurrentMonth ? 'bg-gray-50/50' : ''} ${
                         isToday(day) ? 'bg-blue-50' : ''
                       }`}
                       style={{ display: "flex", flexDirection: "column" }}
                     >
-                      <p className={`text-sm font-medium mb-1 flex-shrink-0 ${
+                      <p className={`text-[10px] sm:text-sm font-medium mb-0.5 sm:mb-1 flex-shrink-0 ${
                         isToday(day) 
                           ? 'text-blue-600' 
                           : isCurrentMonth 
@@ -1486,7 +1487,7 @@ export default function CalendarPage() {
                       }`}>
                         {format(day, "d")}
                       </p>
-                      <div className="space-y-1 flex-1 overflow-y-auto min-h-0">
+                      <div className="space-y-0.5 sm:space-y-1 flex-1 overflow-y-auto min-h-0">
                         {dayBookings.map((booking) => {
                           const isPending = booking.status === "pending"
                           const isCompetition = booking.status === "competition"
@@ -1496,7 +1497,7 @@ export default function CalendarPage() {
                             <div
                               key={booking.id}
                               onClick={() => !isCompetition && setSelectedBooking(booking)}
-                              className={`px-1.5 py-0.5 rounded text-xs transition-opacity flex-shrink-0 flex flex-col ${
+                              className={`px-0.5 sm:px-1.5 py-0.5 rounded text-[8px] sm:text-xs transition-opacity flex-shrink-0 flex flex-col ${
                                 isPending 
                                   ? "bg-green-50 text-green-700 border border-dashed border-green-400 cursor-pointer hover:opacity-90" 
                                   : isCompetition
