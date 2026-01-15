@@ -254,42 +254,14 @@ export default async function ResourcePage({ params }: Props) {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Book button */}
-            {(() => {
-              // Sjekk om brukeren kan booke denne fasiliteten
-              // Hvis pricing ikke er aktivert, kan alle booke
-              // Hvis pricing er aktivert, må brukeren ha en prisregel eller fastprispakke
-              const canBookWholeResource = resource.allowWholeBooking && (relevantRule?.rule || resourceFixedPackages.length > 0)
-              const canBookParts = partsPricing.length > 0
-              const canBook = !pricingEnabled || canBookWholeResource || canBookParts
-              
-              if (canBook) {
-                return (
-                  <Link
-                    href={`/resources/${resource.id}/book`}
-                    className="btn btn-primary w-full py-4 text-lg"
-                  >
-                    <Calendar className="w-5 h-5" />
-                    Book nå
-                  </Link>
-                )
-              } else {
-                return (
-                  <div className="space-y-2">
-                    <button
-                      disabled
-                      className="btn btn-primary w-full py-4 text-lg opacity-50 cursor-not-allowed"
-                    >
-                      <Calendar className="w-5 h-5" />
-                      Book nå
-                    </button>
-                    <p className="text-sm text-center text-amber-600 bg-amber-50 p-3 rounded-lg">
-                      Din brukerrolle har ikke tilgang til å booke denne fasiliteten. Kontakt administrator for mer informasjon.
-                    </p>
-                  </div>
-                )
-              }
-            })()}
+            {/* Book button - tilgangssjekk gjøres på booking-siden */}
+            <Link
+              href={`/resources/${resource.id}/book`}
+              className="btn btn-primary w-full py-4 text-lg"
+            >
+              <Calendar className="w-5 h-5" />
+              Book nå
+            </Link>
 
             {/* Quick info - Vises kun hvis minst én innstilling er aktiv */}
             {((resource.minBookingMinutes !== 0 && resource.minBookingMinutes !== null) || 
