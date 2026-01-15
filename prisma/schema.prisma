@@ -50,6 +50,7 @@ model Organization {
   payments  Payment[]
   customRoles CustomRole[] // Egendefinerte roller
   competitions Competition[] // Kampoppsett-modul
+  assets       Asset[]       // Anleggsregister-modul
   
   // Vipps API settings
   vippsClientId     String?  // Vipps API client ID
@@ -134,6 +135,12 @@ model User {
   approvedBookings  Booking[] @relation("ApprovedBy")
   preferences       UserPreferences?
   moderatedResources ResourceModerator[]
+  
+  // Anleggsregister relasjoner
+  createdAssets     Asset[]           @relation("AssetCreatedBy")
+  uploadedDocuments AssetDocument[]
+  assignedTasks     MaintenanceTask[]
+  performedMaintenance MaintenanceLog[]
 
   @@index([organizationId, isApproved])
   @@index([emailVerified])
@@ -242,6 +249,7 @@ model Resource {
   moderators ResourceModerator[]
   fixedPricePackages FixedPricePackage[]
   competitions Competition[]  // Konkurranser knyttet til denne fasiliteten
+  assets       Asset[]        // Anlegg/eiendeler knyttet til denne fasiliteten
 
   // Indexes for faster queries
   @@index([organizationId, isActive])
@@ -770,4 +778,255 @@ enum MatchStatus {
   COMPLETED   // Ferdig
   POSTPONED   // Utsatt
   CANCELLED   // Avlyst
+}
+
+// ============================================
+// ANLEGGSREGISTER (Asset Register)
+// ============================================
+
+// Anlegg/Eiendel - kan være bygninger, utstyr, maskiner osv.
+model Asset {
+  id              String   @id @default(cuid())
+  name            String   // F.eks. "Kunstgressbane 1", "Klubbhus", "Gressklipper"
+  description     String?  // Beskrivelse
+  
+  // Kategorisering
+  category        AssetCategory @default(OTHER)
+  customCategory  String?  // Egendefinert kategori
+  
+  // Lokasjon og identifikasjon
+  location        String?  // F.eks. "Hovedanlegg", "Treningsfelt nord"
+  serialNumber    String?  // Serienummer for utstyr
+  manufacturer    String?  // Produsent
+  model           String?  // Modell
+  
+  // Anskaffelse
+  purchaseDate    DateTime?
+  purchasePrice   Decimal? @db.Decimal(10, 2)
+  supplier        String?  // Leverandør
+  warrantyExpires DateTime?
+  
+  // Verdi og avskrivning
+  currentValue    Decimal? @db.Decimal(10, 2)
+  expectedLifeYears Int?   // Forventet levetid i år
+  
+  // Status
+  status          AssetStatus @default(ACTIVE)
+  condition       AssetCondition @default(GOOD)
+  notes           String?
+  
+  // Bilder
+  images          String[] // Array med bilde-URLer
+  
+  // Dokumenter (forsikring, bruksanvisning, etc.)
+  documents       AssetDocument[]
+  
+  // Vedlikeholdsoppgaver
+  maintenanceTasks MaintenanceTask[]
+  maintenanceLogs  MaintenanceLog[]
+  
+  // Kobling til organisasjon
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Kobling til fasilitet (valgfritt - hvis anlegget er knyttet til en bookbar ressurs)
+  resourceId      String?
+  resource        Resource? @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdById     String?
+  createdBy       User?    @relation("AssetCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  
+  @@index([organizationId])
+  @@index([category])
+  @@index([status])
+  @@index([resourceId])
+}
+
+// Kategorier for anlegg/eiendeler
+enum AssetCategory {
+  BUILDING        // Bygning (klubbhus, garderobe, etc.)
+  FIELD           // Bane (fotballbane, løpebane, etc.)
+  EQUIPMENT       // Utstyr (mål, nett, etc.)
+  MACHINERY       // Maskiner (gressklipper, snøfreser, etc.)
+  VEHICLE         // Kjøretøy
+  FURNITURE       // Møbler og inventar
+  ELECTRONICS     // Elektronikk (lyd, lys, etc.)
+  OTHER           // Annet
+}
+
+// Status for anlegg
+enum AssetStatus {
+  ACTIVE          // I bruk
+  INACTIVE        // Ikke i bruk
+  UNDER_REPAIR    // Under reparasjon
+  DISPOSED        // Avhendet/solgt
+  PLANNED         // Planlagt anskaffelse
+}
+
+// Tilstand
+enum AssetCondition {
+  EXCELLENT       // Utmerket
+  GOOD            // God
+  FAIR            // Brukbar
+  POOR            // Dårlig
+  CRITICAL        // Kritisk (trenger umiddelbar oppmerksomhet)
+}
+
+// Dokumenter knyttet til anlegg
+model AssetDocument {
+  id          String   @id @default(cuid())
+  name        String   // F.eks. "Forsikringspolise", "Bruksanvisning"
+  type        DocumentType @default(OTHER)
+  url         String   // Fil-URL
+  fileSize    Int?     // Filstørrelse i bytes
+  
+  assetId     String
+  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  
+  uploadedAt  DateTime @default(now())
+  uploadedById String?
+  uploadedBy  User?    @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  
+  @@index([assetId])
+}
+
+enum DocumentType {
+  INSURANCE       // Forsikring
+  WARRANTY        // Garanti
+  MANUAL          // Bruksanvisning
+  CERTIFICATE     // Sertifikat/godkjenning
+  INVOICE         // Faktura
+  CONTRACT        // Kontrakt
+  OTHER           // Annet
+}
+
+// Vedlikeholdsoppgave (planlagt/gjentakende)
+model MaintenanceTask {
+  id              String   @id @default(cuid())
+  title           String   // F.eks. "Årlig service gressklipper"
+  description     String?
+  
+  // Type og prioritet
+  type            MaintenanceType @default(PREVENTIVE)
+  priority        MaintenancePriority @default(MEDIUM)
+  
+  // Frekvens (for gjentakende oppgaver)
+  isRecurring     Boolean  @default(false)
+  frequency       MaintenanceFrequency?
+  customIntervalDays Int?  // For egendefinert intervall
+  
+  // Planlagt tidspunkt
+  nextDueDate     DateTime?
+  lastCompletedAt DateTime?
+  
+  // Estimater
+  estimatedDurationMinutes Int?
+  estimatedCost   Decimal? @db.Decimal(10, 2)
+  
+  // Ansvarlig
+  assignedToId    String?
+  assignedTo      User?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  
+  // Ekstern leverandør
+  externalVendor  String?
+  vendorContact   String?
+  
+  // Status
+  status          TaskStatus @default(PENDING)
+  
+  // Kobling til anlegg
+  assetId         String
+  asset           Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  
+  // Logg over utførte vedlikehold
+  logs            MaintenanceLog[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([assetId])
+  @@index([nextDueDate])
+  @@index([status])
+  @@index([assignedToId])
+}
+
+enum MaintenanceType {
+  PREVENTIVE      // Forebyggende vedlikehold
+  CORRECTIVE      // Korrigerende (reparasjon)
+  INSPECTION      // Inspeksjon/kontroll
+  CLEANING        // Rengjøring
+  SEASONAL        // Sesongvedlikehold
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MaintenanceFrequency {
+  DAILY           // Daglig
+  WEEKLY          // Ukentlig
+  BIWEEKLY        // Annenhver uke
+  MONTHLY         // Månedlig
+  QUARTERLY       // Kvartalsvis
+  BIANNUAL        // Halvårlig
+  ANNUAL          // Årlig
+  CUSTOM          // Egendefinert
+}
+
+enum TaskStatus {
+  PENDING         // Venter
+  IN_PROGRESS     // Pågår
+  COMPLETED       // Fullført
+  OVERDUE         // Forfalt
+  CANCELLED       // Kansellert
+  SKIPPED         // Hoppet over
+}
+
+// Vedlikeholdslogg (utført vedlikehold)
+model MaintenanceLog {
+  id              String   @id @default(cuid())
+  
+  // Hva ble gjort
+  title           String
+  description     String?
+  workPerformed   String?  // Detaljer om arbeidet
+  
+  // Når
+  completedAt     DateTime @default(now())
+  durationMinutes Int?
+  
+  // Hvem
+  performedById   String?
+  performedBy     User?    @relation(fields: [performedById], references: [id], onDelete: SetNull)
+  externalVendor  String?  // Hvis utført av ekstern
+  
+  // Kostnad
+  laborCost       Decimal? @db.Decimal(10, 2)
+  partsCost       Decimal? @db.Decimal(10, 2)
+  totalCost       Decimal? @db.Decimal(10, 2)
+  
+  // Kvitteringer/dokumentasjon
+  receiptUrl      String?
+  notes           String?
+  
+  // Tilstand etter vedlikehold
+  conditionAfter  AssetCondition?
+  
+  // Koblinger
+  assetId         String
+  asset           Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  
+  taskId          String?  // Hvis knyttet til en planlagt oppgave
+  task            MaintenanceTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([assetId])
+  @@index([taskId])
+  @@index([completedAt])
 }
