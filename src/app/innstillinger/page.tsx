@@ -542,12 +542,31 @@ export default function InnstillingerPage() {
             <p className="text-sm text-gray-600 mb-2">
               For mer informasjon om hvordan vi behandler dine personopplysninger:
             </p>
-            <Link 
-              href="/personvern" 
-              className="text-sm text-blue-600 hover:text-blue-700 underline"
-            >
-              Les personvernpolicyn →
-            </Link>
+            <div className="flex flex-wrap gap-4">
+              <Link 
+                href="/personvern" 
+                className="text-sm text-blue-600 hover:text-blue-700 underline"
+              >
+                Personvernpolicy
+              </Link>
+              <Link 
+                href="/salgsvilkaar" 
+                className="text-sm text-blue-600 hover:text-blue-700 underline"
+              >
+                Salgsvilkår
+              </Link>
+            </div>
+          </div>
+
+          {/* App Info - visible on mobile since footer is hidden */}
+          <div className="mt-6 pt-4 border-t border-gray-100 md:hidden">
+            <div className="flex items-center justify-between text-xs text-gray-400">
+              <span>SportFlow - Smartere klubbdrift</span>
+              <span>v{require("../../../package.json").version}</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">
+              © {new Date().getFullYear()} SportFlow
+            </p>
           </div>
         </div>
       </div>

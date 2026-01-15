@@ -27,22 +27,22 @@ export function Footer() {
   }, [])
 
   return (
-    <footer className="bg-slate-900 text-white mt-auto">
+    <footer className="bg-slate-900 text-white mt-auto hidden md:block">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
         <div className="flex flex-col sm:flex-row items-end justify-between gap-4 relative">
           {/* SportFlow Brand - Left */}
-          <div className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-xl bg-slate-900 flex items-center justify-center">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl bg-slate-900 flex items-center justify-center">
               <Image 
                 src="/kvadratisk-logo.png" 
                 alt="SF Logo" 
                 width={56} 
                 height={56} 
-                className="object-contain"
+                className="object-contain w-10 h-10 md:w-14 md:h-14"
               />
             </div>
             <div>
-              <h3 className="font-bold text-base">SportFlow</h3>
+              <h3 className="font-bold text-sm md:text-base">SportFlow</h3>
               <p className="text-slate-400 text-xs">Smartere klubbdrift</p>
             </div>
           </div>

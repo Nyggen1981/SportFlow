@@ -145,31 +145,31 @@ export function Navbar() {
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between h-14 md:h-16">
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-2 md:gap-3">
               {orgLogo ? (
                 <Image
                   src={orgLogo}
                   alt={orgName}
                   width={40}
                   height={40}
-                  className="rounded-lg"
+                  className="rounded-lg w-8 h-8 md:w-10 md:h-10"
                 />
               ) : (
                 <div 
-                  className="w-10 h-10 rounded-lg flex items-center justify-center"
+                  className="w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center"
                   style={{ backgroundColor: orgColor }}
                 >
-                  <Calendar className="w-6 h-6 text-white" />
+                  <Calendar className="w-5 h-5 md:w-6 md:h-6 text-white" />
                 </div>
               )}
               <div>
-                <span className="font-bold text-gray-900 block">
+                <span className="font-bold text-gray-900 block text-sm md:text-base">
                   {orgName}
                 </span>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-500 hidden sm:block">
                   {orgTagline}
                 </span>
               </div>
@@ -294,20 +294,31 @@ export function Navbar() {
             )}
           </div>
 
-          {/* Mobile menu button */}
+          {/* Mobile: Show user avatar/login only, navigation is in bottom bar */}
           <div className="md:hidden flex items-center">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
+            {session ? (
+              <Link 
+                href="/innstillinger" 
+                className="flex items-center gap-2 px-2 py-1 rounded-lg text-gray-600 hover:bg-gray-100"
+              >
+                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
+                  <User className="w-4 h-4 text-teal-600" />
+                </div>
+              </Link>
+            ) : (
+              <Link 
+                href="/login" 
+                className="px-3 py-1.5 bg-teal-600 text-white text-sm font-medium rounded-lg"
+              >
+                Logg inn
+              </Link>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Mobile menu */}
-      {mobileMenuOpen && (
+      {/* Mobile menu - HIDDEN since we use bottom navigation bar now */}
+      {false && mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-200 bg-white animate-fadeIn">
           <div className="px-4 py-3 space-y-1">
             {session ? (
