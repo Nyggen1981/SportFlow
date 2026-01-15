@@ -67,12 +67,18 @@ export async function GET(request: NextRequest) {
     const userPrice = rule.pricePerHour ?? rule.memberPricePerHour ?? rule.nonMemberPricePerHour ?? 0
     const memberPrice = memberRule?.pricePerHour ?? memberRule?.memberPricePerHour ?? null
     const isNonMember = rule.forRoles.includes("user") && !rule.forRoles.includes("member")
+    
+    // Check if prices are actually set (not just model type)
+    const hasActualHourlyPrice = (rule.pricePerHour ?? rule.memberPricePerHour ?? rule.nonMemberPricePerHour) != null
+    const hasActualDailyPrice = (rule.pricePerDay ?? rule.memberPricePerDay ?? rule.nonMemberPricePerDay) != null
+    const hasActualFixedPrice = (rule.fixedPrice ?? rule.memberFixedPrice ?? rule.nonMemberFixedPrice) != null
 
     return NextResponse.json({
       enabled: true,
-      hasHourlyAccess: rule.model === "HOURLY" || rule.model === "FREE",
-      hasDailyAccess: rule.model === "DAILY" || rule.model === "FREE",
-      hasFixedDurationAccess: rule.model === "FIXED_DURATION" || rule.model === "FREE",
+      // Only grant access if FREE or if the model matches AND has actual price set
+      hasHourlyAccess: rule.model === "FREE" || (rule.model === "HOURLY" && hasActualHourlyPrice),
+      hasDailyAccess: rule.model === "FREE" || (rule.model === "DAILY" && hasActualDailyPrice),
+      hasFixedDurationAccess: rule.model === "FREE" || (rule.model === "FIXED_DURATION" && hasActualFixedPrice),
       isFree: rule.model === "FREE",
       isNonMember,
       rule: {

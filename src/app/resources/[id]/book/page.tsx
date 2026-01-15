@@ -701,9 +701,13 @@ export default function BookResourcePage({ params }: Props) {
                           </div>
                           {/* Member savings info for non-members */}
                           {isNonMember && memberPricePerHour && currentPricePerHour && (
-                            <div className="mt-2 flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                              <span>💡</span>
-                              <span>Som medlem: {memberPricePerHour} kr/time (spar {currentPricePerHour - memberPricePerHour} kr/time)</span>
+                            <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                              <p className="text-sm text-green-700 font-medium">
+                                Som medlem betaler du kun {memberPricePerHour} kr/time
+                              </p>
+                              <p className="text-xs text-green-600">
+                                Spar {currentPricePerHour - memberPricePerHour} kr/time ved å bli medlem!
+                              </p>
                             </div>
                           )}
                         </div>
@@ -736,9 +740,13 @@ export default function BookResourcePage({ params }: Props) {
                           </div>
                           {/* Member savings info for non-members */}
                           {pkg.memberPrice && (
-                            <div className="mt-2 flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                              <span>💡</span>
-                              <span>Som medlem: {pkg.memberPrice.toFixed(0)} kr (spar {(pkg.price - pkg.memberPrice).toFixed(0)} kr)</span>
+                            <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                              <p className="text-sm text-green-700 font-medium">
+                                Som medlem betaler du kun {pkg.memberPrice.toFixed(0)} kr
+                              </p>
+                              <p className="text-xs text-green-600">
+                                Spar {(pkg.price - pkg.memberPrice).toFixed(0)} kr ved å bli medlem!
+                              </p>
                             </div>
                           )}
                         </div>
