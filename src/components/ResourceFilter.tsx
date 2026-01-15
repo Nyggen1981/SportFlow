@@ -175,13 +175,13 @@ export function ResourceFilter({ categories, resources }: Props) {
                     {/* Booking info */}
                     <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                       <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          {resource.minBookingMinutes !== null && resource.maxBookingMinutes !== null &&
-                           resource.minBookingMinutes !== 0 && resource.maxBookingMinutes !== 9999
-                            ? `${resource.minBookingMinutes}-${resource.maxBookingMinutes} min`
-                            : 'Ubegrenset'}
-                        </span>
+                        {resource.minBookingMinutes !== null && resource.maxBookingMinutes !== null &&
+                         resource.minBookingMinutes !== 0 && resource.maxBookingMinutes !== 9999 && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            {resource.minBookingMinutes}-{resource.maxBookingMinutes} min
+                          </span>
+                        )}
                         {resource.requiresApproval && (
                           <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">
                             Krever godkjenning
