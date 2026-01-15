@@ -17,11 +17,8 @@ import {
 import { ResourceCalendar } from "@/components/ResourceCalendar"
 import { MapViewer } from "@/components/MapViewer"
 import { PartsList } from "@/components/PartsList"
-import { PricingInfoCard } from "@/components/PricingInfoCard"
-import { getPricingConfig, isPricingEnabled, findPricingRuleForUser, hasPricingRulesForParts } from "@/lib/pricing"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { getUserRoleInfo } from "@/lib/roles"
+import { PricingInfoCardLoader } from "@/components/PricingInfoCardLoader"
+import { isPricingEnabled, hasPricingRulesForParts } from "@/lib/pricing"
 
 // Kort cache for at endringer vises raskt
 export const revalidate = 60 // 1 minutt
@@ -125,11 +122,8 @@ function sortPartsHierarchically(parts: Array<{ id: string; name: string; descri
 export default async function ResourcePage({ params }: Props) {
   const { id } = await params
   
-  // Parallelliser session og resource-henting for bedre ytelse
-  const [session, resource] = await Promise.all([
-    getServerSession(authOptions),
-    getResource(id)
-  ])
+  // Hent resource data - pricing og bookings hentes client-side for raskere load
+  const resource = await getResource(id)
 
   if (!resource) {
     notFound()
@@ -157,243 +151,8 @@ export default async function ResourcePage({ params }: Props) {
     sunday: "Søndag"
   }
 
-  // Hent prislogikk-konfigurasjon (kun hvis aktivert)
-  // Gjenbruker pricingEnabled fra getResource() for å unngå ekstra lisenssjekk
+  // Pricing hentes nå client-side via PricingInfoCardLoader
   const pricingEnabled = resource.pricingEnabled
-  const pricingConfig = pricingEnabled ? await getPricingConfig(id, null) : null
-  
-  
-  // Finn relevant prisregel for den innloggede brukeren (kun hvis allowWholeBooking er true)
-  let relevantRule: { rule: any; reason?: string } | null = null
-  let customRoles: Array<{ id: string; name: string }> = []
-  let partsPricing: Array<{ partId: string; partName: string; parentId: string | null; rule: any; reason?: string; fixedPackages?: Array<{ id: string; name: string; durationMinutes: number; price: number; memberPrice?: number | null }>; memberRule?: any }> = []
-  let resourceFixedPackages: Array<{ id: string; name: string; durationMinutes: number; price: number; memberPrice?: number | null }> = []
-  let isNonMember = false // Flagg for å vise medlemsbesparelser
-  let memberRule: any = null // Medlemsprisregel for sammenligning (hele fasilitet)
-  
-  if (pricingEnabled && session?.user?.id) {
-    try {
-      // Brukerrolleinformasjon for filtrering av fastprispakker
-      const userSystemRole = (session.user as any).systemRole || session.user.role || "user"
-      const userRoleId = (session.user as any).customRoleId
-      const isMember = (session.user as any).isMember
-      
-      // Sett isNonMember for å vise besparelser
-      isNonMember = !isMember && userSystemRole !== "admin"
-      
-      // Hjelpefunksjon for å filtrere pakker basert på brukerens rolle
-      // VIKTIG: Admin skal KUN se pakker der "admin" er eksplisitt valgt - ingen fallback
-      const filterPackagesByRole = <T extends { forRoles: string | null }>(packages: T[]): T[] => {
-        return packages.filter(pkg => {
-          if (!pkg.forRoles) {
-            // Ingen rollebegrensning - vis til alle UNNTATT admin (admin må være eksplisitt)
-            return userSystemRole !== "admin"
-          }
-          try {
-            const allowedRoles: string[] = JSON.parse(pkg.forRoles)
-            if (allowedRoles.length === 0) {
-              // Tom liste = vis til alle UNNTATT admin
-              return userSystemRole !== "admin"
-            }
-            
-            // Admin sjekkes først og får IKKE fallback til andre roller
-            if (userSystemRole === "admin") {
-              return allowedRoles.includes("admin")
-            }
-            
-            // PRIORITET FOR VANLIGE BRUKERE:
-            // 1. Custom role (f.eks. Lagleder, Trener) - sjekkes FØRST
-            // 2. Verifisert medlem (isMember: true)
-            // 3. Ikke-medlem ("user") - KUN hvis ingen custom role
-            
-            // 1. Sjekk custom role først - brukere med custom role skal IKKE falle tilbake til "user"
-            if (userRoleId && allowedRoles.includes(userRoleId)) return true
-            
-            // 2. Sjekk om bruker er verifisert medlem
-            if (isMember && allowedRoles.includes("member")) return true
-            
-            // 3. Sjekk "user" (ikke-medlem) KUN hvis bruker ikke har custom role
-            if (!userRoleId && !isMember && allowedRoles.includes("user")) return true
-            
-            return false
-          } catch {
-            return userSystemRole !== "admin"
-          }
-        })
-      }
-      
-      // Hjelpefunksjon for å finne medlemspakker (kun for ikke-medlemmer)
-      const filterMemberPackages = <T extends { forRoles: string | null }>(packages: T[]): T[] => {
-        return packages.filter(pkg => {
-          if (!pkg.forRoles) return false
-          try {
-            const allowedRoles: string[] = JSON.parse(pkg.forRoles)
-            return allowedRoles.includes("member")
-          } catch {
-            return false
-          }
-        })
-      }
-      
-      // Hjelpefunksjon for å finne medlemspris for en pakke (basert på navn)
-      const findMemberPriceForPackage = <T extends { name: string; price: any; forRoles: string | null }>(
-        pkg: T,
-        allPackages: T[]
-      ): number | null => {
-        const memberPackages = filterMemberPackages(allPackages)
-        const matchingPackage = memberPackages.find(mp => mp.name === pkg.name)
-        return matchingPackage ? Number(matchingPackage.price) : null
-      }
-      
-      // Hjelpefunksjon for å finne medlemsprisregel
-      const findMemberRule = (rules: any[]): any | null => {
-        if (!Array.isArray(rules)) return null
-        return rules.find(r => r.forRoles?.includes("member")) || null
-      }
-      
-      const partIds = resource.parts.map(p => p.id)
-      
-      // PARALLELLISER alle database-spørringer for bedre ytelse
-      const [
-        customRolesResult,
-        wholeResourcePackages,
-        allPartPackages,
-        allPartsWithPricing,
-        wholeResourceRule
-      ] = await Promise.all([
-        // Custom roles
-        prisma.customRole.findMany({
-          where: { organizationId: resource.organizationId },
-          select: { id: true, name: true }
-        }),
-        // Hele-fasilitet pakker (kun hvis allowWholeBooking)
-        resource.allowWholeBooking
-          ? prisma.fixedPricePackage.findMany({
-              where: { resourceId: id, resourcePartId: null, isActive: true },
-              select: { id: true, name: true, description: true, durationMinutes: true, price: true, forRoles: true },
-              orderBy: { sortOrder: "asc" }
-            })
-          : Promise.resolve([]),
-        // Del-pakker (kun hvis det finnes deler)
-        partIds.length > 0
-          ? prisma.fixedPricePackage.findMany({
-              where: { resourcePartId: { in: partIds }, isActive: true },
-              select: { id: true, name: true, description: true, durationMinutes: true, price: true, forRoles: true, resourcePartId: true },
-              orderBy: { sortOrder: "asc" }
-            })
-          : Promise.resolve([]),
-        // Del-prisregler (kun hvis det finnes deler)
-        partIds.length > 0
-          ? prisma.resourcePart.findMany({
-              where: { id: { in: partIds } },
-              select: { id: true, pricingRules: true }
-            })
-          : Promise.resolve([]),
-        // Hele-fasilitet prisregel
-        resource.allowWholeBooking && pricingConfig?.rules
-          ? findPricingRuleForUser(session.user.id, pricingConfig.rules)
-          : Promise.resolve(null)
-      ])
-      
-      customRoles = customRolesResult
-      relevantRule = wholeResourceRule
-      
-      // Finn medlemsprisregel for hele fasilitet (kun for ikke-medlemmer)
-      if (isNonMember && pricingConfig?.rules) {
-        memberRule = findMemberRule(pricingConfig.rules)
-      }
-      
-      // Filtrer hele-fasilitet pakker
-      if (wholeResourcePackages.length > 0) {
-        resourceFixedPackages = filterPackagesByRole(wholeResourcePackages)
-          .map((pkg) => ({
-            id: pkg.id,
-            name: pkg.name,
-            description: pkg.description,
-            durationMinutes: pkg.durationMinutes,
-            price: Number(pkg.price),
-            memberPrice: isNonMember ? findMemberPriceForPackage(pkg, wholeResourcePackages) : null
-          }))
-      }
-      
-      // Prosesser del-pakker
-      if (resource.parts.length > 0) {
-        // Grupper pakker etter del-ID
-        const packagesByPartId = new Map<string, typeof allPartPackages>()
-        for (const pkg of allPartPackages) {
-          if (!pkg.resourcePartId) continue
-          const existing = packagesByPartId.get(pkg.resourcePartId) || []
-          existing.push(pkg)
-          packagesByPartId.set(pkg.resourcePartId, existing)
-        }
-        
-        // Prosesser hver del med parallelle prisregel-oppslag
-        const partRulePromises = resource.parts.map(async (part) => {
-          const partPackages = packagesByPartId.get(part.id) || []
-          
-          // Filtrer pakker basert på brukerens rolle og legg til medlemspris for sammenligning
-          const fixedPackages = filterPackagesByRole(partPackages)
-            .map((pkg) => ({
-              id: pkg.id,
-              name: pkg.name,
-              description: pkg.description,
-              durationMinutes: pkg.durationMinutes,
-              price: Number(pkg.price),
-              memberPrice: isNonMember ? findMemberPriceForPackage(pkg, partPackages) : null
-            }))
-          
-          // Finn prisregel fra forhåndslastet data
-          const partPricingData = allPartsWithPricing.find(p => p.id === part.id)
-          let partRule: { rule: any; reason?: string } | null = null
-          let partMemberRule: any = null
-          
-          if (partPricingData?.pricingRules) {
-            try {
-              const rules = JSON.parse(partPricingData.pricingRules as string)
-              if (Array.isArray(rules) && rules.length > 0) {
-                partRule = await findPricingRuleForUser(session.user.id, rules)
-                // Finn medlemsprisregel for sammenligning (kun for ikke-medlemmer)
-                if (isNonMember) {
-                  partMemberRule = findMemberRule(rules)
-                }
-              }
-            } catch {
-              // Ignorer parse-feil
-            }
-          }
-          
-          // Returner data hvis brukeren har tilgang
-          if (partRule?.rule || fixedPackages.length > 0) {
-            return {
-              partId: part.id,
-              partName: part.name,
-              parentId: part.parentId || null,
-              rule: partRule?.rule || null,
-              reason: partRule?.reason,
-              fixedPackages: fixedPackages,
-              memberRule: partMemberRule
-            }
-          }
-          return null
-        })
-        
-        // Vent på alle prisregel-oppslag parallelt
-        const partResults = await Promise.all(partRulePromises)
-        partsPricing = partResults.filter((p): p is NonNullable<typeof p> => p !== null)
-      }
-    } catch (error) {
-      console.error("Error loading pricing rules:", error)
-    }
-  }
-  
-  // Sort partsPricing hierarchically (parents first, then children)
-  const sortedPartsPricing = [...partsPricing].sort((a, b) => {
-    // Parents come first (no parentId)
-    if (!a.parentId && b.parentId) return -1
-    if (a.parentId && !b.parentId) return 1
-    // If both are parents or both are children, sort by name
-    return a.partName.localeCompare(b.partName, 'no')
-  })
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -606,24 +365,11 @@ export default async function ResourcePage({ params }: Props) {
               </div>
             )}
 
-            {/* Pricing Logic (kun hvis betalingsmodulen er aktivert og visPrislogikk er true) */}
+            {/* Pricing Logic (hentes client-side for raskere page load) */}
             {pricingEnabled && resource.visPrislogikk && (
-              <PricingInfoCard
+              <PricingInfoCardLoader
+                resourceId={resource.id}
                 resourceName={resource.name}
-                allowWholeBooking={resource.allowWholeBooking}
-                relevantRule={relevantRule?.rule || null}
-                resourceFixedPackages={resourceFixedPackages}
-                partsPricing={sortedPartsPricing.map(p => ({
-                  partId: p.partId,
-                  partName: p.partName,
-                  parentId: p.parentId,
-                  rule: p.rule || null,
-                  fixedPackages: p.fixedPackages,
-                  memberRule: p.memberRule || null
-                }))}
-                customRoles={customRoles}
-                isNonMember={isNonMember}
-                memberRule={memberRule}
               />
             )}
 
