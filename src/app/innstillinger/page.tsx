@@ -15,7 +15,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  RefreshCw
 } from "lucide-react"
 import Link from "next/link"
 import { signOut } from "next-auth/react"
@@ -43,6 +44,10 @@ export default function InnstillingerPage() {
   const [editName, setEditName] = useState("")
   const [editPhone, setEditPhone] = useState("")
   const [isEditing, setIsEditing] = useState(false)
+  
+  // Version check state
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "uptodate" | "updating">("idle")
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -562,10 +567,41 @@ export default function InnstillingerPage() {
           <div className="mt-6 pt-4 border-t border-gray-100 md:hidden">
             <div className="flex items-center justify-between text-xs text-gray-400">
               <span>SportFlow - Smartere klubbdrift</span>
-              <span>v{require("../../../package.json").version}</span>
+              <button
+                onClick={async () => {
+                  setUpdateStatus("checking")
+                  // Clear caches
+                  if ("caches" in window) {
+                    const names = await caches.keys()
+                    await Promise.all(names.map(name => caches.delete(name)))
+                  }
+                  // Small delay to show checking status
+                  await new Promise(r => setTimeout(r, 500))
+                  setUpdateStatus("updating")
+                  // Force reload from server
+                  window.location.reload()
+                }}
+                className={`flex items-center gap-1 px-2 py-1 rounded ${
+                  updateStatus === "checking" || updateStatus === "updating"
+                    ? "bg-blue-100 text-blue-600"
+                    : "hover:bg-gray-100 active:bg-gray-200"
+                }`}
+              >
+                {updateStatus === "checking" || updateStatus === "updating" ? (
+                  <>
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    <span>{updateStatus === "checking" ? "Sjekker..." : "Oppdaterer..."}</span>
+                  </>
+                ) : (
+                  <span>v{require("../../../package.json").version} ↻</span>
+                )}
+              </button>
             </div>
             <p className="text-xs text-gray-400 mt-1">
               © {new Date().getFullYear()} SportFlow
+            </p>
+            <p className="text-xs text-gray-300 mt-1">
+              Trykk på versjonen for å oppdatere
             </p>
           </div>
         </div>
