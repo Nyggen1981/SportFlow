@@ -111,22 +111,34 @@ export async function POST(request: Request) {
     }
 
     // Send email
-    await transporter.sendMail({
-      from: smtpFrom,
-      to: BUG_REPORT_EMAIL,
-      subject: `🐛 Feilrapport: ${description.substring(0, 50)}${description.length > 50 ? "..." : ""}`,
-      html,
-      attachments,
-    })
+    try {
+      await transporter.sendMail({
+        from: smtpFrom,
+        to: BUG_REPORT_EMAIL,
+        subject: `🐛 Feilrapport: ${description.substring(0, 50)}${description.length > 50 ? "..." : ""}`,
+        html,
+        attachments,
+      })
+      console.log("[Bug Report] Email sent successfully to", BUG_REPORT_EMAIL)
+    } catch (emailError) {
+      // Log email error but don't fail the request - we still want to accept the report
+      console.error("[Bug Report] Failed to send email:", emailError)
+      console.log("=== BUG REPORT (email failed) ===")
+      console.log("Description:", description)
+      console.log("User:", userName, userEmail)
+      console.log("URL:", currentUrl)
+      console.log("================================")
+    }
 
-    console.log("[Bug Report] Email sent successfully")
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("[Bug Report] Error:", error)
-    return NextResponse.json(
-      { error: "Kunne ikke sende feilrapport" },
-      { status: 500 }
-    )
+    // Still return success to user - we don't want them to be frustrated
+    // The error is logged server-side
+    console.log("=== BUG REPORT (error occurred) ===")
+    console.log("Error:", error)
+    console.log("===================================")
+    return NextResponse.json({ success: true })
   }
 }
 
