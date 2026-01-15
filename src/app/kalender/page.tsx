@@ -1626,11 +1626,10 @@ export default function CalendarPage() {
                               >
                                 {/* Part Label */}
                                 <div className="w-48 sm:w-64 flex-shrink-0 p-2 sm:p-3 border-r border-gray-200">
-                                  <div className={`text-xs sm:text-sm text-gray-700 ${isChild ? 'pl-3 sm:pl-4' : ''}`}>
+                                  <div className={`text-xs sm:text-sm text-gray-700 ${isChild ? 'pl-4 sm:pl-5' : ''}`}>
                                     {part ? (
-                                      <span className={`truncate block flex items-center gap-2 ${isChild ? 'text-gray-500' : 'text-gray-600 font-medium'}`}>
-                                        {isChild && <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />}
-                                        {!isChild && <span className="w-1.5 h-1.5 rounded-sm bg-gray-400 flex-shrink-0" />}
+                                      <span className={`truncate block flex items-center gap-1.5 ${isChild ? 'text-gray-500' : 'text-gray-600'}`}>
+                                        {isChild && <span className="text-gray-300">└</span>}
                                         {part.name}
                                       </span>
                                     ) : (
