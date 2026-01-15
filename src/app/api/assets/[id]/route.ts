@@ -7,9 +7,10 @@ import { isAssetRegisterEnabled } from "@/lib/asset-register"
 // GET /api/assets/[id] - Hent enkelt anlegg med detaljer
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     
     if (!session?.user || session.user.systemRole !== "admin") {
@@ -23,7 +24,7 @@ export async function GET(
 
     const asset = await prisma.asset.findFirst({
       where: { 
-        id: params.id,
+        id: id,
         organizationId: session.user.organizationId 
       },
       include: {
@@ -59,9 +60,10 @@ export async function GET(
 // PUT /api/assets/[id] - Oppdater anlegg
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     
     if (!session?.user || session.user.systemRole !== "admin") {
@@ -75,7 +77,7 @@ export async function PUT(
 
     // Sjekk at anlegget tilhører organisasjonen
     const existing = await prisma.asset.findFirst({
-      where: { id: params.id, organizationId: session.user.organizationId }
+      where: { id: id, organizationId: session.user.organizationId }
     })
 
     if (!existing) {
@@ -85,7 +87,7 @@ export async function PUT(
     const data = await request.json()
 
     const asset = await prisma.asset.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         name: data.name,
         description: data.description,
@@ -119,9 +121,10 @@ export async function PUT(
 // DELETE /api/assets/[id] - Slett anlegg
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     
     if (!session?.user || session.user.systemRole !== "admin") {
@@ -135,14 +138,14 @@ export async function DELETE(
 
     // Sjekk at anlegget tilhører organisasjonen
     const existing = await prisma.asset.findFirst({
-      where: { id: params.id, organizationId: session.user.organizationId }
+      where: { id: id, organizationId: session.user.organizationId }
     })
 
     if (!existing) {
       return NextResponse.json({ error: "Anlegg ikke funnet" }, { status: 404 })
     }
 
-    await prisma.asset.delete({ where: { id: params.id } })
+    await prisma.asset.delete({ where: { id: id } })
 
     return NextResponse.json({ success: true })
   } catch (error) {
