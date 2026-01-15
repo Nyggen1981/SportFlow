@@ -90,26 +90,15 @@ export default function CalendarPage() {
   const canManageBookings = isAdmin || isModerator
   
   const [selectedDate, setSelectedDate] = useState(new Date())
-  // Load viewMode from localStorage on mount, default to day on mobile, month on desktop
-  const [viewMode, setViewMode] = useState<"day" | "week" | "month" | "overview">(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('calendarViewMode')
-      if (saved && ["day", "week", "month", "overview"].includes(saved)) {
-        return saved as "day" | "week" | "month" | "overview"
-      }
-      // Default to day view on mobile for better UX
-      if (window.innerWidth < 768) {
-        return "day"
-      }
-    }
-    return "month"
-  })
+  // Default to month view for all users
+  const [viewMode, setViewMode] = useState<"day" | "week" | "month" | "overview">("month")
   const [timelineData, setTimelineData] = useState<TimelineData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null)
   const [selectedResources, setSelectedResources] = useState<Set<string>>(new Set())
+  const [showMobileFilters, setShowMobileFilters] = useState(false)
   const [showFilter, setShowFilter] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
@@ -130,13 +119,6 @@ export default function CalendarPage() {
   const datePickerRef = useRef<HTMLDivElement>(null)
 
   // Allow public access - no redirect to login
-
-  // Save viewMode to localStorage when it changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('calendarViewMode', viewMode)
-    }
-  }, [viewMode])
 
   // Update current time every minute
   useEffect(() => {
@@ -877,19 +859,38 @@ export default function CalendarPage() {
 
   return (
     <PageLayout fullWidth>
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-              <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
+      <div className="w-full px-2 sm:px-4 md:px-6 lg:px-8 py-2 sm:py-6">
+          {/* Header - Compact on mobile */}
+          <div className="mb-2 sm:mb-6">
+            <div className="flex items-center justify-between gap-2 mb-2 sm:mb-4">
+              {/* Left side - Title (hidden on mobile) and filters */}
+              <div className="flex items-center gap-2 sm:gap-4 flex-wrap flex-1">
+                {/* Title - hidden on mobile since bottom nav shows it */}
+                <h1 className="hidden sm:flex text-xl sm:text-2xl font-bold text-gray-900 items-center gap-2">
                   <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
                   Kalender
                 </h1>
                 
-                {/* Filter dropdowns - only show for non-overview views */}
+                {/* Mobile filter button */}
                 {viewMode !== "overview" && (
-                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                  <button
+                    onClick={() => setShowMobileFilters(!showMobileFilters)}
+                    className={`sm:hidden flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm ${
+                      showMobileFilters || selectedCategoryId || selectedResourceId
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    <Filter className="w-4 h-4" />
+                    {(selectedCategoryId || selectedResourceId) && (
+                      <span className="w-2 h-2 bg-white rounded-full" />
+                    )}
+                  </button>
+                )}
+                
+                {/* Desktop Filter dropdowns - only show for non-overview views */}
+                {viewMode !== "overview" && (
+                  <div className="hidden sm:flex items-center gap-2 sm:gap-3 flex-wrap">
                     <select
                       value={selectedCategoryId || ""}
                       onChange={(e) => handleCategoryChange(e.target.value)}
@@ -1201,6 +1202,59 @@ export default function CalendarPage() {
             
           </div>
 
+          {/* Mobile Filter Panel */}
+          {showMobileFilters && viewMode !== "overview" && (
+            <div className="sm:hidden mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex flex-col gap-2">
+                <select
+                  value={selectedCategoryId || ""}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                >
+                  <option value="">Alle kategorier</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                {availableResources.length > 0 && (
+                  <select
+                    value={selectedResourceId || ""}
+                    onChange={(e) => handleResourceChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value="">Alle fasiliteter</option>
+                    {availableResources.map((r) => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                )}
+                {selectedResource && selectedResource.parts.length > 0 && (
+                  <select
+                    value={selectedPartId || ""}
+                    onChange={(e) => setSelectedPartId(e.target.value || null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value="">Alle deler</option>
+                    {selectedResource.parts.map((part) => (
+                      <option key={part.id} value={part.id}>{part.name}</option>
+                    ))}
+                  </select>
+                )}
+                {(selectedCategoryId || selectedResourceId || selectedPartId) && (
+                  <button
+                    onClick={() => {
+                      setSelectedCategoryId(null)
+                      setSelectedResourceId(null)
+                      setSelectedPartId(null)
+                    }}
+                    className="text-sm text-red-600 py-1"
+                  >
+                    Nullstill filter
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Calendar View (Week/Month) */}
           {viewMode === "week" ? (
@@ -1353,20 +1407,23 @@ export default function CalendarPage() {
                                     isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
                                   }`}
                                   style={{
-                                    top: `${topPx + (hasBookingAbove ? 2 : 0)}px`,
+                                    top: `${topPx}px`,
                                     left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${gapPxHorizontal / 2}px)`,
                                     width: boxWidth,
-                                    height: `${Math.max(heightPx - (hasBookingAbove ? 2 : 0) - (hasBookingBelow ? 2 : 0), 36)}px`,
-                                    minHeight: '36px',
+                                    height: `${Math.max(heightPx, 40)}px`,
+                                    minHeight: '40px',
                                     backgroundColor: isCompetition 
                                       ? '#fdba74' 
                                       : isPending 
                                         ? `${resourceColor}20`
                                         : resourceColor,
-                                    borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : '#6b7280'),
+                                    borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
                                     color: isCompetition ? '#9a3412' : 'black',
-                                    border: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid #6b7280',
-                                    boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+                                    borderTop: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                    borderBottom: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                    borderLeft: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                    borderRight: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                                     zIndex: 10,
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -1887,13 +1944,13 @@ export default function CalendarPage() {
                                   : isPending 
                                     ? `${resourceColor}20`
                                     : resourceColor,
-                                borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : '#6b7280'),
+                                borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
                                 color: isCompetition ? '#9a3412' : 'black',
-                                borderTop: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid #9ca3af' : '1px solid #6b7280',
-                                borderBottom: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid #9ca3af' : '1px solid #6b7280',
-                                borderLeft: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid #6b7280',
-                                borderRight: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid #6b7280',
-                                boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+                                borderTop: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                borderBottom: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                borderLeft: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                borderRight: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                                 zIndex: 10,
                                 display: 'flex',
                                 flexDirection: 'column',
