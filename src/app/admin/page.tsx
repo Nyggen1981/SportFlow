@@ -17,7 +17,8 @@ import { BookingManagement } from "@/components/BookingManagement"
 import { LicenseStatusCard } from "@/components/LicenseStatusCard"
 import { isPricingEnabled } from "@/lib/pricing"
 import { isMatchSetupEnabled } from "@/lib/match-setup"
-import { FileText } from "lucide-react"
+import { isAssetRegisterEnabled } from "@/lib/asset-register"
+import { FileText, ClipboardList } from "lucide-react"
 
 async function getModeratorResources(userId: string) {
   const moderatorResources = await prisma.resourceModerator.findMany({
@@ -80,6 +81,7 @@ export default async function AdminPage() {
 
     const pricingEnabled = isAdmin ? await isPricingEnabled() : false
     const matchSetupEnabled = isAdmin ? await isMatchSetupEnabled() : false
+    const assetRegisterEnabled = isAdmin ? await isAssetRegisterEnabled() : false
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -223,6 +225,22 @@ export default async function AdminPage() {
                     <div>
                       <p className="font-medium text-gray-900">Kampoppsett</p>
                       <p className="text-sm text-gray-500">Turneringer & serier</p>
+                    </div>
+                  </div>
+                </Link>
+              )}
+              {assetRegisterEnabled && (
+                <Link 
+                  href="/admin/anleggsregister" 
+                  className="card p-4 hover:shadow-md transition-shadow group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center group-hover:bg-teal-200 transition-colors">
+                      <ClipboardList className="w-5 h-5 text-teal-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">Anleggsregister</p>
+                      <p className="text-sm text-gray-500">Vedlikehold & oppfølging</p>
                     </div>
                   </div>
                 </Link>
