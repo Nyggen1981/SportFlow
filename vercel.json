@@ -1,6 +1,16 @@
 {
-  "buildCommand": "prisma generate && next build",
-  "installCommand": "npm install",
-  "framework": "nextjs"
+  "buildCommand": "npx prisma generate && next build",
+  "installCommand": "npm install && npx prisma generate",
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/license-expiry",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/report-stats",
+      "schedule": "0 3 * * *"
+    }
+  ]
 }
 

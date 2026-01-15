@@ -112,8 +112,27 @@ export async function PATCH(
     if (startTime || endTime || resourcePartId !== undefined) {
       const activeStatusFilter = { status: { notIn: ["cancelled", "rejected"] } }
       
-      // Optimized overlap check: bookings that start before our end AND end after our start
-      // This is more efficient than multiple OR conditions
+      const getTimeOverlapConditions = (bookingStart: Date, bookingEnd: Date) => [
+        {
+          AND: [
+            { startTime: { lte: bookingStart } },
+            { endTime: { gt: bookingStart } }
+          ]
+        },
+        {
+          AND: [
+            { startTime: { lt: bookingEnd } },
+            { endTime: { gte: bookingEnd } }
+          ]
+        },
+        {
+          AND: [
+            { startTime: { gte: bookingStart } },
+            { endTime: { lte: bookingEnd } }
+          ]
+        }
+      ]
+
       const newResourcePartId = resourcePartId !== undefined ? resourcePartId : booking.resourcePartId
 
       const conflictingBookings = await prisma.booking.findMany({
@@ -121,16 +140,14 @@ export async function PATCH(
           id: { not: id }, // Exclude current booking
           resourceId: booking.resourceId,
           ...activeStatusFilter,
-          // Time overlap: startTime < newEndTime && endTime > newStartTime
-          startTime: { lt: newEndTime },
-          endTime: { gt: newStartTime },
-          // Part conflict: same part OR whole facility
           OR: [
             { resourcePartId: newResourcePartId },
             { resourcePartId: null }
-          ]
-        },
-        select: { id: true } // Only need to know if conflict exists
+          ],
+          AND: {
+            OR: getTimeOverlapConditions(newStartTime, newEndTime)
+          }
+        }
       })
 
       if (conflictingBookings.length > 0) {
@@ -138,6 +155,83 @@ export async function PATCH(
           { error: "Det finnes en konflikt med en annen booking på dette tidspunktet" },
           { status: 409 }
         )
+      }
+
+      // Sjekk også for konkurranser som blokkerer denne fasiliteten (kun hvis kampoppsett-modulen er aktivert)
+      const { isMatchSetupEnabled } = await import("@/lib/match-setup")
+      const matchSetupEnabled = await isMatchSetupEnabled()
+      
+      if (matchSetupEnabled) {
+        const conflictingCompetitions = await prisma.competition.findMany({
+          where: {
+            resourceId: booking.resourceId,
+            status: { in: ["DRAFT", "SCHEDULED", "ACTIVE"] },
+            dailyStartTime: { not: null },
+            dailyEndTime: { not: null },
+            startDate: { lte: newEndTime },
+            OR: [
+              { endDate: { gte: newStartTime } },
+              { endDate: null }
+            ]
+          },
+          select: {
+            id: true,
+            name: true,
+            startDate: true,
+            endDate: true,
+            dailyStartTime: true,
+            dailyEndTime: true,
+            matchDuration: true,
+            matches: {
+              select: { scheduledTime: true }
+            }
+          }
+        })
+
+        // Sjekk om noen av konkurransene faktisk overlapper med booking-tiden
+        for (const comp of conflictingCompetitions) {
+          // Sjekk individuelle kamper
+          for (const match of comp.matches) {
+            if (match.scheduledTime) {
+              const matchStart = new Date(match.scheduledTime)
+              const matchEnd = new Date(matchStart.getTime() + (comp.matchDuration * 60 * 1000))
+              
+              if (matchStart < newEndTime && matchEnd > newStartTime) {
+                return NextResponse.json(
+                  { error: `Konflikt: Fasiliteten er reservert for konkurransen "${comp.name}"` },
+                  { status: 409 }
+                )
+              }
+            }
+          }
+
+          // Sjekk daglige blokkeringer
+          if (comp.dailyStartTime && comp.dailyEndTime) {
+            const compStart = new Date(comp.startDate)
+            const compEnd = comp.endDate ? new Date(comp.endDate) : compStart
+            
+            const bookingDate = new Date(newStartTime)
+            bookingDate.setHours(0, 0, 0, 0)
+            
+            if (bookingDate >= compStart && bookingDate <= compEnd) {
+              const [startHour, startMin] = comp.dailyStartTime.split(":").map(Number)
+              const [endHour, endMin] = comp.dailyEndTime.split(":").map(Number)
+              
+              const blockStart = new Date(bookingDate)
+              blockStart.setHours(startHour, startMin, 0, 0)
+              
+              const blockEnd = new Date(bookingDate)
+              blockEnd.setHours(endHour, endMin, 0, 0)
+              
+              if (blockStart < newEndTime && blockEnd > newStartTime) {
+                return NextResponse.json(
+                  { error: `Konflikt: Fasiliteten er reservert for konkurransen "${comp.name}" (${comp.dailyStartTime}-${comp.dailyEndTime})` },
+                  { status: 409 }
+                )
+              }
+            }
+          }
+        }
       }
     }
 
@@ -172,14 +266,34 @@ export async function PATCH(
       }
     })
 
-    // If user edited and needs re-approval, notify admins
+    // If user edited and needs re-approval, notify admins and moderators
     if (!isAdmin && newStatus === "pending") {
+      // Hent alle admin-brukere
       const admins = await prisma.user.findMany({
         where: {
           organizationId: booking.resource.organizationId,
           role: "admin"
+        },
+        select: { email: true }
+      })
+
+      // Hent alle moderatorer som har tilgang til denne ressursen
+      const resourceModerators = await prisma.resourceModerator.findMany({
+        where: { resourceId: booking.resourceId },
+        include: {
+          user: {
+            select: { email: true, role: true }
+          }
         }
       })
+
+      // Kombiner admin og moderator e-poster (unngå duplikater)
+      const adminEmails = admins.map(a => a.email)
+      const moderatorEmails = resourceModerators
+        .filter(rm => rm.user.role === "moderator")
+        .map(rm => rm.user.email)
+      
+      const allRecipients = [...new Set([...adminEmails, ...moderatorEmails])]
 
       const date = format(newStartTime, "EEEE d. MMMM yyyy", { locale: nb })
       const time = `${format(newStartTime, "HH:mm")} - ${format(newEndTime, "HH:mm")}`
@@ -187,7 +301,7 @@ export async function PATCH(
         ? `${updatedBooking.resource.name} → ${updatedBooking.resourcePart.name}`
         : updatedBooking.resource.name
 
-      for (const admin of admins) {
+      for (const email of allRecipients) {
         const emailContent = await getNewBookingRequestEmail(
           session.user.organizationId,
           `${updatedBooking.title} (Endret)`,
@@ -198,7 +312,7 @@ export async function PATCH(
           session.user.email || contactEmail || "",
           description || undefined
         )
-        await sendEmail(session.user.organizationId, { to: admin.email, ...emailContent })
+        await sendEmail(session.user.organizationId, { to: email, ...emailContent })
       }
     }
 

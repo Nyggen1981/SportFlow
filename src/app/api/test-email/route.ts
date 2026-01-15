@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     // Try to send test email
     const result = await sendEmail(session.user.organizationId, {
       to: testEmail,
-      subject: "Test fra Arena Booking",
+      subject: "Test fra Sportflow Booking",
       html: `
         <!DOCTYPE html>
         <html>
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
             </div>
             <div class="content">
               <p>Gratulerer! Din e-postkonfigurasjon er korrekt.</p>
-              <p>Arena Booking kan nå sende varsler om bookinger.</p>
+              <p>Sportflow Booking kan nå sende varsler om bookinger.</p>
               <p style="color: #64748b; font-size: 14px; margin-top: 20px;">
                 Sendt: ${new Date().toLocaleString("nb-NO")}
               </p>

@@ -1,4 +1,4 @@
-# Arena Booking 🏟️
+# Sportflow Booking 🏟️
 
 En moderne bookingapp for idrettslag. Book treninger, haller og fasiliteter enkelt.
 

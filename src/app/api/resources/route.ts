@@ -1,8 +1,15 @@
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import { validateLicense } from "@/lib/license"
 
 export async function GET() {
   try {
+    // Sjekk lisens - returner tom liste hvis ugyldig
+    const license = await validateLicense()
+    if (!license.valid) {
+      return NextResponse.json([])
+    }
+
     const resources = await prisma.resource.findMany({
       where: {
         isActive: true,

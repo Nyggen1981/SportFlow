@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
-import { ChevronLeft, ChevronRight, List, Grid3X3, Calendar, Clock, MapPin } from "lucide-react"
+import { ChevronLeft, ChevronRight, List, Grid3X3, Calendar, Clock, MapPin, X } from "lucide-react"
 import { 
   format, 
   startOfWeek, 
@@ -27,6 +27,8 @@ interface Category {
 interface ResourcePart {
   id: string
   name: string
+  parentId?: string | null
+  children?: { id: string; name: string }[]
 }
 
 interface Resource {
@@ -45,7 +47,16 @@ interface Booking {
   endTime: string
   resourceId: string
   resourceName: string
+  resourcePartId?: string | null
   resourcePartName?: string | null
+}
+
+interface BlockedSlot {
+  startTime: string
+  endTime: string
+  partId: string | null
+  blockedBy: string
+  bookingId: string
 }
 
 interface Props {
@@ -63,7 +74,19 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [helpDismissed, setHelpDismissed] = useState(true)
   const weekViewScrollRef = useRef<HTMLDivElement>(null)
+
+  // Sjekk om hjelpetext er dismisset
+  useEffect(() => {
+    const dismissed = localStorage.getItem("calendar-help-dismissed")
+    setHelpDismissed(dismissed === "true")
+  }, [])
+
+  const dismissHelp = () => {
+    localStorage.setItem("calendar-help-dismissed", "true")
+    setHelpDismissed(true)
+  }
 
   // Filter resources by selected category
   const availableResources = useMemo(() => {
@@ -90,6 +113,93 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
       return true
     })
   }, [bookings, selectedResourceId, selectedPartId, selectedResource])
+
+  // Calculate blocked slots based on hierarchy for the selected resource
+  const blockedSlots = useMemo(() => {
+    if (!selectedResourceId || !selectedResource) return []
+    
+    const slots: BlockedSlot[] = []
+    const resourceBookings = bookings.filter(b => b.resourceId === selectedResourceId)
+    
+    resourceBookings.forEach(booking => {
+      // If booking is for whole facility (no part), all parts are blocked
+      if (!booking.resourcePartId) {
+        selectedResource.parts.forEach(part => {
+          slots.push({
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            partId: part.id,
+            blockedBy: `Hele ${selectedResource.name}`,
+            bookingId: booking.id
+          })
+          // Also block children
+          if (part.children) {
+            part.children.forEach(child => {
+              slots.push({
+                startTime: booking.startTime,
+                endTime: booking.endTime,
+                partId: child.id,
+                blockedBy: `Hele ${selectedResource.name}`,
+                bookingId: booking.id
+              })
+            })
+          }
+        })
+      } else {
+        // Booking is for a specific part - block whole facility
+        slots.push({
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          partId: null,
+          blockedBy: booking.resourcePartName || "En del",
+          bookingId: booking.id
+        })
+        
+        // Find the booked part and check hierarchy
+        const bookedPart = selectedResource.parts.find(p => p.id === booking.resourcePartId)
+        
+        // If booking is for a parent, block children
+        if (bookedPart?.children && bookedPart.children.length > 0) {
+          bookedPart.children.forEach(child => {
+            slots.push({
+              startTime: booking.startTime,
+              endTime: booking.endTime,
+              partId: child.id,
+              blockedBy: bookedPart.name,
+              bookingId: booking.id
+            })
+          })
+        }
+        
+        // If booking is for a child, block parent
+        if (bookedPart?.parentId) {
+          slots.push({
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            partId: bookedPart.parentId,
+            blockedBy: booking.resourcePartName || "En del",
+            bookingId: booking.id
+          })
+        }
+      }
+    })
+    
+    return slots
+  }, [bookings, selectedResourceId, selectedResource])
+
+  // Get blocked slots for the selected part view
+  const getBlockedSlotsForDay = useCallback((day: Date) => {
+    // Don't show blocked slots when viewing "Alle deler" - actual bookings show the full picture
+    if (!selectedPartId) return []
+    
+    return blockedSlots.filter(slot => {
+      const start = parseISO(slot.startTime)
+      if (!isSameDay(day, start)) return false
+      
+      // If viewing a specific part, show blocks for that part
+      return slot.partId === selectedPartId
+    })
+  }, [blockedSlots, selectedPartId])
 
   const handleCategoryChange = useCallback((categoryId: string) => {
     setSelectedCategoryId(categoryId)
@@ -145,10 +255,23 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
   return (
     <div className="space-y-4">
       {/* Help text */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-        <p className="font-medium mb-1">Slik finner du frem i kalenderen:</p>
-        <p className="text-blue-700">Velg først en kategori, deretter en fasilitet. Hvis fasiliteten har underdeler, kan du velge en spesifikk del eller se alle deler.</p>
-      </div>
+      {!helpDismissed && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 relative">
+          <button
+            onClick={dismissHelp}
+            className="absolute top-2 right-2 p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+            aria-label="Lukk"
+            title="Lukk"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="pr-10">
+            <p className="font-medium mb-1">Slik finner du frem i kalenderen:</p>
+            <p className="text-blue-700">Velg først en kategori, deretter en fasilitet. Hvis fasiliteten har underdeler, kan du velge en spesifikk del eller se alle deler.</p>
+            <p className="text-blue-700 mt-2"><strong>Vil du booke?</strong> Registrer deg eller logg inn for å reservere fasiliteter.</p>
+          </div>
+        </div>
+      )}
 
       {/* Controls */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -208,7 +331,7 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
-              <h2 className="font-semibold text-gray-900 min-w-[200px] text-center">
+              <h2 className="font-semibold text-gray-900 min-w-[140px] sm:min-w-[200px] text-center text-sm sm:text-base">
                 {viewMode === "week" 
                   ? `${format(weekStart, "d. MMM", { locale: nb })} - ${format(addDays(weekStart, 6), "d. MMM yyyy", { locale: nb })}`
                   : format(currentDate, "MMMM yyyy", { locale: nb })
@@ -261,7 +384,7 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
           {/* Time grid with sticky header */}
           <div ref={weekViewScrollRef} className="max-h-[650px] overflow-y-auto pr-[17px]">
             {/* Header - sticky */}
-            <div className="grid bg-gray-50 border-b border-gray-200 sticky top-0 z-10 gap-x-2" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
+            <div className="grid bg-gray-50 border-b border-gray-200 sticky top-0 z-10" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
               <div className="p-3 text-center text-sm font-medium text-gray-500" />
               {weekDays.map((day) => (
                 <div 
@@ -284,7 +407,7 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
 
             {/* Time rows */}
             {hours.map((hour) => (
-              <div key={hour} className="grid border-b border-gray-100 last:border-b-0 gap-x-2" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
+              <div key={hour} className="grid border-b border-gray-100 last:border-b-0" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
                 <div className="p-2 text-right text-xs text-gray-400 pr-3 font-medium">
                   {hour.toString().padStart(2, "0")}:00
                 </div>
@@ -330,6 +453,13 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                     }
                   })
                   
+                  // Get blocked slots for this day
+                  const dayBlockedSlots = getBlockedSlotsForDay(day)
+                  const blockedSlotsStartingThisHour = dayBlockedSlots.filter(slot => {
+                    const start = parseISO(slot.startTime)
+                    return start.getHours() === hour
+                  })
+                  
                   return (
                     <div 
                       key={`${day.toISOString()}-${hour}`} 
@@ -337,6 +467,43 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
+                      {/* Blocked slots indicator */}
+                      {blockedSlotsStartingThisHour.map((slot, index) => {
+                        const start = parseISO(slot.startTime)
+                        const end = parseISO(slot.endTime)
+                        const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+                        
+                        const gapPx = 1
+                        const cellHeight = 48
+                        const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
+                        const heightPx = durationHours * cellHeight - (gapPx * 2)
+                        
+                        return (
+                          <div
+                            key={`blocked-${slot.bookingId}-${index}`}
+                            className="absolute rounded-md px-2 py-1 text-xs overflow-hidden"
+                            style={{
+                              top: `${topPx}px`,
+                              left: '2px',
+                              width: 'calc(100% - 4px)',
+                              height: `${Math.max(heightPx, 24)}px`,
+                              backgroundColor: 'rgba(156, 163, 175, 0.3)',
+                              backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(156, 163, 175, 0.2) 4px, rgba(156, 163, 175, 0.2) 8px)',
+                              border: '1px dashed #9ca3af',
+                              color: '#6b7280',
+                              zIndex: 5,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                            title={`Blokkert av: ${slot.blockedBy}`}
+                          >
+                            <span className="text-xs">🔒</span>
+                            <span className="truncate text-xs font-medium">Blokkert</span>
+                          </div>
+                        )
+                      })}
+                      
                       {bookingGroups.flatMap((group) =>
                         group.map((booking, index) => {
                           const start = parseISO(booking.startTime)
@@ -365,15 +532,15 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                           const gapBetweenPx = hasOverlap ? 3 : 0 // More gap horizontally (3px) vs vertical (1px)
                           const bookingWidthPercent = 100 / groupSize
                           const marginRight = index < groupSize - 1 ? gapBetweenPx : 0
-                          // Center single boxes, keep side-by-side for overlapping
                           const isSingleBox = groupSize === 1
-                          const leftPercent = isSingleBox ? 50 : (index * bookingWidthPercent)
-                          // No margin from column lines - boxes fill the column
+                          // Horizontal padding for spacing between boxes and column edges
+                          const horizontalPadding = 4 // 2px on each side
+                          // No margin from column lines - boxes fill the column with small padding
                           const boxWidth = isSingleBox 
-                            ? '100%' 
+                            ? `calc(100% - ${horizontalPadding}px)` 
                             : (marginRight > 0 
-                              ? `calc(${bookingWidthPercent}% - ${marginRight}px)` 
-                              : `${bookingWidthPercent}%`)
+                              ? `calc(${bookingWidthPercent}% - ${marginRight + horizontalPadding}px)` 
+                              : `calc(${bookingWidthPercent}% - ${horizontalPadding}px)`)
 
                           return (
                             <button
@@ -382,8 +549,7 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                               className="absolute rounded px-1.5 py-1 text-xs overflow-hidden cursor-pointer z-10 pointer-events-auto text-left booking-event"
                               style={{
                                 top: `${topPx}px`,
-                                left: isSingleBox ? '50%' : `${leftPercent}%`,
-                                transform: isSingleBox ? 'translateX(-50%)' : 'none',
+                                left: isSingleBox ? '2px' : `calc(${index * bookingWidthPercent}% + 2px)`,
                                 width: boxWidth,
                                 height: `${Math.max(heightPx, 36)}px`,
                                 backgroundColor: resourceColor,
@@ -393,7 +559,6 @@ export function PublicCalendar({ categories, resources, bookings }: Props) {
                                 flexDirection: 'column',
                                 justifyContent: 'flex-start',
                                 alignItems: 'flex-start',
-                                marginRight: `${marginRight}px`
                               }}
                             >
                               <p className="font-semibold truncate text-[11px]">{booking.title}</p>

@@ -58,26 +58,39 @@ export async function POST(request: Request) {
       })
 
       // Create default categories only if none exist
+      // Note: Categories are shared across all organizations
       const existingCategories = await tx.resourceCategory.count()
       if (existingCategories === 0) {
-        await tx.resourceCategory.createMany({
-          data: [
-            { name: "Utendørs", description: "Utendørs fasiliteter", icon: "Sun", color: "#22c55e" },
-            { name: "Innendørs", description: "Innendørs fasiliteter", icon: "Home", color: "#3b82f6" },
-            { name: "Møterom", description: "Møterom og sosiale rom", icon: "Users", color: "#f59e0b" },
-            { name: "Utstyr", description: "Utstyr som kan lånes", icon: "Package", color: "#8b5cf6" }
-          ]
-        })
+        try {
+          await tx.resourceCategory.createMany({
+            data: [
+              { name: "Utendørs", description: "Utendørs fasiliteter", icon: "Sun", color: "#22c55e" },
+              { name: "Innendørs", description: "Innendørs fasiliteter", icon: "Home", color: "#3b82f6" },
+              { name: "Møterom", description: "Møterom og sosiale rom", icon: "Users", color: "#f59e0b" },
+              { name: "Utstyr", description: "Utstyr som kan lånes", icon: "Package", color: "#8b5cf6" }
+            ]
+          })
+        } catch (categoryError) {
+          // Ignore if categories already exist (race condition or already created)
+          console.log("Categories may already exist, skipping creation")
+        }
       }
 
-      // Create admin user
+      // Create admin user (automatically approved and verified)
       const user = await tx.user.create({
         data: {
           email,
           name,
           phone,
           password: hashedPassword,
-          role: "admin",
+          systemRole: "admin", // Brukeren som oppretter klubb blir admin
+          customRoleId: null, // Admin kan ikke ha custom role
+          role: "admin", // Legacy: beholder for bakoverkompatibilitet
+          isApproved: true, // Admin users are automatically approved
+          approvedAt: new Date(),
+          emailVerified: true, // Admin users are automatically verified
+          emailVerifiedAt: new Date(),
+          isMember: false, // Medlemsstatus settes av admin
           organizationId: organization.id
         },
         select: {
@@ -123,12 +136,27 @@ export async function POST(request: Request) {
       }
       
       // Check for database connection errors
-      if (error.message.includes("connect") || error.message.includes("timeout")) {
+      if (error.message.includes("connect") || error.message.includes("timeout") || error.message.includes("ECONNREFUSED")) {
         return NextResponse.json(
-          { error: "Kunne ikke koble til database. Prøv igjen om litt." },
+          { error: "Kunne ikke koble til database. Sjekk at DATABASE_URL er riktig konfigurert." },
           { status: 503 }
         )
       }
+      
+      // Check for foreign key constraint errors
+      if (error.message.includes("Foreign key") || error.message.includes("P2003")) {
+        return NextResponse.json(
+          { error: "Database-feil. Kontakt support." },
+          { status: 500 }
+        )
+      }
+      
+      // Log full error for debugging
+      console.error("Full error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      })
       
       // Return the actual error message if it's user-friendly
       if (error.message && !error.message.includes("Prisma") && !error.message.includes("P")) {
@@ -140,7 +168,7 @@ export async function POST(request: Request) {
     }
     
     return NextResponse.json(
-      { error: "Kunne ikke opprette klubb. Prøv igjen." },
+      { error: "Kunne ikke opprette klubb. Sjekk Vercel-loggene for detaljer." },
       { status: 500 }
     )
   }

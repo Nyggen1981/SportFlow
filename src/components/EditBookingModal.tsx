@@ -169,7 +169,7 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required
-              className="input"
+              className="input cursor-pointer w-full"
             />
           </div>
 
@@ -183,9 +183,26 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
               <select
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
+                onMouseDown={(e) => {
+                  // Scroll to bottom when clicking to open dropdown
+                  const select = e.target as HTMLSelectElement
+                  setTimeout(() => {
+                    if (select.options.length > 0) {
+                      select.selectedIndex = select.options.length - 1
+                      // Reset to actual value after a brief moment
+                      setTimeout(() => {
+                        const selectedIndex = Array.from(select.options).findIndex(opt => opt.value === startTime)
+                        if (selectedIndex > 0) {
+                          select.selectedIndex = selectedIndex
+                        }
+                      }, 50)
+                    }
+                  }, 0)
+                }}
                 required
-                className="input"
+                className="input cursor-pointer w-full"
               >
+                <option value="">Velg tid</option>
                 {timeOptions.map(({ value, label }) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
@@ -199,9 +216,26 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
               <select
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
+                onMouseDown={(e) => {
+                  // Scroll to bottom when clicking to open dropdown
+                  const select = e.target as HTMLSelectElement
+                  setTimeout(() => {
+                    if (select.options.length > 0) {
+                      select.selectedIndex = select.options.length - 1
+                      // Reset to actual value after a brief moment
+                      setTimeout(() => {
+                        const selectedIndex = Array.from(select.options).findIndex(opt => opt.value === endTime)
+                        if (selectedIndex > 0) {
+                          select.selectedIndex = selectedIndex
+                        }
+                      }, 50)
+                    }
+                  }, 0)
+                }}
                 required
-                className="input"
+                className="input cursor-pointer w-full"
               >
+                <option value="">Velg tid</option>
                 {timeOptions.map(({ value, label }) => (
                   <option key={value} value={value}>{label}</option>
                 ))}

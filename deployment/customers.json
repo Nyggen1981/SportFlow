@@ -1,0 +1,31 @@
+{
+  "description": "Liste over alle kunder/instanser av Sportflow Booking",
+  "lastUpdated": "2024-12-17",
+  "customers": [
+    {
+      "id": "sauda-il",
+      "name": "Sauda IL",
+      "slug": "sauda-il",
+      "environment": "production",
+      "vercelProject": "sportflow-booking",
+      "vercelUrl": "https://sportflow-booking.vercel.app",
+      "neonProject": "sportflow-booking",
+      "neonBranch": "main",
+      "envVarPrefix": "PROD_",
+      "notes": "Hovedproduksjon - første kunde"
+    },
+    {
+      "id": "testkunde",
+      "name": "Test Kunde",
+      "slug": "testkunde",
+      "environment": "staging",
+      "vercelProject": "sportflow-test",
+      "vercelUrl": "https://sportflow-test.vercel.app",
+      "neonProject": "testkunde",
+      "neonBranch": "main",
+      "envVarPrefix": "TEST_",
+      "notes": "Test-instans for nye kunder"
+    }
+  ]
+}
+

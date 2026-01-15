@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { ChevronLeft, ChevronRight, X, Calendar, Clock, User, Repeat, CheckCircle2, XCircle, Trash2, Pencil, Loader2 } from "lucide-react"
+import { EditBookingModal } from "@/components/EditBookingModal"
 import { 
   format, 
   startOfWeek, 
@@ -29,17 +30,30 @@ interface Booking {
   startTime: string
   endTime: string
   status: string
+  resourcePartId?: string | null
   resourcePartName?: string | null
+  resourcePartParentId?: string | null
   userId?: string | null
   userName?: string | null
   userEmail?: string | null
   isRecurring?: boolean
   parentBookingId?: string | null
+  isCompetition?: boolean // For competition matches
 }
 
 interface Part {
   id: string
   name: string
+  parentId?: string | null
+  children?: { id: string; name: string }[]
+}
+
+interface BlockedSlot {
+  startTime: string
+  endTime: string
+  partId: string | null // null = whole facility
+  blockedBy: string // booking title or "Hele [facility]" / "[Part name]"
+  bookingId: string
 }
 
 interface Props {
@@ -49,20 +63,30 @@ interface Props {
   parts: Part[]
 }
 
-export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: Props) {
+export function ResourceCalendar({ resourceId, resourceName, bookings: initialBookings, parts }: Props) {
   const { data: session } = useSession()
   const isAdmin = session?.user?.role === "admin"
+  const isModerator = session?.user?.role === "moderator"
+  const canManageBookings = isAdmin || isModerator
   const isLoggedIn = session?.user !== undefined
   
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedPart, setSelectedPart] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>("week")
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
+  const [bookings, setBookings] = useState<Booking[]>(initialBookings)
   const [isProcessing, setIsProcessing] = useState(false)
   const [applyToAll, setApplyToAll] = useState(true)
   const [rejectingBookingId, setRejectingBookingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
+  const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null)
   const weekViewScrollRef = useRef<HTMLDivElement>(null)
+
+  // Update bookings when initialBookings changes
+  useEffect(() => {
+    setBookings(initialBookings)
+  }, [initialBookings])
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -97,6 +121,91 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
       }
     })
   }, [bookings, selectedPart, weekDays, monthDays, viewMode])
+
+  // Calculate blocked slots based on hierarchy
+  const blockedSlots = useMemo(() => {
+    const slots: BlockedSlot[] = []
+    
+    bookings.forEach(booking => {
+      // If booking is for whole facility (no part), all parts are blocked
+      if (!booking.resourcePartId) {
+        parts.forEach(part => {
+          slots.push({
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            partId: part.id,
+            blockedBy: `Hele ${resourceName}`,
+            bookingId: booking.id
+          })
+          // Also block children of this part
+          if (part.children) {
+            part.children.forEach(child => {
+              slots.push({
+                startTime: booking.startTime,
+                endTime: booking.endTime,
+                partId: child.id,
+                blockedBy: `Hele ${resourceName}`,
+                bookingId: booking.id
+              })
+            })
+          }
+        })
+      } else {
+        // Booking is for a specific part
+        const bookedPart = parts.find(p => p.id === booking.resourcePartId)
+        
+        // Block whole facility
+        slots.push({
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          partId: null, // null = whole facility
+          blockedBy: booking.resourcePartName || "En del",
+          bookingId: booking.id
+        })
+        
+        // If booking is for a parent part, block all children
+        if (bookedPart?.children && bookedPart.children.length > 0) {
+          bookedPart.children.forEach(child => {
+            slots.push({
+              startTime: booking.startTime,
+              endTime: booking.endTime,
+              partId: child.id,
+              blockedBy: bookedPart.name,
+              bookingId: booking.id
+            })
+          })
+        }
+        
+        // If booking is for a child part, block parent
+        if (booking.resourcePartParentId) {
+          slots.push({
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            partId: booking.resourcePartParentId,
+            blockedBy: booking.resourcePartName || "En del",
+            bookingId: booking.id
+          })
+        }
+      }
+    })
+    
+    return slots
+  }, [bookings, parts, resourceName])
+
+  // Get blocked slots for the selected part view
+  const getBlockedSlotsForDay = useCallback((day: Date) => {
+    // Don't show blocked slots when viewing "Alle deler" - actual bookings show the full picture
+    if (!selectedPart) return []
+    
+    return blockedSlots.filter(slot => {
+      const start = parseISO(slot.startTime)
+      if (!isSameDay(day, start)) return false
+      
+      // If viewing a specific part, show blocks for that part
+      const part = parts.find(p => p.name === selectedPart)
+      return part && slot.partId === part.id
+    })
+  }, [blockedSlots, selectedPart, parts])
 
   const getBookingsForDay = useCallback((day: Date) => {
     return filteredBookings.filter(booking => {
@@ -212,8 +321,20 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
       }
 
       if (response.ok) {
-        // Refresh the page to get updated bookings
-        window.location.reload()
+        // Update bookings state instead of reloading
+        if (action === "cancel") {
+          setBookings(prev => prev.filter(b => b.id !== bookingId))
+        } else if (action === "approve") {
+          setBookings(prev => prev.map(b => 
+            b.id === bookingId ? { ...b, status: "approved" } : b
+          ))
+        } else if (action === "reject") {
+          setBookings(prev => prev.map(b => 
+            b.id === bookingId ? { ...b, status: "rejected" } : b
+          ))
+        }
+        setSelectedBooking(null) // Close the modal after action
+        setIsProcessing(false)
       } else {
         const error = await response.json()
         alert(error.error || "En feil oppstod")
@@ -309,7 +430,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
           {/* Time grid with sticky header */}
           <div ref={weekViewScrollRef} className="max-h-[600px] overflow-y-auto pr-[17px]">
             {/* Header - sticky */}
-            <div className="grid bg-gray-50 border-b border-gray-200 sticky top-0 z-20 gap-x-2" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
+            <div className="grid bg-gray-50 border-b border-gray-200 sticky top-0 z-20" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
               <div className="p-3 text-center text-sm font-medium text-gray-500" />
               {weekDays.map((day) => (
                 <div 
@@ -332,7 +453,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
 
             {/* Time slots */}
             {hours.map((hour) => (
-              <div key={hour} className="grid border-b border-gray-100 last:border-b-0 gap-x-2" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
+              <div key={hour} className="grid border-b border-gray-100 last:border-b-0" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
                 <div className="p-2 text-right text-xs text-gray-400 pr-3">
                   {hour.toString().padStart(2, "0")}:00
                 </div>
@@ -347,6 +468,13 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                     return start.getHours() === hour
                   })
                   
+                  // Get blocked slots for this day
+                  const dayBlockedSlots = getBlockedSlotsForDay(day)
+                  const blockedSlotsStartingThisHour = dayBlockedSlots.filter(slot => {
+                    const start = parseISO(slot.startTime)
+                    return start.getHours() === hour
+                  })
+                  
                   return (
                     <div 
                       key={`${day.toISOString()}-${hour}`} 
@@ -354,6 +482,43 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
+                      {/* Blocked slots indicator */}
+                      {blockedSlotsStartingThisHour.map((slot, index) => {
+                        const start = parseISO(slot.startTime)
+                        const end = parseISO(slot.endTime)
+                        const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+                        
+                        const gapPx = 1
+                        const cellHeight = 48
+                        const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
+                        const heightPx = durationHours * cellHeight - (gapPx * 2)
+                        
+                        return (
+                          <div
+                            key={`blocked-${slot.bookingId}-${index}`}
+                            className="absolute rounded-md px-2 py-1 text-xs overflow-hidden"
+                            style={{
+                              top: `${topPx}px`,
+                              left: '2px',
+                              width: 'calc(100% - 4px)',
+                              height: `${Math.max(heightPx, 24)}px`,
+                              backgroundColor: 'rgba(156, 163, 175, 0.3)',
+                              backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(156, 163, 175, 0.2) 4px, rgba(156, 163, 175, 0.2) 8px)',
+                              border: '1px dashed #9ca3af',
+                              color: '#6b7280',
+                              zIndex: 5,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                            title={`Blokkert av: ${slot.blockedBy}`}
+                          >
+                            <span className="text-xs">🔒</span>
+                            <span className="truncate text-xs font-medium">Blokkert</span>
+                          </div>
+                        )
+                      })}
+                      
                       {bookingsStartingThisHour.map((booking) => {
                           const start = parseISO(booking.startTime)
                           const end = parseISO(booking.endTime)
@@ -365,6 +530,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                           
                           const durationHours = (cappedEnd.getTime() - start.getTime()) / (1000 * 60 * 60)
                           const isPending = booking.status === "pending"
+                          const isCompetition = booking.status === "competition"
                           
                           // Add minimal gap between bookings vertically
                           const gapPx = 1
@@ -387,21 +553,45 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                             ? 'calc(100% - 4px)' 
                             : `calc(${widthPercent}% - ${gapPxHorizontal}px)`
 
+                          // Determine colors based on status
+                          const getColors = () => {
+                            if (isCompetition) {
+                              return {
+                                bg: '#f97316', // Orange for competitions
+                                border: '#ea580c',
+                                text: 'white'
+                              }
+                            }
+                            if (isPending) {
+                              return {
+                                bg: '#dcfce7',
+                                border: '#22c55e',
+                                text: '#15803d'
+                              }
+                            }
+                            return {
+                              bg: '#22c55e',
+                              border: undefined,
+                              text: 'white'
+                            }
+                          }
+                          const colors = getColors()
+
                           return (
                             <div
                               key={booking.id}
-                              onClick={() => setSelectedBooking(booking)}
-                              className={`absolute rounded-md px-2 py-1 text-xs overflow-hidden pointer-events-auto cursor-pointer ${
+                              onClick={() => !isCompetition && setSelectedBooking(booking)}
+                              className={`absolute rounded-md px-2 py-1 text-xs overflow-hidden pointer-events-auto ${
                                 isPending ? 'border-2 border-dashed' : ''
-                              }`}
+                              } ${isCompetition ? 'cursor-default' : 'cursor-pointer'}`}
                               style={{
                                 top: `${topPx}px`,
                                 left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${gapPxHorizontal / 2}px)`,
                                 width: boxWidth,
                                 height: `${Math.max(heightPx, 36)}px`,
-                                backgroundColor: isPending ? '#dcfce7' : '#22c55e',
-                                borderColor: isPending ? '#22c55e' : undefined,
-                                color: isPending ? '#15803d' : 'white',
+                                backgroundColor: colors.bg,
+                                borderColor: colors.border,
+                                color: colors.text,
                                 boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                                 zIndex: 10,
                                 display: 'flex',
@@ -409,7 +599,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                                 justifyContent: 'flex-start',
                                 alignItems: 'flex-start'
                               }}
-                              title={`${booking.title}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''}`}
+                              title={`${booking.title}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''}${isCompetition ? ' (Turneringskamp)' : ''}`}
                             >
                               <p className="font-medium truncate">{booking.title}</p>
                               {booking.resourcePartName && (
@@ -466,17 +656,25 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                   <div className="space-y-1">
                     {dayBookings.slice(0, 3).map((booking) => {
                       const isPending = booking.status === "pending"
+                      const isCompetition = booking.status === "competition"
+                      
+                      // Get class names based on status
+                      const getClassNames = () => {
+                        if (isCompetition) {
+                          return "bg-orange-500 text-white"
+                        }
+                        if (isPending) {
+                          return "bg-green-50 text-green-700 border border-dashed border-green-400"
+                        }
+                        return "bg-green-500 text-white"
+                      }
                       
                       return (
                         <div
                           key={booking.id}
-                          onClick={() => setSelectedBooking(booking)}
-                          className={`px-1.5 py-0.5 rounded text-xs truncate cursor-pointer ${
-                            isPending 
-                              ? "bg-green-50 text-green-700 border border-dashed border-green-400" 
-                              : "bg-green-500 text-white"
-                          }`}
-                          title={`${booking.title} - ${format(parseISO(booking.startTime), "HH:mm")}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter)' : ''}`}
+                          onClick={() => !isCompetition && setSelectedBooking(booking)}
+                          className={`px-1.5 py-0.5 rounded text-xs truncate ${isCompetition ? 'cursor-default' : 'cursor-pointer'} ${getClassNames()}`}
+                          title={`${booking.title} - ${format(parseISO(booking.startTime), "HH:mm")}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter)' : ''}${isCompetition ? ' (Turneringskamp)' : ''}`}
                         >
                           {format(parseISO(booking.startTime), "HH:mm")} {booking.title}
                         </div>
@@ -520,7 +718,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="text-lg font-bold text-gray-900">
-                {isAdmin ? "Behandle booking" : "Booking-detaljer"}
+                {canManageBookings ? "Behandle booking" : "Booking-detaljer"}
               </h3>
               <button
                 onClick={() => setSelectedBooking(null)}
@@ -570,7 +768,8 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                   <Clock className="w-4 h-4 text-gray-400" />
                   {format(parseISO(selectedBooking.startTime), "HH:mm")} - {format(parseISO(selectedBooking.endTime), "HH:mm")}
                 </div>
-                {selectedBooking.userName && (
+                {/* GDPR: Show user info to admins/moderators OR if it's your own booking */}
+                {(canManageBookings || selectedBooking.userId === session?.user?.id) && selectedBooking.userName && (
                   <div className="flex items-center gap-2 text-gray-600">
                     <User className="w-4 h-4 text-gray-400" />
                     {selectedBooking.userName}
@@ -581,11 +780,17 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
 
             {/* Actions */}
             {(() => {
+              // Only show actions if user is logged in
+              if (!isLoggedIn) {
+                return null
+              }
+
               const isOwner = selectedBooking.userId === session?.user?.id
               const canCancel = isOwner && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
+              const canEdit = (isOwner || canManageBookings) && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
               const isPast = new Date(selectedBooking.startTime) < new Date()
 
-              if (isAdmin) {
+              if (canManageBookings) {
                 return (
                   <div className="p-4 border-t bg-gray-50 rounded-b-xl space-y-3">
                     {/* Recurring booking checkbox */}
@@ -595,10 +800,10 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                           type="checkbox"
                           checked={applyToAll}
                           onChange={(e) => setApplyToAll(e.target.checked)}
-                          className="rounded"
+                          className="w-4 h-4 text-blue-600 rounded"
                         />
-                        <span className="text-sm text-gray-700">
-                          Gjelder for alle gjentakende bookinger
+                        <span className="text-sm text-blue-800">
+                          Behandle alle gjentakende bookinger
                         </span>
                       </label>
                     )}
@@ -608,7 +813,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                         <button
                           onClick={() => handleBookingAction(selectedBooking.id, "approve")}
                           disabled={isProcessing}
-                          className="flex-1 btn btn-success disabled:opacity-50"
+                          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                         >
                           {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                           {selectedBooking.isRecurring && applyToAll ? "Godkjenn alle" : "Godkjenn"}
@@ -619,7 +824,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                             setSelectedBooking(null)
                           }}
                           disabled={isProcessing}
-                          className="flex-1 btn btn-danger disabled:opacity-50"
+                          className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                         >
                           <XCircle className="w-4 h-4" />
                           {selectedBooking.isRecurring && applyToAll ? "Avslå alle" : "Avslå"}
@@ -627,58 +832,93 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
                       </div>
                     )}
                     
-                    {canCancel && !isPast && (
+                    {/* Edit and Cancel buttons */}
+                    <div className="flex gap-2">
+                      {!isPast && (
+                        <button
+                          onClick={() => { 
+                            setEditingBooking({
+                              id: selectedBooking.id,
+                              title: selectedBooking.title,
+                              startTime: selectedBooking.startTime,
+                              endTime: selectedBooking.endTime,
+                              status: selectedBooking.status,
+                              resourcePartId: selectedBooking.resourcePartId || null,
+                              resourcePartName: selectedBooking.resourcePartName || null,
+                              resourcePartParentId: selectedBooking.resourcePartParentId || null,
+                              userId: selectedBooking.userId || null,
+                              userName: selectedBooking.userName || null,
+                              userEmail: selectedBooking.userEmail || null,
+                              isRecurring: selectedBooking.isRecurring || false,
+                              parentBookingId: selectedBooking.parentBookingId || null
+                            } as Booking)
+                            setSelectedBooking(null)
+                          }}
+                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          Rediger
+                        </button>
+                      )}
                       <button
-                        onClick={() => handleBookingAction(selectedBooking.id, "cancel")}
+                        onClick={() => {
+                          setCancellingBookingId(selectedBooking.id)
+                          setSelectedBooking(null)
+                        }}
                         disabled={isProcessing}
-                        className="w-full btn btn-secondary text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        className="flex-1 px-4 py-2 bg-white border border-gray-300 text-red-600 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                       >
                         {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                         Kanseller
                       </button>
-                    )}
-
-                    <button
-                      onClick={() => setSelectedBooking(null)}
-                      className="w-full btn btn-secondary"
-                    >
-                      Lukk
-                    </button>
+                    </div>
                   </div>
                 )
-              } else if (isLoggedIn) {
+              } else if (canEdit && !isPast) {
                 return (
-                  <div className="p-4 border-t bg-gray-50 rounded-b-xl space-y-3">
-                    {canCancel && !isPast && (
+                  <div className="p-4 border-t bg-gray-50 rounded-b-xl space-y-2">
+                    <p className="text-xs text-gray-500 text-center mb-2">Dette er din booking</p>
+                    <div className="flex gap-2">
                       <button
-                        onClick={() => handleBookingAction(selectedBooking.id, "cancel")}
+                        onClick={() => { 
+                          setEditingBooking({
+                            id: selectedBooking.id,
+                            title: selectedBooking.title,
+                            startTime: selectedBooking.startTime,
+                            endTime: selectedBooking.endTime,
+                            status: selectedBooking.status,
+                            resourcePartId: selectedBooking.resourcePartId || null,
+                            resourcePartName: selectedBooking.resourcePartName || null,
+                            resourcePartParentId: selectedBooking.resourcePartParentId || null,
+                            userId: selectedBooking.userId || null,
+                            userName: selectedBooking.userName || null,
+                            userEmail: selectedBooking.userEmail || null,
+                            isRecurring: selectedBooking.isRecurring || false,
+                            parentBookingId: selectedBooking.parentBookingId || null
+                          } as Booking)
+                          setSelectedBooking(null)
+                        }}
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        Rediger
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCancellingBookingId(selectedBooking.id)
+                          setSelectedBooking(null)
+                        }}
                         disabled={isProcessing}
-                        className="w-full btn btn-secondary text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        className="flex-1 px-4 py-2 bg-white border border-gray-300 text-red-600 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                       >
                         {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                         Kanseller
                       </button>
-                    )}
-
-                    <button
-                      onClick={() => setSelectedBooking(null)}
-                      className="w-full btn btn-secondary"
-                    >
-                      Lukk
-                    </button>
+                    </div>
                   </div>
                 )
               } else {
-                return (
-                  <div className="p-4 border-t bg-gray-50 rounded-b-xl">
-                    <button
-                      onClick={() => setSelectedBooking(null)}
-                      className="w-full btn btn-secondary"
-                    >
-                      Lukk
-                    </button>
-                  </div>
-                )
+                return null
               }
             })()}
           </div>
@@ -748,6 +988,84 @@ export function ResourceCalendar({ resourceId, resourceName, bookings, parts }: 
           </div>
         )
       })()}
+
+      {/* Cancel Confirmation Modal */}
+      {cancellingBookingId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl p-6 animate-fadeIn">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
+              Kanseller booking?
+            </h3>
+            <p className="text-gray-600 text-center mb-6">
+              Er du sikker på at du vil kansellere denne bookingen? Denne handlingen kan ikke angres.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setCancellingBookingId(null)}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={async () => {
+                  await handleBookingAction(cancellingBookingId, "cancel")
+                  setCancellingBookingId(null)
+                }}
+                disabled={isProcessing}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                {isProcessing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Kanseller
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Booking Modal */}
+      {editingBooking && (
+        <EditBookingModal
+          booking={{
+            id: editingBooking.id,
+            title: editingBooking.title,
+            description: null,
+            startTime: editingBooking.startTime,
+            endTime: editingBooking.endTime,
+            status: editingBooking.status,
+            resourceId: resourceId,
+            resourceName: resourceName,
+            resourcePartId: editingBooking.resourcePartId || null,
+            resourcePartName: editingBooking.resourcePartName || null
+          }}
+          isAdmin={canManageBookings}
+          onClose={() => setEditingBooking(null)}
+          onSaved={(updatedBooking) => {
+            setBookings(prev => prev.map(b => 
+              b.id === updatedBooking.id 
+                ? { 
+                    ...b, 
+                    title: updatedBooking.title,
+                    startTime: updatedBooking.startTime,
+                    endTime: updatedBooking.endTime,
+                    status: updatedBooking.status
+                  } 
+                : b
+            ))
+            setEditingBooking(null)
+            // Refresh page to get updated data from server
+            window.location.reload()
+          }}
+        />
+      )}
     </div>
   )
 }

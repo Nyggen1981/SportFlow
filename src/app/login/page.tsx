@@ -4,18 +4,20 @@ import { useState, Suspense } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Calendar, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react"
+import { Calendar, Eye, EyeOff, Loader2, AlertCircle, Mail } from "lucide-react"
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/resources"
+  const callbackUrl = searchParams.get("callbackUrl") || "/kalender"
   
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [isResendingEmail, setIsResendingEmail] = useState(false)
+  const [resendMessage, setResendMessage] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,15 +32,56 @@ function LoginForm() {
       })
 
       if (result?.error) {
-        setError("Feil e-post eller passord")
-      } else {
+        // NextAuth returnerer feilmeldingen direkte når vi kaster Error i authorize
+        // Hvis det er "CredentialsSignin" er det generisk feil, ellers vis spesifikk melding
+        if (result.error === "CredentialsSignin") {
+          setError("Feil e-post eller passord")
+        } else {
+          // Vis den faktiske feilmeldingen (f.eks. "Du må verifisere e-postadressen din...")
+          setError(result.error)
+        }
+      } else if (result?.ok) {
         router.push(callbackUrl)
         router.refresh()
+      } else {
+        setError("Noe gikk galt. Prøv igjen.")
       }
-    } catch {
+    } catch (err) {
+      console.error("Login error:", err)
       setError("Noe gikk galt. Prøv igjen.")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleResendVerification = async () => {
+    if (!email) {
+      setError("Skriv inn e-postadressen din først")
+      return
+    }
+
+    setIsResendingEmail(true)
+    setResendMessage("")
+    setError("")
+
+    try {
+      const response = await fetch("/api/auth/verify-email/resend-by-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setResendMessage(data.message || "Verifiseringsmail er sendt. Sjekk e-posten din.")
+      } else {
+        setError(data.error || "Kunne ikke sende verifiseringsmail")
+      }
+    } catch (err) {
+      setError("Kunne ikke sende verifiseringsmail. Prøv igjen senere.")
+    } finally {
+      setIsResendingEmail(false)
     }
   }
 
@@ -63,9 +106,41 @@ function LoginForm() {
         <div className="card p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="p-4 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-700 animate-fadeIn">
-                <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                <p className="text-sm">{error}</p>
+              <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 animate-fadeIn">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{error}</p>
+                    {error.includes("verifisere") && (
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={handleResendVerification}
+                          disabled={isResendingEmail || !email}
+                          className="text-xs text-red-600 hover:text-red-800 underline font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                        >
+                          {isResendingEmail ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Sender...
+                            </>
+                          ) : (
+                            <>
+                              <Mail className="w-3 h-3" />
+                              Send ny verifiseringsmail
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {resendMessage && (
+              <div className="p-4 rounded-xl bg-green-50 border border-green-100 text-green-700 animate-fadeIn">
+                <p className="text-sm">{resendMessage}</p>
               </div>
             )}
 

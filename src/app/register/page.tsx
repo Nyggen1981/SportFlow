@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Suspense } from "react"
+import { useState, Suspense, useEffect } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -23,9 +23,48 @@ function RegisterForm() {
   const searchParams = useSearchParams()
   const orgSlug = searchParams.get("org")
   
-  const [step, setStep] = useState<"choose" | "join" | "create" | "success">(orgSlug ? "join" : "choose")
+  const [step, setStep] = useState<"loading" | "choose" | "join" | "create" | "success">("loading")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [orgExists, setOrgExists] = useState(false)
+  const [existingOrgName, setExistingOrgName] = useState("")
+  const [orgRequiresApproval, setOrgRequiresApproval] = useState(true) // Organization's setting
+  const [orgAllowsSelfMembership, setOrgAllowsSelfMembership] = useState(false) // Can users claim membership?
+  const [needsApproval, setNeedsApproval] = useState(true) // Result after registration
+
+  // Check if organization exists on page load
+  useEffect(() => {
+    const checkOrg = async () => {
+      try {
+        // Use slug from URL if provided, otherwise fetch default
+        // Add fresh=1 to bypass cache and get latest settings
+        const baseUrl = orgSlug ? `/api/organization?slug=${orgSlug}` : "/api/organization"
+        const url = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}fresh=1`
+        const res = await fetch(url, { cache: 'no-store' })
+        if (res.ok) {
+          const data = await res.json()
+          if (data && data.name) {
+            setOrgExists(true)
+            setExistingOrgName(data.name)
+            setOrgRequiresApproval(data.requireUserApproval !== false)
+            setOrgAllowsSelfMembership(data.allowSelfMembershipClaim === true)
+            setStep("join") // Organization exists, go to join
+          } else {
+            setOrgExists(false)
+            setStep("create") // No organization, must create one
+          }
+        } else {
+          setOrgExists(false)
+          setStep("create") // No organization, must create one
+        }
+      } catch {
+        setOrgExists(false)
+        setStep("create") // Error checking, assume no org
+      }
+    }
+    
+    checkOrg()
+  }, [orgSlug])
 
   // User form
   const [name, setName] = useState("")
@@ -35,6 +74,7 @@ function RegisterForm() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [consentGiven, setConsentGiven] = useState(false)
+  const [claimsMembership, setClaimsMembership] = useState(false)
 
   // Organization form (for new clubs)
   const [orgName, setOrgName] = useState("")
@@ -73,7 +113,7 @@ function RegisterForm() {
 
       const body = step === "create" 
         ? { name, email, phone, password, orgName, orgSlug: orgSlugInput }
-        : { name, email, phone, password, orgSlug: joinCode }
+        : { name, email, phone, password, claimsMembership: orgAllowsSelfMembership ? claimsMembership : false }
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -87,22 +127,22 @@ function RegisterForm() {
         throw new Error(data.error || "Kunne ikke registrere")
       }
 
-      // For new organizations (admin), auto-login
+      // For new organizations (admin), show success message
+      // Admin can log in after verifying email (admin bypasses email check, but we still want them to verify)
       if (step === "create") {
-        const result = await signIn("credentials", {
-          email,
-          password,
-          redirect: false,
-        })
-
-        if (!result?.error) {
-          router.push("/resources")
-          router.refresh()
-          return
-        }
+        setNeedsApproval(false)
+        setStep("success")
+        return
       }
 
-      // For regular users joining a club, show success message
+      // For regular users joining a club
+      // Check if approval is needed based on API response
+      setNeedsApproval(data.needsApproval !== false)
+      
+      // Never auto-login - user must verify email first
+      // Even if auto-approved, email verification is required
+
+      // Show success message (either waiting for approval or confirming registration)
       setStep("success")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Noe gikk galt")
@@ -124,9 +164,21 @@ function RegisterForm() {
               <Calendar className="w-8 h-8 text-white" />
             </div>
           </Link>
-          <h1 className="mt-4 text-3xl font-bold text-white">Søk om tilgang</h1>
-          <p className="mt-2 text-emerald-100">Registrer deg for å booke fasiliteter</p>
+          <h1 className="mt-4 text-3xl font-bold text-white">
+            {step === "loading" ? "Registrer deg" : orgRequiresApproval ? "Søk om tilgang" : "Registrer deg"}
+          </h1>
+          <p className="mt-2 text-emerald-100">
+            {orgRequiresApproval ? "Registrer deg for å booke fasiliteter" : "Opprett konto for å booke fasiliteter"}
+          </p>
         </div>
+
+        {/* Loading state */}
+        {step === "loading" && (
+          <div className="card p-8 animate-fadeIn text-center">
+            <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Sjekker tilgjengelighet...</p>
+          </div>
+        )}
 
         {/* Success message after registration */}
         {step === "success" && (
@@ -135,89 +187,40 @@ function RegisterForm() {
               <CheckCircle2 className="w-8 h-8 text-emerald-600" />
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">
-              Søknad sendt!
+              {needsApproval ? "Søknad sendt!" : "Registrering fullført!"}
             </h2>
             <p className="text-gray-600 mb-6">
-              Din registrering er mottatt og venter på godkjenning fra en administrator. 
-              Du vil få tilgang til å logge inn og booke når søknaden er godkjent.
+              {needsApproval 
+                ? "Din registrering er mottatt og venter på godkjenning fra en administrator. Sjekk e-posten din for å verifisere kontoen. Du vil få tilgang til å logge inn og booke når søknaden er godkjent."
+                : "Din konto er opprettet! Sjekk e-posten din for å verifisere kontoen før du logger inn. Du vil motta en verifiseringslenke på e-post."
+              }
             </p>
-            <Link href="/" className="btn btn-primary">
-              <Calendar className="w-5 h-5" />
-              Tilbake til forsiden
-            </Link>
-          </div>
-        )}
-
-        {/* Step chooser */}
-        {step === "choose" && (
-          <div className="card p-8 animate-fadeIn">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6 text-center">
-              Hvordan vil du komme i gang?
-            </h2>
-            <div className="space-y-4">
-              <button
-                onClick={() => setStep("join")}
-                className="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-emerald-500 hover:bg-emerald-50 transition-all text-left group"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
-                    <User className="w-6 h-6 text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">Bli med i eksisterende klubb</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Klubben din bruker allerede Arena Booking
-                    </p>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setStep("create")}
-                className="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-left group"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                    <Building2 className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">Opprett ny klubb</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Start Arena Booking for din klubb
-                    </p>
-                  </div>
-                </div>
-              </button>
-            </div>
-
-            <div className="mt-6 pt-6 border-t border-gray-100 text-center">
-              <p className="text-sm text-gray-500">
-                Har du allerede en konto?{" "}
-                <Link href="/login" className="text-emerald-600 hover:text-emerald-700 font-medium">
-                  Logg inn
-                </Link>
-              </p>
-            </div>
+            {needsApproval ? (
+              <Link href="/" className="btn btn-primary">
+                <Calendar className="w-5 h-5" />
+                Tilbake til forsiden
+              </Link>
+            ) : (
+              <Link href="/login" className="btn btn-primary">
+                <User className="w-5 h-5" />
+                Logg inn
+              </Link>
+            )}
           </div>
         )}
 
         {/* Join existing organization */}
         {step === "join" && (
           <div className="card p-8 animate-fadeIn">
-            <button
-              onClick={() => setStep("choose")}
-              className="text-sm text-gray-500 hover:text-gray-700 mb-4"
-            >
-              ← Tilbake
-            </button>
-
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
                 <User className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <h2 className="font-semibold text-gray-900">Bli med i klubb</h2>
-                <p className="text-sm text-gray-500">Registrer deg som bruker</p>
+                <h2 className="font-semibold text-gray-900">Registrer deg</h2>
+                <p className="text-sm text-gray-500">
+                  {existingOrgName ? `Bli med i ${existingOrgName}` : "Opprett din bruker"}
+                </p>
               </div>
             </div>
 
@@ -228,24 +231,6 @@ function RegisterForm() {
                   <p className="text-sm">{error}</p>
                 </div>
               )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <Building2 className="w-4 h-4 inline mr-1" />
-                  Klubbkode *
-                </label>
-                <input
-                  type="text"
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toLowerCase())}
-                  className="input"
-                  placeholder="f.eks. lyn"
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Spør klubben din om deres kode
-                </p>
-              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -282,7 +267,7 @@ function RegisterForm() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   <Phone className="w-4 h-4 inline mr-1" />
-                  Telefon
+                  Telefon *
                 </label>
                 <input
                   type="tel"
@@ -291,7 +276,11 @@ function RegisterForm() {
                   className="input"
                   placeholder="99 88 77 66"
                   autoComplete="tel"
+                  required
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Brukes for fremtidig Vipps-betaling
+                </p>
               </div>
 
               <div>
@@ -336,6 +325,25 @@ function RegisterForm() {
                 />
               </div>
 
+              {/* Membership status checkbox - only show if organization allows self-membership claims */}
+              {orgAllowsSelfMembership && (
+                <div className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                  <input
+                    type="checkbox"
+                    id="membership-claim"
+                    checked={claimsMembership}
+                    onChange={(e) => setClaimsMembership(e.target.checked)}
+                    className="mt-1 w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                  />
+                  <label htmlFor="membership-claim" className="text-sm text-gray-700 cursor-pointer">
+                    <span className="font-medium">Jeg er medlem av {existingOrgName || "idrettslaget"}</span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Huk av hvis du allerede er medlem av klubben.
+                    </p>
+                  </label>
+                </div>
+              )}
+
               {/* Consent checkbox */}
               <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                 <input
@@ -355,12 +363,14 @@ function RegisterForm() {
                 </label>
               </div>
 
-              {/* Info about approval */}
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                <p className="text-sm text-amber-800">
-                  <strong>Merk:</strong> Etter registrering må en administrator godkjenne kontoen din før du kan logge inn og booke.
-                </p>
-              </div>
+              {/* Info about approval - only show if org requires approval */}
+              {orgRequiresApproval && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="text-sm text-amber-800">
+                    <strong>Merk:</strong> Etter registrering må en administrator godkjenne kontoen din før du kan logge inn og booke.
+                  </p>
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -370,12 +380,12 @@ function RegisterForm() {
                 {isLoading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Sender søknad...
+                    {orgRequiresApproval ? "Sender søknad..." : "Registrerer..."}
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-5 h-5" />
-                    Send søknad
+                    {orgRequiresApproval ? "Send søknad" : "Registrer deg"}
                   </>
                 )}
               </button>
@@ -383,7 +393,7 @@ function RegisterForm() {
 
             <div className="mt-6 pt-6 border-t border-gray-100 text-center">
               <p className="text-sm text-gray-500">
-                Allerede godkjent?{" "}
+                {orgRequiresApproval ? "Allerede godkjent?" : "Har du allerede en konto?"}{" "}
                 <Link href="/login" className="text-emerald-600 hover:text-emerald-700 font-medium">
                   Logg inn
                 </Link>
@@ -495,7 +505,7 @@ function RegisterForm() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     <Phone className="w-4 h-4 inline mr-1" />
-                    Telefon
+                    Telefon *
                   </label>
                   <input
                     type="tel"
@@ -504,7 +514,11 @@ function RegisterForm() {
                     className="input"
                     placeholder="99 88 77 66"
                     autoComplete="tel"
+                    required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Brukes for fremtidig Vipps-betaling
+                  </p>
                 </div>
 
                 <div>
@@ -549,6 +563,8 @@ function RegisterForm() {
                   />
                 </div>
               </div>
+
+              {/* Membership status */}
 
               {/* Consent checkbox */}
               <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">

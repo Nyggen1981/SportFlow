@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Arena Booking",
-    "slug": "arena-booking",
+    "name": "Sportflow Booking",
+    "slug": "sportflow-booking",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,14 +14,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.arenabooking.app",
+      "bundleIdentifier": "com.sportflowbooking.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "Arena Booking trenger tilgang til kameraet for å ta bilder.",
-        "NSPhotoLibraryUsageDescription": "Arena Booking trenger tilgang til bildebiblioteket for å velge bilder."
+        "NSCameraUsageDescription": "Sportflow Booking trenger tilgang til kameraet for å ta bilder.",
+        "NSPhotoLibraryUsageDescription": "Sportflow Booking trenger tilgang til bildebiblioteket for å velge bilder."
       }
     },
     "android": {
-      "package": "com.arenabooking.app",
+      "package": "com.sportflowbooking.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1e293b"

@@ -1,7 +1,7 @@
-# GDPR-implementering for Arena Booking
+# GDPR-implementering for Sportflow Booking
 
 ## Oversikt
-Dette dokumentet beskriver alle GDPR-relaterte funksjoner som er implementert i Arena Booking-systemet.
+Dette dokumentet beskriver alle GDPR-relaterte funksjoner som er implementert i Sportflow Booking-systemet.
 
 ## Implementerte funksjoner
 

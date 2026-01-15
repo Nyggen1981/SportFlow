@@ -11,6 +11,7 @@ import {
   Shield, 
   User, 
   Mail, 
+  Phone,
   AlertTriangle,
   CheckCircle2,
   Loader2,
@@ -26,12 +27,114 @@ export default function InnstillingerPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error", text: string } | null>(null)
+  
+  // User info state
+  const [userInfo, setUserInfo] = useState<{
+    name: string | null
+    phone: string | null
+    emailVerified: boolean
+    isMember: boolean
+  } | null>(null)
+  const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(true)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [isResendingEmail, setIsResendingEmail] = useState(false)
+  
+  // Form state
+  const [editName, setEditName] = useState("")
+  const [editPhone, setEditPhone] = useState("")
+  const [isEditing, setIsEditing] = useState(false)
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login")
     }
   }, [status, router])
+
+  // Load user info
+  useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      loadUserInfo()
+    }
+  }, [status, session])
+
+  const loadUserInfo = async () => {
+    try {
+      const response = await fetch("/api/user/data")
+      if (response.ok) {
+        const data = await response.json()
+        setUserInfo({
+          name: data.user.name,
+          phone: data.user.phone,
+          emailVerified: data.user.emailVerified || false,
+          isMember: data.user.isMember || false,
+        })
+        setEditName(data.user.name || "")
+        setEditPhone(data.user.phone || "")
+      }
+    } catch (error) {
+      console.error("Error loading user info:", error)
+    } finally {
+      setIsLoadingUserInfo(false)
+    }
+  }
+
+  const handleUpdateUserInfo = async () => {
+    setIsUpdating(true)
+    setMessage(null)
+
+    try {
+      const response = await fetch("/api/user/update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName,
+          phone: editPhone,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Kunne ikke oppdatere informasjon")
+      }
+
+      setUserInfo({
+        name: data.name,
+        phone: data.phone,
+        emailVerified: data.emailVerified,
+        isMember: data.isMember,
+      })
+      setIsEditing(false)
+      setMessage({ type: "success", text: "Informasjon oppdatert!" })
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Kunne ikke oppdatere informasjon" })
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  const handleResendVerificationEmail = async () => {
+    setIsResendingEmail(true)
+    setMessage(null)
+
+    try {
+      const response = await fetch("/api/auth/verify-email/resend", {
+        method: "POST",
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Kunne ikke sende verifiseringsmail")
+      }
+
+      setMessage({ type: "success", text: "Verifiseringsmail er sendt! Sjekk e-posten din." })
+    } catch (error: any) {
+      setMessage({ type: "error", text: error.message || "Kunne ikke sende verifiseringsmail" })
+    } finally {
+      setIsResendingEmail(false)
+    }
+  }
 
   if (status === "loading") {
     return (
@@ -63,7 +166,7 @@ export default function InnstillingerPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `arena-booking-data-${new Date().toISOString().split("T")[0]}.json`
+      a.download = `sportflow-booking-data-${new Date().toISOString().split("T")[0]}.json`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -130,22 +233,173 @@ export default function InnstillingerPage() {
 
           {/* User Info */}
           <div className="mb-8 p-4 bg-gray-50 rounded-xl border border-gray-200">
-            <div className="flex items-center gap-3 mb-4">
-              <User className="w-5 h-5 text-gray-600" />
-              <h2 className="font-semibold text-gray-900">Kontoinformasjon</h2>
-            </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-600">{session.user?.email}</span>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <User className="w-5 h-5 text-gray-600" />
+                <h2 className="font-semibold text-gray-900">Kontoinformasjon</h2>
               </div>
-              {session.user?.name && (
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">{session.user.name}</span>
-                </div>
+              {!isEditing && (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Rediger
+                </button>
               )}
             </div>
+
+            {isLoadingUserInfo ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+              </div>
+            ) : isEditing ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    E-postadresse
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="email"
+                      value={session.user?.email || ""}
+                      disabled
+                      className="input bg-gray-100 text-gray-500 cursor-not-allowed"
+                    />
+                    {session?.user?.systemRole === "admin" ? (
+                      <div className="flex items-center gap-1 text-blue-600">
+                        <Shield className="w-5 h-5" />
+                        <span className="text-xs">Administrator (ingen verifisering påkrevd)</span>
+                      </div>
+                    ) : userInfo?.emailVerified ? (
+                      <div className="flex items-center gap-1 text-green-600">
+                        <CheckCircle2 className="w-5 h-5" />
+                        <span className="text-xs">Verifisert</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-amber-600">
+                        <AlertTriangle className="w-5 h-5" />
+                        <span className="text-xs">Ikke verifisert</span>
+                      </div>
+                    )}
+                  </div>
+                  {!userInfo?.emailVerified && session?.user?.systemRole !== "admin" && (
+                    <button
+                      onClick={handleResendVerificationEmail}
+                      disabled={isResendingEmail}
+                      className="mt-2 text-sm text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                    >
+                      {isResendingEmail ? "Sender..." : "Send verifiseringsmail på nytt"}
+                    </button>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fullt navn
+                  </label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="input"
+                    placeholder="Ditt navn"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Telefonnummer
+                  </label>
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    className="input"
+                    placeholder="99 88 77 66"
+                  />
+                </div>
+
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleUpdateUserInfo}
+                    disabled={isUpdating}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isUpdating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Lagrer...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        Lagre endringer
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsEditing(false)
+                      setEditName(userInfo?.name || "")
+                      setEditPhone(userInfo?.phone || "")
+                    }}
+                    disabled={isUpdating}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
+                  >
+                    Avbryt
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-600">{session.user?.email}</span>
+                  {userInfo?.emailVerified ? (
+                    <div title="E-post verifisert">
+                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    </div>
+                  ) : (
+                    <div title="E-post ikke verifisert">
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    </div>
+                  )}
+                </div>
+                {userInfo?.name && (
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-600">{userInfo.name}</span>
+                  </div>
+                )}
+                {userInfo?.phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    <span className="text-gray-600">{userInfo.phone}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400">Medlemsstatus:</span>
+                  <span className="text-gray-600 font-medium">
+                    {userInfo?.isMember ? "Medlem" : "Ikke medlem"}
+                  </span>
+                </div>
+                {!userInfo?.emailVerified && session?.user?.systemRole !== "admin" && (
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-xs text-amber-800 mb-2">
+                      <strong>E-post ikke verifisert.</strong> Verifiser e-posten din for å få full tilgang.
+                    </p>
+                    <button
+                      onClick={handleResendVerificationEmail}
+                      disabled={isResendingEmail}
+                      className="text-xs text-amber-700 hover:text-amber-900 underline disabled:opacity-50"
+                    >
+                      {isResendingEmail ? "Sender..." : "Send verifiseringsmail på nytt"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Messages */}

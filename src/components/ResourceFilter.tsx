@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { MapPin, Clock, ArrowRight, Filter } from "lucide-react"
+import { MapPin, Clock, ArrowRight } from "lucide-react"
 
 interface Category {
   id: string
@@ -66,41 +66,25 @@ export function ResourceFilter({ categories, resources }: Props) {
   return (
     <>
       {/* Category filter */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex items-center gap-3 overflow-x-auto pb-2">
-          <div className="flex items-center gap-2 text-gray-500 text-sm whitespace-nowrap">
-            <Filter className="w-4 h-4" />
-            Filtrer:
-          </div>
-          <button 
-            onClick={() => handleCategorySelect(null)}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              selectedCategory === null
-                ? "bg-blue-600 text-white"
-                : "bg-white border border-gray-200 text-gray-700 hover:border-blue-300 hover:text-blue-600"
-            }`}
+      <div className="py-6">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <select
+            value={selectedCategory || ""}
+            onChange={(e) => handleCategorySelect(e.target.value || null)}
+            className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            Alle
-          </button>
-          {categories.map((category) => (
-            <button 
-              key={category.id}
-              onClick={() => handleCategorySelect(category.id)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                selectedCategory === category.id
-                  ? "text-white"
-                  : "bg-white border border-gray-200 text-gray-700 hover:border-blue-300 hover:text-blue-600"
-              }`}
-              style={selectedCategory === category.id ? { backgroundColor: category.color } : undefined}
-            >
-              {category.name}
-            </button>
-          ))}
+            <option value="">Alle kategorier</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
       {/* Resources by category */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+      <div className="pb-16">
         {visibleCategories.map((categoryName) => {
           const { category, resources: categoryResources } = grouped[categoryName]
           return (

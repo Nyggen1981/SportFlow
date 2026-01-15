@@ -1,9 +1,9 @@
-# E-postkonfigurasjon for Arena Booking
+# E-postkonfigurasjon for Sportflow Booking
 
 ## Oversikt
-Arena Booking-applikasjonen trenger tilgang til en SMTP-server for å sende e-postvarsler om bookinger. Applikasjonen bruker standard SMTP-protokoll (nodemailer).
+Sportflow Booking-applikasjonen trenger tilgang til en SMTP-server for å sende e-postvarsler om bookinger. Applikasjonen bruker standard SMTP-protokoll (nodemailer).
 
-**Viktig:** Arena Booking støtter nå per-organisasjon SMTP-innstillinger. Hver idrettslag kan konfigurere sin egen e-postserver direkte i admin-panelet. Dette gir bedre branding og fleksibilitet.
+**Viktig:** Sportflow Booking støtter nå per-organisasjon SMTP-innstillinger. Hver idrettslag kan konfigurere sin egen e-postserver direkte i admin-panelet. Dette gir bedre branding og fleksibilitet.
 
 ## To måter å konfigurere e-post
 
@@ -30,7 +30,7 @@ Hvis en organisasjon ikke har konfigurert egne SMTP-innstillinger, faller system
 ### Alternativ 1: Bruk eksisterende e-postserver (anbefalt)
 Hvis organisasjonen allerede har en e-postserver (Office 365, Exchange, etc.):
 
-1. **Opprett en dedikert e-postkonto** for Arena Booking (f.eks. `arena-booking@organisasjon.no`)
+1. **Opprett en dedikert e-postkonto** for Sportflow Booking (f.eks. `sportflow@organisasjon.no`)
 2. **Gi IT følgende informasjon:**
    - SMTP-serveradresse (f.eks. `smtp.office365.com`)
    - Portnummer (vanligvis `587` for STARTTLS eller `465` for SSL)
@@ -58,9 +58,9 @@ Hvis organisasjonen ikke har egen e-postserver, kan IT vurdere:
 ```
 SMTP_HOST=smtp.office365.com
 SMTP_PORT=587
-SMTP_USER=arena-booking@organisasjon.no
+SMTP_USER=sportflow@organisasjon.no
 SMTP_PASS=[app-passord hvis MFA er aktivert]
-SMTP_FROM=arena-booking@organisasjon.no
+SMTP_FROM=sportflow@organisasjon.no
 ```
 
 **Viktig for Office 365:**
@@ -84,22 +84,22 @@ SMTP_FROM=din-epost@gmail.com
 ```
 SMTP_HOST=mail.organisasjon.no
 SMTP_PORT=587
-SMTP_USER=arena-booking@organisasjon.no
+SMTP_USER=sportflow@organisasjon.no
 SMTP_PASS=[passord]
-SMTP_FROM=arena-booking@organisasjon.no
+SMTP_FROM=sportflow@organisasjon.no
 ```
 
 ## Sikkerhetshensyn
 
 1. **Ikke del passord i klartekst** - Bruk sikker kanal for å dele passord
 2. **App-passord anbefales** - Hvis MFA er aktivert, bruk app-passord i stedet for hovedpassord
-3. **Begrens tilgang** - E-postkontoen bør kun brukes til Arena Booking, ikke personlig e-post
+3. **Begrens tilgang** - E-postkontoen bør kun brukes til Sportflow Booking, ikke personlig e-post
 4. **Regelmessig passordbytte** - Vurder å bytte passord med jevne mellomrom
 
 ## Testing
 
 Etter at miljøvariablene er satt opp, kan e-postfunksjonen testes via:
-- Admin-panelet i Arena Booking (hvis test-endpoint er tilgjengelig)
+- Admin-panelet i Sportflow Booking (hvis test-endpoint er tilgjengelig)
 - Eller ved å opprette en test-booking og se om e-post sendes
 
 ## Tekniske detaljer for IT

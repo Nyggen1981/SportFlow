@@ -23,54 +23,148 @@ model Organization {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  // SMTP settings per organization (optional - falls back to global env vars if not set)
-  smtpHost String? // e.g., smtp.office365.com, smtp.gmail.com
-  smtpPort Int? // e.g., 587, 465
-  smtpUser String? // Email address or username
-  smtpPass String? // Password or app password (encrypted in production)
-  smtpFrom String? // From email address (defaults to smtpUser if not set)
+  // Subscription / license control
+  isActive           Boolean   @default(true)  // Set to false to disable all access for this club
+  subscriptionEndsAt DateTime?             // Optional: contract end date
+  graceEndsAt        DateTime?             // Optional: last day with read-only access
 
-  users          User[]
-  resources      Resource[]
-  bookings       Booking[]
+  // License key (connects to central license server)
+  licenseKey         String?   // License key provided by the license server
+
+  // User registration settings
+  requireUserApproval Boolean @default(true)  // If true, new users must be approved by admin
+  allowSelfMembershipClaim Boolean @default(false)  // If true, users can claim membership status during registration
+
+  // SMTP settings per organization (optional - falls back to global env vars if not set)
+  smtpHost       String?  // e.g., smtp.office365.com, smtp.gmail.com
+  smtpPort       Int?     // e.g., 587, 465
+  smtpUser       String?  // Email address or username
+  smtpPass       String?  // Password or app password (encrypted in production)
+  smtpFrom       String?  // From email address (defaults to smtpUser if not set)
+
+  users     User[]
+  resources Resource[]
+  bookings  Booking[]
   emailTemplates EmailTemplate[]
+  invoices  Invoice[]
+  payments  Payment[]
+  customRoles CustomRole[] // Egendefinerte roller
+  competitions Competition[] // Kampoppsett-modul
+  
+  // Vipps API settings
+  vippsClientId     String?  // Vipps API client ID
+  vippsClientSecret String?  // Vipps API client secret (encrypted)
+  vippsSubscriptionKey String?  // Vipps subscription key
+  vippsTestMode     Boolean  @default(true)  // Use Vipps test environment
+  
+  // Invoice template settings
+  invoiceAddress    String?  // Fakturaadresse
+  invoicePhone      String?  // Fakturatelefon
+  invoiceEmail      String?  // Faktura e-post
+  invoiceOrgNumber  String?  // Organisasjonsnummer
+  invoiceBankAccount String?  // Kontonummer for betaling
+  invoiceNotes      String?  // Standard notater på faktura
+  isMvaRegistered   Boolean  @default(false)  // Er organisasjonen MVA-registrert?
+}
+
+// Egendefinerte roller per organisasjon
+model CustomRole {
+  id                String   @id @default(cuid())
+  name              String   // F.eks. "Trener", "Lagleder", "Styremedlem"
+  description       String?  // Beskrivelse av rollen
+  color             String?  // Farge for visning i UI (f.eks. "#3b82f6")
+  
+  // Moderator-tilgang - kan denne rollen moderere ressurser?
+  hasModeratorAccess Boolean @default(false)
+  
+  // Kampoppsett-tilgang - kan denne rollen administrere kampoppsett?
+  hasMatchSetupAccess Boolean @default(false)
+  
+  // Organisasjon
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Brukere med denne rollen
+  users             User[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@unique([organizationId, name]) // Unik navn per organisasjon
+  @@index([organizationId])
 }
 
 // User with role-based access
 model User {
-  id         String    @id @default(cuid())
-  email      String    @unique
+  id         String   @id @default(cuid())
+  email      String   @unique
   name       String?
   password   String
-  role       String    @default("user") // "admin", "user"
+  
+  // Systemroller: "admin" eller "user" (hardkodede)
+  systemRole String   @default("user") // "admin" | "user"
+  
+  // Egendefinert rolle (valgfritt)
+  customRoleId String?
+  customRole   CustomRole? @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
+  
+  // Legacy: behold role for bakoverkompatibilitet (satt automatisk basert på systemRole/customRoleId)
+  role       String   @default("user") // "admin" | "user" | CustomRole.id (deprecated, bruk systemRole/customRoleId)
+  
   phone      String?
-  isApproved Boolean   @default(false) // Must be approved by admin to use system
+  isApproved Boolean  @default(false)  // Must be approved by admin to use system
   approvedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  
+  // Email verification
+  emailVerified   Boolean   @default(false)
+  emailVerifiedAt DateTime?
+  
+  // Membership status
+  isMember Boolean @default(false)  // Is the user a member of the organization
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  emailVerificationToken EmailVerificationToken?
 
-  bookings         Booking[]
-  approvedBookings Booking[]        @relation("ApprovedBy")
-  preferences      UserPreferences?
+  bookings          Booking[]
+  approvedBookings  Booking[] @relation("ApprovedBy")
+  preferences       UserPreferences?
+  moderatedResources ResourceModerator[]
 
   @@index([organizationId, isApproved])
+  @@index([emailVerified])
+  @@index([customRoleId])
+}
+
+// Email verification token for verifying user email addresses
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
 }
 
 // User preferences for calendar/view settings
 model UserPreferences {
-  id     String @id @default(cuid())
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
   // Calendar view preferences
-  defaultCalendarView String  @default("week") // "week" or "month"
-  defaultResourceId   String? // Default resource to show
-  selectedResourceIds String? // JSON array of selected resource IDs
-  selectedCategoryIds String? // JSON array of selected category IDs
-
+  defaultCalendarView String   @default("week") // "week" or "month"
+  defaultResourceId   String?  // Default resource to show
+  selectedResourceIds String?  // JSON array of selected resource IDs
+  selectedCategoryIds String?  // JSON array of selected category IDs
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -88,30 +182,48 @@ model ResourceCategory {
 
 // Main resource (e.g., "Hovedstadion", "Idrettshall")
 model Resource {
-  id                   String  @id @default(cuid())
-  name                 String
-  description          String?
-  location             String?
-  image                String?
-  mapImage             String? // Overview map/floorplan image
-  color                String? // Custom color for this facility
-  isActive             Boolean @default(true)
-  showOnPublicCalendar Boolean @default(true) // Show on public calendar
-
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  location    String?
+  image       String?
+  mapImage    String?  // Overview map/floorplan image
+  color       String?  // Custom color for this facility
+  isActive    Boolean @default(true)
+  showOnPublicCalendar Boolean @default(true)  // Show on public calendar
+  // Optional price information (legacy - kept for backwards compatibility)
+  prisInfo    String?    // Text shown under "Prisinfo" (kun for standardlisens)
+  visPrisInfo Boolean?   // Whether price info should be shown (kun for standardlisens)
+  
+  // Pricing for booking (avhengig av lisensserver-status)
+  // Multiple pricing rules: JSON array of pricing configurations
+  // Each rule has: { forRoles: ["admin", "roleId"], model: "FREE"|"HOURLY"|"DAILY"|"FIXED"|"FIXED_DURATION", pricePerHour?, pricePerDay?, fixedPrice?, fixedPriceDuration? }
+  // If forRoles is null/empty, it's the default pricing for all roles not covered by other rules
+  pricingRules String? // JSON array: [{ forRoles: ["admin"], model: "FREE" }, { forRoles: [], model: "HOURLY", pricePerHour: 500 }]
+  visPrislogikk Boolean? @default(false) // Whether pricing logic should be shown on facility page (kun for betalingsmodulen)
+  visDelinfoKort Boolean? @default(true) // Whether "Mer informasjon" card with parts details should be shown
+  
+  // Legacy fields (deprecated, bruk pricingRules i stedet)
+  pricingModel String? @default("FREE")
+  pricePerHour Decimal?
+  pricePerDay Decimal?
+  fixedPrice Decimal?
+  fixedPriceDuration Int?
+  freeForRoles String?
+  
+  requiresPayment Boolean @default(false)  // Whether payment is required for bookings (deprecated, bruk pricingRules)
+  
   // Part booking settings
-  blockPartsWhenWholeBooked Boolean @default(true) // When whole facility is booked, block all parts
-  blockWholeWhenPartBooked  Boolean @default(true) // When a part is booked, block "whole facility" option
-  allowWholeBooking         Boolean @default(true) // Allow booking entire facility (false = must select a part)
+  blockPartsWhenWholeBooked Boolean @default(true)  // When whole facility is booked, block all parts
+  blockWholeWhenPartBooked  Boolean @default(true)  // When a part is booked, block "whole facility" option
+  allowWholeBooking         Boolean @default(true)  // Allow booking entire facility (false = must select a part)
 
   // Booking settings
-  minBookingMinutes  Int? // null = no limit
-  maxBookingMinutes  Int? // null = no limit
+  minBookingMinutes  Int?    // null = no limit
+  maxBookingMinutes  Int?    // null = no limit
+  minBookingHours    Decimal? // Minimum antall timer en fasilitet kan bookes (uavhengig av lisens)
   requiresApproval   Boolean @default(true)
   advanceBookingDays Int?    @default(30)
-
-  // Price info
-  prisInfo    String? // Price information text
-  visPrisInfo Boolean @default(false) // Whether to show price info
 
   // Opening hours (stored as JSON string)
   openingHours String?
@@ -127,11 +239,52 @@ model Resource {
 
   parts    ResourcePart[]
   bookings Booking[]
+  moderators ResourceModerator[]
+  fixedPricePackages FixedPricePackage[]
+  competitions Competition[]  // Konkurranser knyttet til denne fasiliteten
 
   // Indexes for faster queries
   @@index([organizationId, isActive])
   @@index([categoryId])
   @@index([showOnPublicCalendar])
+}
+
+// Fixed price package for resources/parts (e.g., "Barneselskap 2t", "E-sport med trener")
+// Admin defines name, duration, and price. User selects package + start time, end time is calculated automatically.
+model FixedPricePackage {
+  id              String   @id @default(cuid())
+  name            String   // e.g., "Barneselskap", "E-sport med trener"
+  description     String?  // Optional description
+  durationMinutes Int      // Duration in minutes (e.g., 120 = 2 hours)
+  price           Decimal  // Fixed price in NOK
+  
+  // Role restrictions - JSON array of role IDs that can use this package
+  // If null or empty array, all roles can use it
+  // Values: "admin", "user", or custom role IDs (cuid)
+  forRoles        String?  // JSON array: ["admin", "roleId1", "roleId2"]
+  
+  // Can be linked to resource (whole facility) or resource part
+  resourceId      String?
+  resource        Resource? @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  resourcePartId  String?
+  resourcePart    ResourcePart? @relation(fields: [resourcePartId], references: [id], onDelete: Cascade)
+  
+  // Organization
+  organizationId  String
+  
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)  // For ordering in UI
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Bookings using this package
+  bookings        Booking[]
+  
+  @@index([resourceId])
+  @@index([resourcePartId])
+  @@index([organizationId])
+  @@index([isActive])
 }
 
 // Part of a resource (e.g., "Bane 1", "Bane 2", "Halv hall")
@@ -142,24 +295,35 @@ model ResourcePart {
   description String?
   capacity    Int?
   isActive    Boolean @default(true)
-
+  adminNote   String?
+  image       String? // Base64 encoded image for this part
+  
   // Map marker coordinates (JSON: {points: [{x,y}]} for polygon)
   mapCoordinates String?
 
-  // Admin note that will be included in approved booking emails
-  // e.g., "Nøkler hentes i resepsjonen" or "Kode til låsen er 1234"
-  adminNote String?
-
   // Hierarchy - parent part (null = top level)
-  parentId String?
-  parent   ResourcePart?  @relation("PartHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children ResourcePart[] @relation("PartHierarchy")
+  parentId    String?
+  parent      ResourcePart?  @relation("PartHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    ResourcePart[] @relation("PartHierarchy")
 
   resourceId String
   resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
 
-  bookings Booking[]
+  // Pricing for this part (overrides resource pricing if set)
+  pricingRules String? // JSON array av pris-regler (overstyrer resource hvis satt)
+  
+  // Legacy fields (deprecated, bruk pricingRules i stedet)
+  pricingModel String?
+  pricePerHour Decimal?
+  pricePerDay Decimal?
+  fixedPrice Decimal?
+  fixedPriceDuration Int?
+  freeForRoles String?
 
+  bookings Booking[]
+  fixedPricePackages FixedPricePackage[]
+  matches  Match[]  // Kamper som spilles på denne banen
+  
   @@index([parentId])
   @@index([resourceId])
 }
@@ -190,12 +354,12 @@ model Booking {
   recurringEndDate DateTime?
   parentBookingId  String?
 
+  // When the user has seen a status change (approved/rejected) in the UI
+  userSeenAt DateTime?
+
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   approvedAt DateTime?
-
-  // Track when user has seen status changes (null = not seen yet)
-  userSeenAt DateTime?
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -212,6 +376,17 @@ model Booking {
   approvedById String?
   approvedBy   User?   @relation("ApprovedBy", fields: [approvedById], references: [id])
 
+  // Payment and invoicing
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
+  payments  Payment[]
+  totalAmount Decimal?  // Total price for this booking in NOK
+  preferredPaymentMethod String? // Brukerens foretrukne betalingsmetode: "INVOICE", "VIPPS", "CARD" (kun hvis pricing er aktivert)
+  
+  // Fixed price package (if booking was made with a package)
+  fixedPricePackageId String?
+  fixedPricePackage   FixedPricePackage? @relation(fields: [fixedPricePackageId], references: [id])
+
   // Indexes for faster queries
   @@index([resourceId, status, startTime])
   @@index([userId])
@@ -219,6 +394,7 @@ model Booking {
   @@index([startTime])
   @@index([status])
   @@index([parentBookingId]) // For recurring bookings
+  @@index([fixedPricePackageId]) // For fixed price package bookings
   
   // Composite indexes for conflict checking (double booking detection)
   @@index([resourceId, status, startTime, endTime]) // For whole facility bookings
@@ -226,19 +402,372 @@ model Booking {
   @@index([resourceId, status, resourcePartId]) // For filtering by part
 }
 
+// Resource Moderator - Links moderators to specific resources they can manage
+model ResourceModerator {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, resourceId])
+  @@index([userId])
+  @@index([resourceId])
+}
+
 // Email templates for customizing automated emails
 model EmailTemplate {
-  id             String       @id @default(cuid())
+  id             String   @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  templateType String // "new_booking", "approved", "rejected", "cancelled_by_admin", "cancelled_by_user"
-  subject      String // Email subject (supports variables like {{bookingTitle}})
-  htmlBody     String // HTML email body (supports variables)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  
+  templateType   String   // "new_booking", "approved", "rejected", "cancelled_by_admin", "cancelled_by_user"
+  subject        String   // Email subject (supports variables like {{bookingTitle}})
+  htmlBody       String   // HTML email body (supports variables)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@unique([organizationId, templateType])
   @@index([organizationId])
+}
+
+// Invoice - Faktura for betalinger
+model Invoice {
+  id            String   @id @default(cuid())
+  invoiceNumber String   @unique  // Human-readable invoice number (e.g., "2024-001")
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Invoice details
+  status        InvoiceStatus @default(DRAFT)  // DRAFT, SENT, PAID, OVERDUE, CANCELLED
+  dueDate       DateTime
+  paidAt        DateTime?
+  
+  // Amounts
+  subtotal      Decimal   // Amount before tax
+  taxRate       Decimal   @default(0.25)  // MVA rate (25% default for Norway)
+  taxAmount     Decimal   // Calculated tax amount
+  totalAmount   Decimal   // Total including tax
+  
+  // Billing information
+  billingName   String
+  billingEmail  String
+  billingPhone  String?
+  billingAddress String?
+  
+  // Notes
+  notes         String?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  bookings      Booking[]
+  payments      Payment[]
+  
+  @@index([organizationId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([invoiceNumber])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+// Payment - Betalinger (Vipps, kort, etc.)
+model Payment {
+  id            String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // What is being paid for
+  invoiceId     String?
+  invoice       Invoice? @relation(fields: [invoiceId], references: [id])
+  bookingId     String?
+  booking       Booking? @relation(fields: [bookingId], references: [id])
+  paymentType   PaymentType  // BOOKING, REFEREE, KIOSK, MEMBERSHIP, OTHER
+  
+  // Payment details
+  amount        Decimal   // Amount in NOK
+  currency      String    @default("NOK")
+  status        PaymentStatus @default(PENDING)
+  
+  // Payment method
+  paymentMethod PaymentMethod
+  
+  // Vipps integration
+  vippsOrderId  String?  // Vipps order ID
+  vippsTransactionId String?  // Vipps transaction ID
+  
+  // Metadata
+  description   String?
+  metadata      Json?    // Additional payment data (webhook responses, etc.)
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  completedAt   DateTime?
+  
+  @@index([organizationId])
+  @@index([invoiceId])
+  @@index([bookingId])
+  @@index([status])
+  @@index([paymentMethod])
+  @@index([vippsOrderId])
+}
+
+enum PaymentType {
+  BOOKING
+  REFEREE
+  KIOSK
+  MEMBERSHIP
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  VIPPS
+  CARD
+  BANK_TRANSFER
+  CASH
+  OTHER
+}
+
+// ======================================
+// KAMPOPPSETT MODULE (Match Setup)
+// ======================================
+
+// Competition - Hovedmodell for seriespill eller turnering
+model Competition {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  type            CompetitionType  // LEAGUE (seriespill) or TOURNAMENT (cup/sluttspill)
+  status          CompetitionStatus @default(DRAFT)
+  
+  // Dato og sted
+  startDate       DateTime
+  endDate         DateTime?
+  venue           String?   // Arena/sted
+  
+  // Daglige tidspunkter for konkurransen
+  dailyStartTime  String?   // Starttidspunkt hver dag (f.eks. "09:00")
+  dailyEndTime    String?   // Sluttidspunkt hver dag (f.eks. "18:00")
+  
+  // Regler og innstillinger
+  pointsForWin    Int       @default(3)
+  pointsForDraw   Int       @default(1)
+  pointsForLoss   Int       @default(0)
+  hasOvertime     Boolean   @default(false)
+  overtimeMinutes Int?      // Lengde på overtid
+  hasPenalties    Boolean   @default(false)  // Kun for turneringer (straffespark etc.)
+  
+  // Kampinnstillinger
+  matchDuration   Int       @default(60)  // Varighet per kamp i minutter
+  breakDuration   Int       @default(15)  // Pause mellom kamper i minutter
+  matchesPerDay   Int?      // Maks antall kamper per dag (null = ingen grense)
+  
+  // Gruppe/divisjon (for turneringer med grupper)
+  hasGroups       Boolean   @default(false)
+  groupCount      Int?      // Antall grupper
+  teamsPerGroup   Int?      // Lag per gruppe
+  advancePerGroup Int?      // Hvor mange går videre fra hver gruppe
+  
+  // Sluttspill-innstillinger
+  playoffRounds   Int?      // Antall sluttspillrunder (for turneringer)
+  thirdPlaceMatch Boolean   @default(false)  // Bronsefinale
+  
+  // Organisasjon
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Kobling til fasilitet/ressurs (valgfritt)
+  resourceId      String?
+  resource        Resource? @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relasjoner
+  teams           CompetitionTeam[]
+  matches         Match[]
+  groups          CompetitionGroup[]
+  
+  @@index([organizationId])
+  @@index([status])
+  @@index([type])
+  @@index([startDate])
+  @@index([resourceId])
+}
+
+// Turneringstype
+enum CompetitionType {
+  LEAGUE      // Seriespill (alle mot alle)
+  TOURNAMENT  // Turnering/cup (sluttspill)
+}
+
+// Status for konkurranse
+enum CompetitionStatus {
+  DRAFT       // Under opprettelse
+  SCHEDULED   // Kampene er satt opp, venter på start
+  ACTIVE      // Pågår
+  COMPLETED   // Ferdig
+  CANCELLED   // Avlyst
+}
+
+// Gruppe i turnering
+model CompetitionGroup {
+  id              String   @id @default(cuid())
+  name            String   // F.eks. "Gruppe A", "Pulje 1"
+  sortOrder       Int      @default(0)
+  
+  competitionId   String
+  competition     Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  
+  teams           CompetitionTeam[]
+  matches         Match[]
+  
+  @@index([competitionId])
+}
+
+// Lag i konkurranse
+model CompetitionTeam {
+  id              String   @id @default(cuid())
+  name            String
+  shortName       String?  // Kortversjon av navn (for visning)
+  color           String?  // Lagfarge for visning
+  logo            String?  // Logo (base64 eller URL)
+  contactName     String?
+  contactEmail    String?
+  contactPhone    String?
+  
+  // Spillere (lagres som JSON-array med navn)
+  players         String[] @default([])  // Array av spillernavn
+  
+  // Seeding/rangering
+  seed            Int?     // Seedingnummer (1 = toppet seed)
+  
+  // Statistikk (oppdateres automatisk)
+  played          Int      @default(0)
+  wins            Int      @default(0)
+  draws           Int      @default(0)
+  losses          Int      @default(0)
+  goalsFor        Int      @default(0)
+  goalsAgainst    Int      @default(0)
+  goalDifference  Int      @default(0)
+  points          Int      @default(0)
+  
+  // Gruppe (for turneringer med gruppespill)
+  groupId         String?
+  group           CompetitionGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  
+  // Konkurranse
+  competitionId   String
+  competition     Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Kamper
+  homeMatches     Match[]  @relation("HomeTeam")
+  awayMatches     Match[]  @relation("AwayTeam")
+  wonMatches      Match[]  @relation("MatchWinner")
+  
+  @@index([competitionId])
+  @@index([groupId])
+  @@index([points, goalDifference, goalsFor])  // For tabellsortering
+}
+
+// Kamp
+model Match {
+  id              String   @id @default(cuid())
+  matchNumber     Int      // Kampnummer i turneringen
+  round           Int?     // Runde (1, 2, 3... for seriespill, eller 1=kvartfinale, 2=semi, etc.)
+  roundName       String?  // F.eks. "Kvartfinale", "Semifinale", "Finale"
+  
+  // Tidspunkt
+  scheduledTime   DateTime
+  actualStartTime DateTime?
+  actualEndTime   DateTime?
+  
+  // Sted - kan være fritekst eller koblet til ResourcePart
+  venue           String?
+  court           String?  // Bane/arena (f.eks. "Bane 1") - fritekst
+  
+  // Kobling til spesifikk bane/del av fasilitet
+  resourcePartId  String?
+  resourcePart    ResourcePart? @relation(fields: [resourcePartId], references: [id], onDelete: SetNull)
+  
+  // Lag
+  homeTeamId      String?
+  homeTeam        CompetitionTeam? @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: SetNull)
+  awayTeamId      String?
+  awayTeam        CompetitionTeam? @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: SetNull)
+  
+  // For sluttspill: placeholder for lag som ikke er bestemt ennå
+  homeTeamPlaceholder String?  // F.eks. "Vinner Gruppe A" eller "Vinner kamp 5"
+  awayTeamPlaceholder String?
+  
+  // Resultat
+  status          MatchStatus @default(SCHEDULED)
+  homeScore       Int?
+  awayScore       Int?
+  
+  // Ekstra tid (om aktuelt)
+  homeOvertimeScore Int?
+  awayOvertimeScore Int?
+  homePenaltyScore  Int?  // Straffespark
+  awayPenaltyScore  Int?
+  
+  // Vinner (beregnes automatisk)
+  winnerId        String?
+  winner          CompetitionTeam? @relation("MatchWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  isDraw          Boolean  @default(false)
+  
+  // Notater
+  notes           String?
+  
+  // Gruppe (for gruppespill)
+  groupId         String?
+  group           CompetitionGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  
+  // Konkurranse
+  competitionId   String
+  competition     Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([competitionId])
+  @@index([groupId])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
+  @@index([scheduledTime])
+  @@index([status])
+  @@index([round])
+  @@index([resourcePartId])
+}
+
+// Status for kamp
+enum MatchStatus {
+  SCHEDULED   // Planlagt
+  LIVE        // Pågår
+  COMPLETED   // Ferdig
+  POSTPONED   // Utsatt
+  CANCELLED   // Avlyst
 }

@@ -1,10 +1,10 @@
 /**
- * Setup script for arena-booking-test
+ * Setup script for sportflow-booking-test
  * Creates first organization and admin user
  * 
  * Usage: npx tsx setup-test-db.ts
  * 
- * Default organization: arena-booking-test
+ * Default organization: sportflow-booking-test
  */
 
 import { PrismaClient } from '@prisma/client'
@@ -23,7 +23,7 @@ function question(query: string): Promise<string> {
 }
 
 async function main() {
-  console.log('🚀 Setting up arena-booking-test database...\n')
+  console.log('🚀 Setting up sportflow-booking-test database...\n')
 
   // Check if any organizations exist
   const existingOrgs = await prisma.organization.count()

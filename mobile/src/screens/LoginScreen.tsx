@@ -48,7 +48,7 @@ export default function LoginScreen() {
           <View style={styles.logoContainer}>
             <Ionicons name="calendar" size={48} color="#fff" />
           </View>
-          <Text style={styles.title}>Arena Booking</Text>
+          <Text style={styles.title}>Sportflow Booking</Text>
           <Text style={styles.subtitle}>Logg inn for å fortsette</Text>
         </View>
 

@@ -5,11 +5,11 @@ Denne guiden viser hvordan du setter opp en ny kunde med eget Vercel-prosjekt og
 ## Oversikt
 
 ```
-GitHub: arena-booking (én kodebase)
+GitHub: sportflow-booking (én kodebase)
          │
-         ├── Vercel: arena-booking-sauda     → Neon: arena-booking-sauda
-         ├── Vercel: arena-booking-kunde2    → Neon: arena-booking-kunde2
-         └── Vercel: arena-booking-kunde3    → Neon: arena-booking-kunde3
+         ├── Vercel: sportflow-sauda     → Neon: sportflow-sauda
+         ├── Vercel: sportflow-kunde2    → Neon: sportflow-kunde2
+         └── Vercel: sportflow-kunde3    → Neon: sportflow-kunde3
 ```
 
 ## Steg 1: Opprett Neon Database
@@ -17,7 +17,7 @@ GitHub: arena-booking (én kodebase)
 1. Gå til [console.neon.tech](https://console.neon.tech)
 2. Klikk **"New Project"**
 3. Fyll ut:
-   - **Name:** `arena-booking-<kundenavn>` (f.eks. `arena-booking-stavanger`)
+   - **Name:** `sportflow-<kundenavn>` (f.eks. `sportflow-stavanger`)
    - **Region:** `eu-west-1` (nærmest Norge)
 4. Klikk **"Create Project"**
 5. **Kopier connection string** - du trenger denne senere:
@@ -44,8 +44,8 @@ DATABASE_URL="<CONNECTION_STRING>" npx prisma db push
 
 1. Gå til [vercel.com/new](https://vercel.com/new)
 2. Velg **"Import Git Repository"**
-3. Velg `arena-booking` repositoryet
-4. **Viktig:** Endre prosjektnavnet til `arena-booking-<kundenavn>`
+3. Velg `sportflow-booking` repositoryet
+4. **Viktig:** Endre prosjektnavnet til `sportflow-<kundenavn>`
 5. Klikk **"Deploy"** (vil feile første gang pga manglende env vars - det er OK)
 
 ## Steg 4: Konfigurer miljøvariabler
@@ -60,7 +60,7 @@ I Vercel Dashboard for det nye prosjektet:
 | `DATABASE_URL` | `postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require` |
 | `DIRECT_URL` | (samme som DATABASE_URL, eller direkte URL uten pooling) |
 | `NEXTAUTH_SECRET` | Lag ny: `openssl rand -base64 32` |
-| `NEXTAUTH_URL` | `https://arena-booking-<kundenavn>.vercel.app` |
+| `NEXTAUTH_URL` | `https://sportflow-<kundenavn>.vercel.app` |
 
 ### Valgfritt: E-post (SMTP)
 Hvis kunden skal sende e-post:
@@ -127,7 +127,7 @@ npx tsx prisma/seed.ts
 
 ### Subdomain (enklest)
 Prosjektet er allerede tilgjengelig på:
-`https://arena-booking-<kundenavn>.vercel.app`
+`https://sportflow-<kundenavn>.vercel.app`
 
 ### Custom domain
 1. I Vercel: **Settings** → **Domains** → **Add**

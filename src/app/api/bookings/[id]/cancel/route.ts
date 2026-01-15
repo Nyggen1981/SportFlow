@@ -91,7 +91,7 @@ export async function POST(
           const userName = booking.user.name || booking.contactName || "Ukjent"
           await Promise.all(admins.map(async (admin) => {
             const emailContent = await getBookingCancelledByUserEmail(
-              orgId, booking.title, resourceName, date, time, userName, booking.user.email
+              orgId, booking.title, resourceName, date, time, userName, booking.user.email, reason
             )
             await sendEmail(orgId, { to: admin.email, ...emailContent })
           }))

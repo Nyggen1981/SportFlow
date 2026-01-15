@@ -3,6 +3,22 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
+  // Workaround for Windows EPERM issues with .next folder
+  distDir: ".next",
+  // Set turbopack root to prevent lockfile conflicts from parent directory
+  turbopack: {
+    root: ".",
+  },
+  async redirects() {
+    return [
+      {
+        // Redirect from old URL with Norwegian characters to new URL
+        source: "/salgsvilkår",
+        destination: "/salgsvilkaar",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

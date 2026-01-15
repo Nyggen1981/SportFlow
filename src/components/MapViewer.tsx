@@ -22,9 +22,11 @@ interface Props {
   resourceColor?: string
   onPartClick?: (partId: string) => void
   selectedPartId?: string | null
+  selectedPartIds?: string[] // For multi-select
+  lockedPartIds?: string[] // Parts that are locked due to hierarchy
 }
 
-export function MapViewer({ mapImage, parts, onPartClick, selectedPartId }: Props) {
+export function MapViewer({ mapImage, parts, onPartClick, selectedPartId, selectedPartIds, lockedPartIds = [] }: Props) {
   const [hoveredPartId, setHoveredPartId] = useState<string | null>(null)
 
   // Color palette
@@ -89,19 +91,21 @@ export function MapViewer({ mapImage, parts, onPartClick, selectedPartId }: Prop
           preserveAspectRatio="none"
         >
           {partsWithCoords.map((part) => {
-            const isSelected = selectedPartId === part.id
+            const isSelected = selectedPartIds ? selectedPartIds.includes(part.id) : selectedPartId === part.id
             const isHovered = hoveredPartId === part.id
+            const isLocked = lockedPartIds.includes(part.id)
             
             return (
               <path
                 key={part.id}
                 d={getPolygonPath(part.points)}
-                fill={isSelected || isHovered ? `${part.color}55` : `${part.color}33`}
-                stroke={part.color}
+                fill={isLocked ? `${part.color}11` : isSelected || isHovered ? `${part.color}55` : `${part.color}33`}
+                stroke={isLocked ? "#9ca3af" : part.color}
                 strokeWidth={isSelected ? "0.4" : "0.2"}
-                className={`transition-all duration-200 ${onPartClick ? "cursor-pointer" : ""}`}
-                onClick={() => onPartClick?.(part.id)}
-                onMouseEnter={() => setHoveredPartId(part.id)}
+                strokeDasharray={isLocked ? "2,2" : "none"}
+                className={`transition-all duration-200 ${onPartClick && !isLocked ? "cursor-pointer" : isLocked ? "cursor-not-allowed opacity-50" : ""}`}
+                onClick={() => !isLocked && onPartClick?.(part.id)}
+                onMouseEnter={() => !isLocked && setHoveredPartId(part.id)}
                 onMouseLeave={() => setHoveredPartId(null)}
               />
             )
@@ -112,26 +116,27 @@ export function MapViewer({ mapImage, parts, onPartClick, selectedPartId }: Prop
         {partsWithCoords.map((part) => {
           const centerX = part.points.reduce((sum, p) => sum + p.x, 0) / part.points.length
           const centerY = part.points.reduce((sum, p) => sum + p.y, 0) / part.points.length
-          const isSelected = selectedPartId === part.id
+          const isSelected = selectedPartIds ? selectedPartIds.includes(part.id) : selectedPartId === part.id
           const isHovered = hoveredPartId === part.id
+          const isLocked = lockedPartIds.includes(part.id)
           
           return (
             <div
               key={`label-${part.id}`}
               className={`absolute px-2 py-1 rounded text-xs font-bold text-white whitespace-nowrap transform -translate-x-1/2 -translate-y-1/2 transition-all ${
-                onPartClick ? "cursor-pointer" : "pointer-events-none"
+                onPartClick && !isLocked ? "cursor-pointer" : isLocked ? "cursor-not-allowed" : "pointer-events-none"
               } ${
                 isSelected || isHovered ? "scale-110 shadow-lg z-10" : ""
-              }`}
+              } ${isLocked ? "opacity-50" : ""}`}
               style={{ 
                 left: `${centerX}%`, 
                 top: `${centerY}%`,
-                backgroundColor: part.color,
-                opacity: isSelected || isHovered ? 1 : 0.95,
+                backgroundColor: isLocked ? "#9ca3af" : part.color,
+                opacity: isLocked ? 0.5 : (isSelected || isHovered ? 1 : 0.95),
                 textShadow: '0 1px 2px rgba(0,0,0,0.3)'
               }}
-              onClick={() => onPartClick?.(part.id)}
-              onMouseEnter={() => setHoveredPartId(part.id)}
+              onClick={() => !isLocked && onPartClick?.(part.id)}
+              onMouseEnter={() => !isLocked && setHoveredPartId(part.id)}
               onMouseLeave={() => setHoveredPartId(null)}
             >
               {part.name}
@@ -179,31 +184,39 @@ export function MapViewer({ mapImage, parts, onPartClick, selectedPartId }: Prop
 
       {/* Legend */}
       <div className="flex flex-wrap gap-3 text-sm">
-        {partsWithCoords.map((part) => (
-          <button
-            key={part.id}
-            type="button"
-            onClick={() => onPartClick?.(part.id)}
-            className={`flex items-center gap-2 px-2 py-1 rounded-lg transition-colors ${
-              selectedPartId === part.id 
-                ? "bg-blue-50 ring-1 ring-blue-200" 
-                : "hover:bg-gray-100"
-            } ${onPartClick ? "cursor-pointer" : "cursor-default"}`}
-            onMouseEnter={() => setHoveredPartId(part.id)}
-            onMouseLeave={() => setHoveredPartId(null)}
-          >
-            <span 
-              className="w-3 h-3 rounded-sm border-2"
-              style={{ 
-                backgroundColor: `${part.color}33`, 
-                borderColor: part.color 
-              }}
-            />
-            <span className={selectedPartId === part.id ? "font-medium text-blue-700" : "text-gray-700"}>
-              {part.name}
-            </span>
-          </button>
-        ))}
+        {partsWithCoords.map((part) => {
+          const isSelected = selectedPartIds ? selectedPartIds.includes(part.id) : selectedPartId === part.id
+          const isLocked = lockedPartIds.includes(part.id)
+          
+          return (
+            <button
+              key={part.id}
+              type="button"
+              onClick={() => !isLocked && onPartClick?.(part.id)}
+              disabled={isLocked}
+              className={`flex items-center gap-2 px-2 py-1 rounded-lg transition-colors ${
+                isLocked 
+                  ? "opacity-50 cursor-not-allowed bg-gray-100"
+                  : isSelected 
+                    ? "bg-blue-50 ring-1 ring-blue-200" 
+                    : "hover:bg-gray-100"
+              } ${onPartClick && !isLocked ? "cursor-pointer" : "cursor-default"}`}
+              onMouseEnter={() => !isLocked && setHoveredPartId(part.id)}
+              onMouseLeave={() => setHoveredPartId(null)}
+            >
+              <span 
+                className="w-3 h-3 rounded-sm border-2"
+                style={{ 
+                  backgroundColor: isLocked ? "#9ca3af33" : `${part.color}33`, 
+                  borderColor: isLocked ? "#9ca3af" : part.color 
+                }}
+              />
+              <span className={isLocked ? "text-gray-400" : isSelected ? "font-medium text-blue-700" : "text-gray-700"}>
+                {part.name}
+              </span>
+            </button>
+          )
+        })}
       </div>
     </div>
   )

@@ -43,7 +43,7 @@ export async function Header({ children }: HeaderProps) {
             )}
             <div>
               <h1 className="font-bold text-gray-900">
-                {organization?.name || "Arena Booking"}
+                {organization?.name || "Sportflow Booking"}
               </h1>
               <p className="text-xs text-gray-500">
                 {(organization as { tagline?: string })?.tagline || "Kalender"}
@@ -58,6 +58,8 @@ export async function Header({ children }: HeaderProps) {
     </header>
   )
 }
+
+
 
 
 

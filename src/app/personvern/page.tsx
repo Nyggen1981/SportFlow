@@ -23,7 +23,7 @@ export default function PersonvernPage() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Introduksjon</h2>
               <p className="text-gray-700 leading-relaxed">
-                Arena Booking respekterer ditt personvern og er forpliktet til å beskytte dine personopplysninger. 
+                Sportflow Booking respekterer ditt personvern og er forpliktet til å beskytte dine personopplysninger. 
                 Denne personvernpolicyn forklarer hvordan vi samler inn, bruker, lagrer og beskytter dine personopplysninger 
                 i henhold til GDPR (General Data Protection Regulation).
               </p>
@@ -36,7 +36,7 @@ export default function PersonvernPage() {
                 2. Dataansvarlig
               </h2>
               <p className="text-gray-700 leading-relaxed mb-4">
-                Dataansvarlig for behandlingen av personopplysninger er din organisasjon/klubb som bruker Arena Booking-systemet.
+                Dataansvarlig for behandlingen av personopplysninger er din organisasjon/klubb som bruker Sportflow Booking-systemet.
               </p>
               <p className="text-gray-700 leading-relaxed">
                 Hvis du har spørsmål om personvern eller ønsker å utøve dine rettigheter, kan du kontakte din organisasjons administrator.

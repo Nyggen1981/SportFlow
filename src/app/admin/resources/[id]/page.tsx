@@ -15,10 +15,32 @@ import {
   Upload,
   X,
   ImageIcon,
-  Map
+  Map,
+  Users,
+  ShieldCheck,
+  Plus,
+  Trash2,
+  Info,
+  Calendar,
+  DollarSign,
+  Layers,
+  Settings
 } from "lucide-react"
 import { MapEditor } from "@/components/MapEditor"
 import { PartsHierarchyEditor, HierarchicalPart } from "@/components/PartsHierarchyEditor"
+import FixedPricePackagesEditor from "@/components/FixedPricePackagesEditor"
+import DurationPricingEditor, { PricingRule } from "@/components/DurationPricingEditor"
+
+interface FixedPricePackage {
+  id?: string
+  name: string
+  description: string
+  durationMinutes: number
+  price: number
+  isActive: boolean
+  sortOrder: number
+  forRoles?: string[]
+}
 
 interface Category {
   id: string
@@ -34,8 +56,10 @@ interface Part {
   capacity: string
   mapCoordinates?: string | null
   adminNote?: string | null
+  image?: string | null
   parentId?: string | null
   isNew?: boolean
+  pricingRules?: PricingRule[]
 }
 
 interface Props {
@@ -64,15 +88,41 @@ export default function EditResourcePage({ params }: Props) {
   const [limitDuration, setLimitDuration] = useState(false)
   const [minBookingMinutes, setMinBookingMinutes] = useState("60")
   const [maxBookingMinutes, setMaxBookingMinutes] = useState("240")
+  const [minBookingHours, setMinBookingHours] = useState<string>("")
+  const [limitMinBookingHours, setLimitMinBookingHours] = useState(false)
   const [requiresApproval, setRequiresApproval] = useState(true)
   const [limitAdvanceBooking, setLimitAdvanceBooking] = useState(true)
   const [advanceBookingDays, setAdvanceBookingDays] = useState("30")
   const [showOnPublicCalendar, setShowOnPublicCalendar] = useState(true)
+  const [visDelinfoKort, setVisDelinfoKort] = useState(true)
   const [allowWholeBooking, setAllowWholeBooking] = useState(true)
   const [mapImage, setMapImage] = useState<string | null>(null)
   const [parts, setParts] = useState<Part[]>([])
   const [prisInfo, setPrisInfo] = useState("")
   const [visPrisInfo, setVisPrisInfo] = useState(false)
+  const [visPrislogikk, setVisPrislogikk] = useState(false)
+  
+  // Pricing state (kun aktiv hvis lisensserver tillater det)
+  const [pricingEnabled, setPricingEnabled] = useState(false)
+  const [pricingRules, setPricingRules] = useState<PricingRule[]>([])
+  const [customRoles, setCustomRoles] = useState<Array<{ id: string; name: string }>>([])
+  
+  // Moderators state
+  const [moderators, setModerators] = useState<Array<{
+    id: string
+    user: { id: string; name: string | null; email: string; role: string }
+  }>>([])
+  const [availableModerators, setAvailableModerators] = useState<Array<{
+    id: string
+    name: string | null
+    email: string
+  }>>([])
+  const [showAddModerator, setShowAddModerator] = useState(false)
+  const [selectedModeratorId, setSelectedModeratorId] = useState("")
+  
+  // Fixed price packages state
+  const [fixedPricePackages, setFixedPricePackages] = useState<FixedPricePackage[]>([])
+  const [partFixedPricePackages, setPartFixedPricePackages] = useState<Record<string, FixedPricePackage[]>>({})
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -83,11 +133,27 @@ export default function EditResourcePage({ params }: Props) {
   }, [status, session, router])
 
   useEffect(() => {
+    // Helper to safely fetch arrays - returns empty array on error or non-array response
+    const fetchArray = async (url: string) => {
+      try {
+        const res = await fetch(url)
+        if (!res.ok) return []
+        const data = await res.json()
+        return Array.isArray(data) ? data : []
+      } catch {
+        return []
+      }
+    }
+    
     Promise.all([
       fetch("/api/admin/categories").then(res => res.json()),
-      fetch(`/api/admin/resources/${id}`).then(res => res.json())
-    ]).then(([cats, resource]) => {
-      setCategories(cats)
+      fetch(`/api/admin/resources/${id}`).then(res => res.json()),
+      fetchArray(`/api/admin/resources/${id}/moderators`),
+      fetchArray("/api/admin/users"),
+      fetchArray("/api/admin/roles"),
+      fetch("/api/pricing/status").then(res => res.json()).catch(() => ({ enabled: false }))
+    ]).then(async ([cats, resource, mods, users, roles, pricingStatus]) => {
+      setCategories(Array.isArray(cats) ? cats : [])
       
       setName(resource.name || "")
       setDescription(resource.description || "")
@@ -103,23 +169,201 @@ export default function EditResourcePage({ params }: Props) {
       setLimitDuration(hasLimit)
       setMinBookingMinutes(String(resource.minBookingMinutes || 60))
       setMaxBookingMinutes(String(resource.maxBookingMinutes || 240))
+      setMinBookingHours(resource.minBookingHours ? String(resource.minBookingHours) : "")
+      setLimitMinBookingHours(!!resource.minBookingHours && Number(resource.minBookingHours) > 0)
       setRequiresApproval(resource.requiresApproval ?? true)
       setLimitAdvanceBooking(resource.advanceBookingDays !== null)
       setAdvanceBookingDays(String(resource.advanceBookingDays || 30))
       setShowOnPublicCalendar(resource.showOnPublicCalendar ?? true)
+      setVisDelinfoKort(resource.visDelinfoKort ?? true)
       setAllowWholeBooking(resource.allowWholeBooking ?? true)
       setMapImage(resource.mapImage || null)
       setPrisInfo(resource.prisInfo || "")
       setVisPrisInfo(resource.visPrisInfo ?? false)
-      setParts(resource.parts?.map((p: { id: string; name: string; description?: string; capacity?: number; mapCoordinates?: string; adminNote?: string; parentId?: string }) => ({
+      setVisPrislogikk(resource.visPrislogikk ?? false)
+      
+      // Pricing configuration (kun hvis aktivert)
+      setPricingEnabled(pricingStatus.enabled || false)
+      if (pricingStatus.enabled) {
+        setCustomRoles(roles || [])
+        
+        // Hent pricingRules hvis satt, ellers konverter legacy format
+        if (resource.pricingRules) {
+          try {
+            const rules = JSON.parse(resource.pricingRules)
+            // Konverter gamle member/nonMember regler til separate regler
+            const migratedRules: typeof pricingRules = []
+            for (const r of rules) {
+              const hasMemberPrice = r.memberPricePerHour || r.memberPricePerDay || r.memberFixedPrice
+              const hasNonMemberPrice = r.nonMemberPricePerHour || r.nonMemberPricePerDay || r.nonMemberFixedPrice
+              const hasNewPrice = r.pricePerHour || r.pricePerDay || r.fixedPrice
+              
+              if (hasNewPrice || (!hasMemberPrice && !hasNonMemberPrice)) {
+                // Allerede nytt format eller ingen priser satt
+                migratedRules.push({
+                  forRoles: r.forRoles || [],
+                  model: r.model || "FREE",
+                  pricePerHour: r.pricePerHour ? String(r.pricePerHour) : "",
+                  pricePerDay: r.pricePerDay ? String(r.pricePerDay) : "",
+                  fixedPrice: r.fixedPrice ? String(r.fixedPrice) : "",
+                  fixedPriceDuration: r.fixedPriceDuration ? String(r.fixedPriceDuration) : ""
+                })
+              } else {
+                // Konverter legacy format til separate regler
+                if (hasMemberPrice) {
+                  migratedRules.push({
+                    forRoles: ["member"],
+                    model: r.model || "HOURLY",
+                    pricePerHour: r.memberPricePerHour ? String(r.memberPricePerHour) : "",
+                    pricePerDay: r.memberPricePerDay ? String(r.memberPricePerDay) : "",
+                    fixedPrice: r.memberFixedPrice ? String(r.memberFixedPrice) : "",
+                    fixedPriceDuration: r.fixedPriceDuration ? String(r.fixedPriceDuration) : ""
+                  })
+                }
+                if (hasNonMemberPrice) {
+                  migratedRules.push({
+                    forRoles: ["user"],
+                    model: r.model || "HOURLY",
+                    pricePerHour: r.nonMemberPricePerHour ? String(r.nonMemberPricePerHour) : "",
+                    pricePerDay: r.nonMemberPricePerDay ? String(r.nonMemberPricePerDay) : "",
+                    fixedPrice: r.nonMemberFixedPrice ? String(r.nonMemberFixedPrice) : "",
+                    fixedPriceDuration: r.fixedPriceDuration ? String(r.fixedPriceDuration) : ""
+                  })
+                }
+              }
+            }
+            setPricingRules(migratedRules)
+          } catch (e) {
+            // Hvis parsing feiler, start med tom liste
+            setPricingRules([])
+          }
+        } else {
+          // Legacy format - konverter til nytt format
+          const legacyModel = resource.pricingModel || "FREE"
+          const legacyFreeForRoles = resource.freeForRoles ? JSON.parse(resource.freeForRoles) : []
+          
+          const rules: typeof pricingRules = []
+          
+          // Hvis det er roller med gratis tilgang, legg til regel for dem
+          if (legacyFreeForRoles.length > 0) {
+            rules.push({
+              forRoles: legacyFreeForRoles,
+              model: "FREE"
+            })
+          }
+          
+          // Legg til standard regel for alle andre
+          rules.push({
+            forRoles: [],
+            model: legacyModel as any,
+            pricePerHour: resource.pricePerHour ? String(resource.pricePerHour) : "",
+            pricePerDay: resource.pricePerDay ? String(resource.pricePerDay) : "",
+            fixedPrice: resource.fixedPrice ? String(resource.fixedPrice) : "",
+            fixedPriceDuration: resource.fixedPriceDuration ? String(resource.fixedPriceDuration) : ""
+          })
+          
+          setPricingRules(rules)
+        }
+      }
+      
+      setParts(resource.parts?.map((p: any) => {
+        let pricingRules: Part["pricingRules"] = []
+        if (p.pricingRules) {
+          try {
+            const parsed = JSON.parse(p.pricingRules)
+            // Konverter gamle member/nonMember regler til separate regler
+            for (const r of parsed) {
+              const hasMemberPrice = r.memberPricePerHour || r.memberPricePerDay || r.memberFixedPrice
+              const hasNonMemberPrice = r.nonMemberPricePerHour || r.nonMemberPricePerDay || r.nonMemberFixedPrice
+              const hasNewPrice = r.pricePerHour || r.pricePerDay || r.fixedPrice
+              
+              if (hasNewPrice || (!hasMemberPrice && !hasNonMemberPrice)) {
+                pricingRules.push({
+                  forRoles: r.forRoles || [],
+                  model: r.model || "FREE",
+                  pricePerHour: r.pricePerHour ? String(r.pricePerHour) : "",
+                  pricePerDay: r.pricePerDay ? String(r.pricePerDay) : "",
+                  fixedPrice: r.fixedPrice ? String(r.fixedPrice) : "",
+                  fixedPriceDuration: r.fixedPriceDuration ? String(r.fixedPriceDuration) : ""
+                })
+              } else {
+                if (hasMemberPrice) {
+                  pricingRules.push({
+                    forRoles: ["member"],
+                    model: r.model || "HOURLY",
+                    pricePerHour: r.memberPricePerHour ? String(r.memberPricePerHour) : "",
+                    pricePerDay: r.memberPricePerDay ? String(r.memberPricePerDay) : "",
+                    fixedPrice: r.memberFixedPrice ? String(r.memberFixedPrice) : "",
+                    fixedPriceDuration: r.fixedPriceDuration ? String(r.fixedPriceDuration) : ""
+                  })
+                }
+                if (hasNonMemberPrice) {
+                  pricingRules.push({
+                    forRoles: ["user"],
+                    model: r.model || "HOURLY",
+                    pricePerHour: r.nonMemberPricePerHour ? String(r.nonMemberPricePerHour) : "",
+                    pricePerDay: r.nonMemberPricePerDay ? String(r.nonMemberPricePerDay) : "",
+                    fixedPrice: r.nonMemberFixedPrice ? String(r.nonMemberFixedPrice) : "",
+                    fixedPriceDuration: r.fixedPriceDuration ? String(r.fixedPriceDuration) : ""
+                  })
+                }
+              }
+            }
+          } catch (e) {
+            console.error("Error parsing part pricingRules:", e)
+          }
+        }
+        return {
         id: p.id,
         name: p.name,
         description: p.description || "",
         capacity: p.capacity ? String(p.capacity) : "",
         mapCoordinates: p.mapCoordinates || null,
         adminNote: p.adminNote || null,
-        parentId: p.parentId || null
-      })) || [])
+        image: p.image || null,
+          parentId: p.parentId || null,
+          pricingRules
+        }
+      }) || [])
+      
+      // Set moderators
+      setModerators(mods || [])
+      
+      // Set available moderators (users with moderator role who aren't already moderators)
+      const moderatorUserIds = (mods || []).map((m: any) => m.user.id)
+      const available = (users || []).filter((u: any) => 
+        u.role === "moderator" && u.isApproved && !moderatorUserIds.includes(u.id)
+      )
+      setAvailableModerators(available)
+      
+      // Load fixed price packages for resource (if pricing is enabled)
+      if (pricingStatus.enabled) {
+        try {
+          // Load packages for the resource itself
+          const resourcePackages = await fetch(`/api/admin/fixed-price-packages?resourceId=${id}`).then(res => res.json())
+          setFixedPricePackages(Array.isArray(resourcePackages) ? resourcePackages.map((p: any) => ({
+            ...p,
+            price: Number(p.price)
+          })) : [])
+          
+          // Load packages for each part
+          const partPackagesMap: Record<string, FixedPricePackage[]> = {}
+          for (const part of resource.parts || []) {
+            if (part.id) {
+              const partPackages = await fetch(`/api/admin/fixed-price-packages?resourcePartId=${part.id}`).then(res => res.json())
+              if (Array.isArray(partPackages) && partPackages.length > 0) {
+                partPackagesMap[part.id] = partPackages.map((p: any) => ({
+                  ...p,
+                  price: Number(p.price)
+                }))
+              }
+            }
+          }
+          setPartFixedPricePackages(partPackagesMap)
+        } catch (e) {
+          console.error("Error loading fixed price packages:", e)
+        }
+      }
       
       setIsLoading(false)
     }).catch(() => {
@@ -176,12 +420,26 @@ export default function EditResourcePage({ params }: Props) {
           categoryId: categoryId || null,
           minBookingMinutes: limitDuration ? parseInt(minBookingMinutes) : null,
           maxBookingMinutes: limitDuration ? parseInt(maxBookingMinutes) : null,
+          minBookingHours: minBookingHours && minBookingHours.trim() !== "" ? parseFloat(minBookingHours) : null,
           requiresApproval,
           advanceBookingDays: limitAdvanceBooking ? parseInt(advanceBookingDays) : null,
           showOnPublicCalendar,
+          visDelinfoKort,
           allowWholeBooking,
           prisInfo: visPrisInfo ? prisInfo : null,
           visPrisInfo,
+          // Pricing fields (kun hvis aktivert)
+          ...(pricingEnabled && {
+            pricingRules: allowWholeBooking ? JSON.stringify(pricingRules.map(r => ({
+              forRoles: r.forRoles,
+              model: r.model,
+              pricePerHour: r.pricePerHour ? parseFloat(r.pricePerHour) : null,
+              pricePerDay: r.pricePerDay ? parseFloat(r.pricePerDay) : null,
+              fixedPrice: r.fixedPrice ? parseFloat(r.fixedPrice) : null,
+              fixedPriceDuration: r.fixedPriceDuration ? parseInt(r.fixedPriceDuration) : null
+            }))) : null,
+            visPrislogikk
+          }),
           parts: parts.filter(p => p.name.trim()).map(p => ({
             id: p.id,
             tempId: p.tempId,
@@ -189,7 +447,20 @@ export default function EditResourcePage({ params }: Props) {
             description: p.description || null,
             capacity: p.capacity ? parseInt(p.capacity) : null,
             mapCoordinates: p.mapCoordinates || null,
-            parentId: p.parentId || null
+            adminNote: p.adminNote || null,
+            image: p.image || null,
+            parentId: p.parentId || null,
+            // Pricing rules for deler (alltid send, selv om pricingEnabled er false, for å bevare eksisterende regler)
+            pricingRules: pricingEnabled && p.pricingRules && p.pricingRules.length > 0 
+              ? JSON.stringify(p.pricingRules.map(r => ({
+                  forRoles: r.forRoles,
+                  model: r.model,
+                  pricePerHour: r.pricePerHour ? parseFloat(r.pricePerHour) : null,
+                  pricePerDay: r.pricePerDay ? parseFloat(r.pricePerDay) : null,
+                  fixedPrice: r.fixedPrice ? parseFloat(r.fixedPrice) : null,
+                  fixedPriceDuration: r.fixedPriceDuration ? parseInt(r.fixedPriceDuration) : null
+                })))
+              : null
           }))
         })
       })
@@ -208,16 +479,69 @@ export default function EditResourcePage({ params }: Props) {
       setLimitDuration(hasLimit)
       setMinBookingMinutes(String(updatedResource.minBookingMinutes || 60))
       setMaxBookingMinutes(String(updatedResource.maxBookingMinutes || 240))
+      setMinBookingHours(updatedResource.minBookingHours ? String(updatedResource.minBookingHours) : "")
       setPrisInfo(updatedResource.prisInfo || "")
       setVisPrisInfo(updatedResource.visPrisInfo ?? false)
-      setParts(updatedResource.parts?.map((p: { id: string; name: string; description?: string; capacity?: number; mapCoordinates?: string; parentId?: string }) => ({
+      setParts(updatedResource.parts?.map((p: any) => {
+        let pricingRules: Part["pricingRules"] = []
+        if (p.pricingRules) {
+          try {
+            const rules = JSON.parse(p.pricingRules)
+            pricingRules = rules.map((r: any) => ({
+              forRoles: r.forRoles || [],
+              model: r.model || "FREE",
+              pricePerHour: r.pricePerHour ? String(r.pricePerHour) : "",
+              pricePerDay: r.pricePerDay ? String(r.pricePerDay) : "",
+              fixedPrice: r.fixedPrice ? String(r.fixedPrice) : "",
+              fixedPriceDuration: r.fixedPriceDuration ? String(r.fixedPriceDuration) : ""
+            }))
+          } catch (e) {
+            // Hvis parsing feiler, start med tom liste
+            pricingRules = []
+          }
+        }
+        
+        return {
         id: p.id,
         name: p.name,
         description: p.description || "",
         capacity: p.capacity ? String(p.capacity) : "",
         mapCoordinates: p.mapCoordinates || null,
-        parentId: p.parentId || null
-      })) || [])
+        adminNote: p.adminNote || null,
+        image: p.image || null,
+          parentId: p.parentId || null,
+          pricingRules
+        }
+      }) || [])
+
+      // Save fixed price packages (if pricing is enabled)
+      if (pricingEnabled) {
+        try {
+          // Save resource-level packages
+          await fetch("/api/admin/fixed-price-packages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              resourceId: id,
+              packages: fixedPricePackages
+            })
+          })
+          
+          // Save part-level packages
+          for (const partId of Object.keys(partFixedPricePackages)) {
+            await fetch("/api/admin/fixed-price-packages", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                resourcePartId: partId,
+                packages: partFixedPricePackages[partId]
+              })
+            })
+          }
+        } catch (e) {
+          console.error("Error saving fixed price packages:", e)
+        }
+      }
 
       // Show success message
       setSuccessMessage("Endringene ble lagret!")
@@ -244,13 +568,13 @@ export default function EditResourcePage({ params }: Props) {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Link href="/admin/resources" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6">
           <ArrowLeft className="w-4 h-4" />
           Tilbake til fasiliteter
         </Link>
 
-        <div className="card p-6 md:p-8">
+        <div className="space-y-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
               <Building2 className="w-6 h-6 text-blue-600" />
@@ -261,7 +585,7 @@ export default function EditResourcePage({ params }: Props) {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form id="resource-form" onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm">
                 {error}
@@ -278,8 +602,11 @@ export default function EditResourcePage({ params }: Props) {
             )}
 
             {/* Basic info */}
-            <div className="space-y-4">
-              <h2 className="font-semibold text-gray-900 border-b pb-2">Grunnleggende info</h2>
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <div className="flex items-center gap-2 border-b border-gray-200 pb-3 mb-4">
+                <Info className="w-5 h-5 text-blue-600" />
+                <h2 className="text-lg font-semibold text-gray-900">Grunnleggende informasjon</h2>
+              </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -380,12 +707,12 @@ export default function EditResourcePage({ params }: Props) {
                 
                 {image ? (
                   <div className="flex items-start gap-4">
-                    <div className="relative w-40 h-24 rounded-xl overflow-hidden bg-gray-100">
+                    <div className="relative w-full max-w-md aspect-video rounded-xl overflow-hidden bg-gray-100">
                       <Image
                         src={image}
                         alt="Fasilitetsbilde"
                         fill
-                        className="object-cover"
+                        className="object-contain"
                       />
                     </div>
                     <div className="flex flex-col gap-2">
@@ -429,10 +756,49 @@ export default function EditResourcePage({ params }: Props) {
             </div>
 
             {/* Booking settings */}
-            <div className="space-y-4">
-              <h2 className="font-semibold text-gray-900 border-b pb-2">Booking-innstillinger</h2>
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+              <div className="flex items-center gap-2 border-b border-gray-200 pb-3 mb-4">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                <h2 className="text-lg font-semibold text-gray-900">Booking-innstillinger</h2>
+              </div>
               
-              <div className="space-y-3">
+              {/* Minimum antall timer (uavhengig av lisens) */}
+              <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="limitMinBookingHours"
+                    checked={limitMinBookingHours}
+                    onChange={(e) => {
+                      setLimitMinBookingHours(e.target.checked)
+                      if (!e.target.checked) setMinBookingHours("")
+                    }}
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="limitMinBookingHours" className="text-sm font-medium text-gray-700">
+                    Minimum antall timer en fasilitet kan bookes
+                  </label>
+                </div>
+                
+                {limitMinBookingHours && (
+                  <div className="ml-8 mt-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Antall timer
+                    </label>
+                    <input
+                      type="number"
+                      value={minBookingHours}
+                      onChange={(e) => setMinBookingHours(e.target.value)}
+                      className="input max-w-[200px]"
+                      min="0.5"
+                      step="0.5"
+                      placeholder="F.eks. 2"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
@@ -447,7 +813,7 @@ export default function EditResourcePage({ params }: Props) {
                 </div>
                 
                 {limitDuration && (
-                  <div className="ml-8 grid md:grid-cols-2 gap-4">
+                  <div className="ml-8 grid md:grid-cols-2 gap-4 mt-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Min. varighet (minutter)
@@ -478,7 +844,8 @@ export default function EditResourcePage({ params }: Props) {
                 )}
               </div>
 
-              <div className="space-y-3">
+              {/* Forhåndsbestilling */}
+              <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
@@ -493,7 +860,7 @@ export default function EditResourcePage({ params }: Props) {
                 </div>
                 
                 {limitAdvanceBooking && (
-                  <div className="ml-8">
+                  <div className="ml-8 mt-3">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Maks antall dager frem
                     </label>
@@ -508,6 +875,8 @@ export default function EditResourcePage({ params }: Props) {
                 )}
               </div>
 
+              {/* Godkjenning og synlighet */}
+              <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center gap-3">
                 <input
                   type="checkbox"
@@ -516,7 +885,7 @@ export default function EditResourcePage({ params }: Props) {
                   onChange={(e) => setRequiresApproval(e.target.checked)}
                   className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                <label htmlFor="requiresApproval" className="text-sm text-gray-700">
+                  <label htmlFor="requiresApproval" className="text-sm font-medium text-gray-700">
                   Krever godkjenning fra admin før booking er bekreftet
                 </label>
               </div>
@@ -529,15 +898,33 @@ export default function EditResourcePage({ params }: Props) {
                   onChange={(e) => setShowOnPublicCalendar(e.target.checked)}
                   className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                <label htmlFor="showOnPublicCalendar" className="text-sm text-gray-700">
+                <label htmlFor="showOnPublicCalendar" className="text-sm font-medium text-gray-700">
                   Vis fasiliteten på offentlig kalender (forsiden)
                 </label>
               </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="visDelinfoKort"
+                  checked={visDelinfoKort}
+                  onChange={(e) => setVisDelinfoKort(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="visDelinfoKort" className="text-sm font-medium text-gray-700">
+                  Vis &quot;Mer informasjon&quot;-kort på fasilitetssiden
+                </label>
+              </div>
+              </div>
             </div>
 
-            {/* Price info */}
-            <div className="space-y-4">
-              <h2 className="font-semibold text-gray-900 border-b pb-2">Prisinfo</h2>
+            {/* Price info - Kun for standardlisens (ikke betalingsmodul) */}
+            {!pricingEnabled && (
+              <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+                <div className="flex items-center gap-2 border-b border-gray-200 pb-3 mb-4">
+                  <DollarSign className="w-5 h-5 text-blue-600" />
+                  <h2 className="text-lg font-semibold text-gray-900">Prisinfo</h2>
+                </div>
               
               <div className="flex items-center gap-3">
                 <input
@@ -569,10 +956,150 @@ export default function EditResourcePage({ params }: Props) {
                 </div>
               )}
             </div>
+            )}
+
+            {/* Pricing Configuration - Samlet for fasilitet og deler */}
+            {pricingEnabled && (
+              <div className="bg-white rounded-xl border-2 border-blue-200 bg-blue-50/30 p-6 space-y-6">
+                <div className="flex items-center justify-between border-b border-blue-200 pb-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-blue-600" />
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">Prislogikk</h2>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Konfigurer prising for hele fasiliteten og hver del. Deler uten egen prislogikk bruker fasilitetens prislogikk.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Vis prisinfo checkbox */}
+                <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
+                  <input
+                    type="checkbox"
+                    id="visPrislogikk"
+                    checked={visPrislogikk}
+                    onChange={(e) => setVisPrislogikk(e.target.checked)}
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="visPrislogikk" className="text-sm font-medium text-gray-700">
+                    Vis prisinfo på fasilitetssiden
+                  </label>
+                </div>
+
+                {/* Hele fasiliteten - Prising */}
+                {allowWholeBooking && (
+                  <div className="space-y-6">
+                    <div className="border-b border-gray-200 pb-2">
+                      <h3 className="font-semibold text-gray-900">Hele fasiliteten</h3>
+                    </div>
+                    
+                    {/* Varighetspriser (timepris, døgnpris, gratis) */}
+                    <DurationPricingEditor
+                      rules={pricingRules}
+                      onChange={setPricingRules}
+                      customRoles={customRoles}
+                    />
+
+                    {/* Fastprispakker */}
+                    <FixedPricePackagesEditor
+                      resourceId={id}
+                      packages={fixedPricePackages}
+                      onChange={setFixedPricePackages}
+                      customRoles={customRoles}
+                    />
+                  </div>
+                )}
+
+                {/* Deler prislogikk */}
+                {parts.length > 0 && (
+                  <div className="space-y-4 pt-6 border-t-2 border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-gray-900">Deler</h3>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      Konfigurer prising for hver del. Hvis ingen prislogikk er satt for en del, brukes fasilitetens prislogikk.
+                    </p>
+                    
+                    {/* Sorter hierarkisk: hoveddeler først, deretter underdeler under hver hoveddel */}
+                    {(() => {
+                      // Finn alle hoveddeler (uten parentId)
+                      const mainParts = parts.filter(p => !p.parentId)
+                      // Sorter hoveddeler alfabetisk
+                      const sortedMainParts = [...mainParts].sort((a, b) => a.name.localeCompare(b.name, 'no'))
+                      
+                      // Bygg sortert liste med hoveddeler og deres underdeler
+                      const sortedParts: Array<{ part: Part; partIndex: number; isSubPart: boolean }> = []
+                      for (const mainPart of sortedMainParts) {
+                        const mainPartIndex = parts.findIndex(p => (p.id && p.id === mainPart.id) || (p.tempId && p.tempId === mainPart.tempId))
+                        sortedParts.push({ part: mainPart, partIndex: mainPartIndex, isSubPart: false })
+                        
+                        // Finn underdeler for denne hoveddelen
+                        const subParts = parts.filter(p => {
+                          if (!p.parentId) return false
+                          return p.parentId === mainPart.id || p.parentId === mainPart.tempId
+                        })
+                        // Sorter underdeler alfabetisk
+                        const sortedSubParts = [...subParts].sort((a, b) => a.name.localeCompare(b.name, 'no'))
+                        for (const subPart of sortedSubParts) {
+                          const subPartIndex = parts.findIndex(p => (p.id && p.id === subPart.id) || (p.tempId && p.tempId === subPart.tempId))
+                          sortedParts.push({ part: subPart, partIndex: subPartIndex, isSubPart: true })
+                        }
+                      }
+                      
+                      return sortedParts.map(({ part, partIndex, isSubPart }) => (
+                        <div 
+                          key={part.id || part.tempId || partIndex} 
+                          className={`p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4 ${isSubPart ? 'ml-6 border-l-4 border-l-blue-300' : ''}`}
+                        >
+                          <div className="border-b border-gray-200 pb-2">
+                            <h4 className="font-medium text-gray-900">{part.name}</h4>
+                            <p className="text-xs text-gray-500">{isSubPart ? "Underdel" : "Hoveddel"}</p>
+                          </div>
+                        
+                          {/* Varighetspriser for denne delen */}
+                          <DurationPricingEditor
+                            rules={part.pricingRules || []}
+                            onChange={(newRules) => {
+                              const newParts = [...parts]
+                              newParts[partIndex].pricingRules = newRules
+                              setParts(newParts)
+                            }}
+                            customRoles={customRoles}
+                          />
+                        
+                          {/* Fastprispakker for denne delen */}
+                          {part.id ? (
+                            <FixedPricePackagesEditor
+                              resourcePartId={part.id}
+                              packages={partFixedPricePackages[part.id] || []}
+                              onChange={(newPackages) => {
+                                setPartFixedPricePackages(prev => ({
+                                  ...prev,
+                                  [part.id!]: newPackages
+                                }))
+                              }}
+                              customRoles={customRoles}
+                            />
+                          ) : (
+                            <p className="text-xs text-gray-500 italic">
+                              Lagre fasiliteten først for å kunne legge til fastprispakker på denne delen.
+                            </p>
+                          )}
+                        </div>
+                      ))
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Parts - Hierarchical */}
-            <div className="space-y-4">
-              <h2 className="font-semibold text-gray-900 border-b pb-2">Deler som kan bookes</h2>
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <div className="flex items-center gap-2 border-b border-gray-200 pb-3 mb-4">
+                <Layers className="w-5 h-5 text-blue-600" />
+                <h2 className="text-lg font-semibold text-gray-900">Deler som kan bookes</h2>
+              </div>
               
               <PartsHierarchyEditor
                 parts={parts}
@@ -597,10 +1124,10 @@ export default function EditResourcePage({ params }: Props) {
 
             {/* Map Editor */}
             {parts.length > 0 && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 border-b pb-2">
+              <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+                <div className="flex items-center gap-2 border-b border-gray-200 pb-3 mb-4">
                   <Map className="w-5 h-5 text-blue-600" />
-                  <h2 className="font-semibold text-gray-900">Oversiktskart</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">Oversiktskart</h2>
                 </div>
                 
                 {/* Check if any parts are unsaved (no id) */}
@@ -626,12 +1153,159 @@ export default function EditResourcePage({ params }: Props) {
               </div>
             )}
 
-            {/* Submit */}
-            <div className="flex gap-3 pt-4 border-t">
+            {/* Moderators */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <div className="flex items-center gap-2 border-b border-gray-200 pb-3 mb-4">
+                <ShieldCheck className="w-5 h-5 text-blue-600" />
+                <h2 className="text-lg font-semibold text-gray-900">Moderatorer</h2>
+              </div>
+              
+              <p className="text-sm text-gray-500">
+                Moderatorer kan godkjenne og avslå bookinger for denne fasiliteten. De kan også opprette bookinger selv.
+              </p>
+
+              <div className="space-y-2">
+                {moderators.map((mod) => (
+                  <div key={mod.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+                        <ShieldCheck className="w-4 h-4 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{mod.user.name || "Uten navn"}</p>
+                        <p className="text-xs text-gray-500">{mod.user.email}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await fetch(`/api/admin/resources/${id}/moderators?userId=${mod.user.id}`, {
+                          method: "DELETE"
+                        })
+                        // Reload moderators
+                        const modsRes = await fetch(`/api/admin/resources/${id}/moderators`)
+                        const updated = modsRes.ok ? await modsRes.json() : []
+                        setModerators(Array.isArray(updated) ? updated : [])
+                        // Update available moderators
+                        const usersRes = await fetch("/api/admin/users")
+                        const users = usersRes.ok ? await usersRes.json() : []
+                        const usersArray = Array.isArray(users) ? users : []
+                        const moderatorUserIds = (Array.isArray(updated) ? updated : []).map((m: any) => m.user.id)
+                        const available = usersArray.filter((u: any) => 
+                          u.role === "moderator" && u.isApproved && !moderatorUserIds.includes(u.id)
+                        )
+                        setAvailableModerators(available)
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                
+                {moderators.length === 0 && (
+                  <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500 text-sm">
+                    Ingen moderatorer tildelt denne fasiliteten
+                  </div>
+                )}
+              </div>
+
+              {availableModerators.length > 0 && (
+                <div>
+                  {!showAddModerator ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddModerator(true)}
+                      className="btn btn-secondary text-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Legg til moderator
+                    </button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <select
+                        value={selectedModeratorId}
+                        onChange={(e) => setSelectedModeratorId(e.target.value)}
+                        className="input flex-1"
+                      >
+                        <option value="">Velg moderator...</option>
+                        {availableModerators.map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.name || "Uten navn"} ({user.email})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!selectedModeratorId) return
+                          
+                          await fetch(`/api/admin/resources/${id}/moderators`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ userId: selectedModeratorId })
+                          })
+                          
+                          // Reload moderators
+                          const modsRes = await fetch(`/api/admin/resources/${id}/moderators`)
+                          const updated = modsRes.ok ? await modsRes.json() : []
+                          setModerators(Array.isArray(updated) ? updated : [])
+                          
+                          // Update available moderators
+                          const usersRes = await fetch("/api/admin/users")
+                          const users = usersRes.ok ? await usersRes.json() : []
+                          const usersArray = Array.isArray(users) ? users : []
+                          const moderatorUserIds = (Array.isArray(updated) ? updated : []).map((m: any) => m.user.id)
+                          const available = usersArray.filter((u: any) => 
+                            u.role === "moderator" && u.isApproved && !moderatorUserIds.includes(u.id)
+                          )
+                          setAvailableModerators(available)
+                          
+                          setShowAddModerator(false)
+                          setSelectedModeratorId("")
+                        }}
+                        disabled={!selectedModeratorId}
+                        className="btn btn-primary text-sm disabled:opacity-50"
+                      >
+                        Legg til
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddModerator(false)
+                          setSelectedModeratorId("")
+                        }}
+                        className="btn btn-secondary text-sm"
+                      >
+                        Avbryt
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {availableModerators.length === 0 && moderators.length > 0 && (
+                <p className="text-xs text-gray-500">
+                  Alle tilgjengelige moderatorer er allerede tildelt denne fasiliteten.
+                </p>
+              )}
+
+              {availableModerators.length === 0 && moderators.length === 0 && (
+                <p className="text-xs text-gray-500">
+                  Det finnes ingen brukere med moderator-rolle. Gå til <Link href="/admin/users" className="text-blue-600 hover:underline">Brukere</Link> for å opprette en moderator.
+                </p>
+              )}
+            </div>
+
+            {/* Submit - Sticky at bottom */}
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 py-4 mt-8 flex items-center justify-between shadow-lg">
+              <Link href="/admin/resources" className="btn btn-secondary py-2.5">
+                Avbryt
+              </Link>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="btn btn-primary flex-1 py-3 disabled:opacity-50"
+                className="btn btn-primary py-2.5 flex items-center gap-2 disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>
@@ -645,9 +1319,6 @@ export default function EditResourcePage({ params }: Props) {
                   </>
                 )}
               </button>
-              <Link href="/admin/resources" className="btn btn-secondary py-3">
-                Avbryt
-              </Link>
             </div>
           </form>
         </div>

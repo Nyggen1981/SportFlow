@@ -15,6 +15,11 @@ interface EmailOptions {
   to: string
   subject: string
   html: string
+  attachments?: Array<{
+    filename: string
+    content: Buffer
+    contentType?: string
+  }>
 }
 
 interface SMTPConfig {
@@ -110,6 +115,11 @@ export async function sendEmail(
       to: options.to,
       subject: options.subject,
       html: options.html,
+      attachments: options.attachments?.map(att => ({
+        filename: att.filename,
+        content: att.content,
+        contentType: att.contentType || "application/pdf",
+      })),
     })
     
     console.log("Email sent successfully to:", options.to, "from organization:", organizationId)
@@ -117,6 +127,19 @@ export async function sendEmail(
   } catch (error) {
     console.error("Failed to send email:", error)
     return false
+  }
+}
+
+// Helper to get organization name
+async function getOrganizationName(organizationId: string): Promise<string> {
+  try {
+    const org = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { name: true },
+    })
+    return org?.name || "Sportflow Booking"
+  } catch {
+    return "Sportflow Booking"
   }
 }
 
@@ -136,6 +159,7 @@ export async function getBookingCancelledByAdminEmail(
     subject: defaultTemplates.cancelled_by_admin.subject,
     htmlBody: defaultTemplates.cancelled_by_admin.htmlBody,
   }
+  const organizationName = await getOrganizationName(organizationId)
 
   return renderEmailTemplate(template, {
     bookingTitle,
@@ -143,6 +167,7 @@ export async function getBookingCancelledByAdminEmail(
     date,
     time,
     reason,
+    organizationName,
   })
 }
 
@@ -153,7 +178,8 @@ export async function getBookingCancelledByUserEmail(
   date: string,
   time: string,
   userName: string,
-  userEmail: string
+  userEmail: string,
+  reason?: string
 ) {
   const customTemplate = await getEmailTemplate(organizationId, "cancelled_by_user")
   const defaultTemplates = getDefaultEmailTemplates()
@@ -161,6 +187,7 @@ export async function getBookingCancelledByUserEmail(
     subject: defaultTemplates.cancelled_by_user.subject,
     htmlBody: defaultTemplates.cancelled_by_user.htmlBody,
   }
+  const organizationName = await getOrganizationName(organizationId)
 
   return renderEmailTemplate(template, {
     bookingTitle,
@@ -169,6 +196,8 @@ export async function getBookingCancelledByUserEmail(
     time,
     userName,
     userEmail,
+    reason: reason || "",
+    organizationName,
   })
 }
 
@@ -188,6 +217,7 @@ export async function getNewBookingRequestEmail(
     subject: defaultTemplates.new_booking.subject,
     htmlBody: defaultTemplates.new_booking.htmlBody,
   }
+  const organizationName = await getOrganizationName(organizationId)
 
   return renderEmailTemplate(template, {
     bookingTitle,
@@ -197,6 +227,7 @@ export async function getNewBookingRequestEmail(
     userName,
     userEmail,
     description,
+    organizationName,
   })
 }
 
@@ -214,6 +245,7 @@ export async function getBookingApprovedEmail(
     subject: defaultTemplates.approved.subject,
     htmlBody: defaultTemplates.approved.htmlBody,
   }
+  const organizationName = await getOrganizationName(organizationId)
 
   return renderEmailTemplate(template, {
     bookingTitle,
@@ -221,6 +253,7 @@ export async function getBookingApprovedEmail(
     date,
     time,
     adminNote: adminNote || "",
+    organizationName,
   })
 }
 
@@ -238,6 +271,7 @@ export async function getBookingRejectedEmail(
     subject: defaultTemplates.rejected.subject,
     htmlBody: defaultTemplates.rejected.htmlBody,
   }
+  const organizationName = await getOrganizationName(organizationId)
 
   return renderEmailTemplate(template, {
     bookingTitle,
@@ -245,5 +279,34 @@ export async function getBookingRejectedEmail(
     date,
     time,
     reason,
+    organizationName,
+  })
+}
+
+export async function getBookingPaidEmail(
+  organizationId: string,
+  bookingTitle: string,
+  resourceName: string,
+  date: string,
+  time: string,
+  adminNote?: string | null,
+  customMessage?: string | null
+) {
+  const customTemplate = await getEmailTemplate(organizationId, "paid")
+  const defaultTemplates = getDefaultEmailTemplates()
+  const template = customTemplate || {
+    subject: defaultTemplates.paid.subject,
+    htmlBody: defaultTemplates.paid.htmlBody,
+  }
+  const organizationName = await getOrganizationName(organizationId)
+
+  return renderEmailTemplate(template, {
+    bookingTitle,
+    resourceName,
+    date,
+    time,
+    adminNote: adminNote || "",
+    customMessage: customMessage || "",
+    organizationName,
   })
 }

@@ -1,13 +1,12 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useEffect, useState, useMemo, useCallback } from "react"
+import { useEffect, useState, useMemo, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Navbar } from "@/components/Navbar"
-import { Footer } from "@/components/Footer"
+import { PageLayout } from "@/components/PageLayout"
 import { format, parseISO, startOfDay, addDays, setHours } from "date-fns"
 import { nb } from "date-fns/locale"
-import { Calendar, ChevronLeft, ChevronRight, GanttChart, Filter } from "lucide-react"
+import { Calendar, ChevronLeft, ChevronRight, GanttChart, Filter, X, Clock, User, MapPin } from "lucide-react"
 
 interface Booking {
   id: string
@@ -32,6 +31,7 @@ interface Booking {
   resourcePart: {
     id: string
     name: string
+    parentId?: string | null
   } | null
   user: {
     id: string
@@ -44,6 +44,7 @@ interface Resource {
   id: string
   name: string
   color: string | null
+  allowWholeBooking: boolean
   category: {
     id: string
     name: string
@@ -52,7 +53,17 @@ interface Resource {
   parts: Array<{
     id: string
     name: string
+    parentId?: string | null
+    children?: Array<{ id: string; name: string }>
   }>
+}
+
+interface BlockedSlot {
+  startTime: string
+  endTime: string
+  partId: string | null
+  blockedBy: string
+  bookingId: string
 }
 
 interface TimelineData {
@@ -69,6 +80,10 @@ export default function TimelinePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [selectedResources, setSelectedResources] = useState<Set<string>>(new Set())
   const [showFilter, setShowFilter] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [currentTime, setCurrentTime] = useState(new Date())
+  const timelineContainerRef = useRef<HTMLDivElement>(null)
+  const isInitialLoad = useRef(true)
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -76,11 +91,23 @@ export default function TimelinePage() {
     }
   }, [status, router])
 
+  // Update current time every minute
+  useEffect(() => {
+    const updateTime = () => setCurrentTime(new Date())
+    const interval = setInterval(updateTime, 60000) // Update every minute
+    return () => clearInterval(interval)
+  }, [])
+
   const fetchTimelineData = useCallback(async () => {
     setIsLoading(true)
     try {
-      const dateStr = format(selectedDate, "yyyy-MM-dd")
-      const response = await fetch(`/api/timeline?date=${dateStr}`)
+      const startDate = startOfDay(selectedDate)
+      const endDate = new Date(startDate)
+      endDate.setHours(23, 59, 59, 999)
+      
+      const startStr = format(startDate, "yyyy-MM-dd")
+      const endStr = format(endDate, "yyyy-MM-dd")
+      const response = await fetch(`/api/timeline?startDate=${startStr}&endDate=${endStr}`)
       if (response.ok) {
         const data = await response.json()
         setTimelineData(data)
@@ -102,15 +129,30 @@ export default function TimelinePage() {
   useEffect(() => {
     if (timelineData && timelineData.resources.length > 0) {
       const allResourceIds = new Set(timelineData.resources.map(r => r.id))
-      // Only initialize if no resources are selected yet, or if selected resources don't match available resources
-      const hasValidSelection = selectedResources.size > 0 && 
-        Array.from(selectedResources).every(id => allResourceIds.has(id))
       
-      if (!hasValidSelection) {
+      if (isInitialLoad.current) {
+        // First load: select all by default
         setSelectedResources(allResourceIds)
+        isInitialLoad.current = false
+      } else {
+        // Check if any currently selected resources no longer exist in the data
+        setSelectedResources(prev => {
+          // If user explicitly removed all, keep it empty
+          if (prev.size === 0) {
+            return prev
+          }
+          // Check if any selected resources no longer exist
+          const hasInvalidResources = Array.from(prev).some(id => !allResourceIds.has(id))
+          if (hasInvalidResources) {
+            // Some selected resources were removed from database, reset to all
+            return allResourceIds
+          }
+          // Keep current selection
+          return prev
+        })
       }
     }
-  }, [timelineData, selectedResources])
+  }, [timelineData])
 
   // Generate time slots (00:00 to 23:00, hourly)
   const timeSlots = useMemo(() => {
@@ -127,6 +169,7 @@ export default function TimelinePage() {
 
     const grouped: Array<{
       resource: Resource
+      allBookings: Booking[]
       parts: Array<{
         part: { id: string; name: string } | null
         bookings: Booking[]
@@ -163,15 +206,15 @@ export default function TimelinePage() {
         bookings: Booking[]
       }> = []
 
-      // Add whole resource row if there are bookings or if no parts exist
-      if (partsMap.get("whole")!.length > 0 || resource.parts.length === 0) {
+      // Add whole resource row first (hoveddel) only if allowWholeBooking is true
+      if (resource.allowWholeBooking) {
         parts.push({
           part: null,
           bookings: partsMap.get("whole") || []
         })
       }
 
-      // Add part rows
+      // Add part rows after (underdeler)
       resource.parts.forEach(part => {
         const bookings = partsMap.get(part.id) || []
         parts.push({
@@ -181,7 +224,7 @@ export default function TimelinePage() {
       })
 
       if (parts.length > 0) {
-        grouped.push({ resource, parts })
+        grouped.push({ resource, allBookings: resourceBookings, parts })
       }
     })
 
@@ -242,8 +285,92 @@ export default function TimelinePage() {
     return { dayStart, dayEnd, dayDuration }
   }, [selectedDate])
 
-  // Calculate booking position and width - memoized
-  const getBookingStyle = useCallback((booking: Booking) => {
+  // Calculate blocked slots for a specific resource
+  const getBlockedSlotsForPart = useCallback((resourceId: string, partId: string | null, allBookings: Booking[], resource: Resource): BlockedSlot[] => {
+    const slots: BlockedSlot[] = []
+    const resourceBookings = allBookings.filter(b => b.resource.id === resourceId)
+    
+    resourceBookings.forEach(booking => {
+      // If booking is for whole facility (no part), all parts are blocked
+      if (!booking.resourcePart) {
+        if (partId !== null) {
+          // This part is blocked by whole facility booking
+          slots.push({
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            partId: partId,
+            blockedBy: `Hele ${resource.name}`,
+            bookingId: booking.id
+          })
+        }
+      } else {
+        // Booking is for a specific part
+        if (partId === null) {
+          // Whole facility is blocked by part booking
+          slots.push({
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            partId: null,
+            blockedBy: booking.resourcePart.name,
+            bookingId: booking.id
+          })
+        } else {
+          // Check if this part is blocked by parent/child booking
+          const bookedPart = resource.parts.find(p => p.id === booking.resourcePart?.id)
+          
+          // If booking is for a parent, this child is blocked
+          if (bookedPart?.children?.some(c => c.id === partId)) {
+            slots.push({
+              startTime: booking.startTime,
+              endTime: booking.endTime,
+              partId: partId,
+              blockedBy: bookedPart.name,
+              bookingId: booking.id
+            })
+          }
+          
+          // If booking is for a child, parent is blocked
+          if (booking.resourcePart.parentId === partId) {
+            slots.push({
+              startTime: booking.startTime,
+              endTime: booking.endTime,
+              partId: partId,
+              blockedBy: booking.resourcePart.name,
+              bookingId: booking.id
+            })
+          }
+        }
+      }
+    })
+    
+    return slots
+  }, [])
+
+  // Get blocked slot style (similar to booking style)
+  const getBlockedSlotStyle = useCallback((slot: BlockedSlot) => {
+    const slotStart = parseISO(slot.startTime)
+    const slotEnd = parseISO(slot.endTime)
+    const { dayStart, dayEnd, dayDuration } = dayBoundaries
+
+    // Clamp times to the day
+    const startTime = slotStart < dayStart ? dayStart : slotStart
+    const endTime = slotEnd > dayEnd ? dayEnd : slotEnd
+
+    const startOffset = startTime.getTime() - dayStart.getTime()
+    const duration = endTime.getTime() - startTime.getTime()
+
+    const leftPercent = (startOffset / dayDuration) * 100
+    const widthPercent = (duration / dayDuration) * 100
+
+    return {
+      left: `${leftPercent}%`,
+      width: `${Math.max(0.3, widthPercent)}%`,
+      minWidth: '20px'
+    }
+  }, [dayBoundaries])
+
+  // Calculate booking position and width with horizontal spacing - memoized
+  const getBookingStyle = useCallback((booking: Booking, allBookings: Booking[]) => {
     const bookingStart = parseISO(booking.startTime)
     const bookingEnd = parseISO(booking.endTime)
     const { dayStart, dayEnd, dayDuration } = dayBoundaries
@@ -255,19 +382,57 @@ export default function TimelinePage() {
     const startOffset = startTime.getTime() - dayStart.getTime()
     const duration = endTime.getTime() - startTime.getTime()
 
+    // Calculate base position
     const leftPercent = (startOffset / dayDuration) * 100
     const widthPercent = (duration / dayDuration) * 100
 
+    // Add horizontal spacing between bookings
+    // Sort other bookings by start time to find adjacent ones
+    const sortedBookings = allBookings
+      .filter(b => b.id !== booking.id)
+      .map(b => ({
+        booking: b,
+        start: parseISO(b.startTime),
+        end: parseISO(b.endTime)
+      }))
+      .sort((a, b) => a.start.getTime() - b.start.getTime())
+
+    // Find the next booking that starts after this one ends
+    const nextBooking = sortedBookings.find(b => {
+      const gap = b.start.getTime() - endTime.getTime()
+      return gap >= 0 && gap < 10 * 60 * 1000 // Within 10 minutes
+    })
+
+    // Add a small gap (0.2% of day ≈ 2-3 minutes) before next booking
+    const gapPercent = nextBooking ? 0.2 : 0
+
     return {
       left: `${leftPercent}%`,
-      width: `${widthPercent}%`,
-      minWidth: '20px'
+      width: `${Math.max(0.3, widthPercent - gapPercent)}%`,
+      minWidth: '20px',
+      marginRight: nextBooking ? `${gapPercent}%` : '0'
     }
   }, [dayBoundaries])
 
   const changeDate = useCallback((days: number) => {
     setSelectedDate(prev => addDays(prev, days))
   }, [])
+
+  // Calculate current time position as percentage of day
+  const currentTimePosition = useMemo(() => {
+    const now = currentTime
+    const todayStart = startOfDay(selectedDate)
+    const isToday = format(now, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd")
+    
+    if (!isToday) return null
+    
+    const hours = now.getHours()
+    const minutes = now.getMinutes()
+    const totalMinutes = hours * 60 + minutes
+    const dayMinutes = 24 * 60
+    
+    return (totalMinutes / dayMinutes) * 100
+  }, [currentTime, selectedDate])
 
   const handleDatePickerClick = useCallback(() => {
     const input = document.getElementById('timeline-date-input') as HTMLInputElement
@@ -286,29 +451,24 @@ export default function TimelinePage() {
 
   if (status === "loading" || isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col">
-        <Navbar />
-        <div className="flex-1 flex items-center justify-center">
+      <PageLayout fullWidth>
+        <div className="flex-1 flex items-center justify-center min-h-[50vh]">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
-        <Footer />
-      </div>
+      </PageLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navbar />
-
-      <main className="flex-1 w-full">
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+    <PageLayout fullWidth>
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
           {/* Header */}
           <div className="mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
               <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
                   <GanttChart className="w-5 h-5 sm:w-6 sm:h-6" />
-                  Tidslinje
+                  Kapasitet
                 </h1>
                 
                 {/* Filter Button */}
@@ -376,6 +536,7 @@ export default function TimelinePage() {
                 </button>
               </div>
             </div>
+            
           </div>
 
           {/* Filter Panel - Compact */}
@@ -439,7 +600,7 @@ export default function TimelinePage() {
             </div>
           )}
 
-          {/* Timeline */}
+          {/* Timeline View (Day) */}
           {groupedData.length === 0 ? (
             <div className="card p-12 text-center">
               <GanttChart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -448,7 +609,7 @@ export default function TimelinePage() {
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
               {/* Scrollable container with sticky header */}
-              <div className="max-h-[70vh] overflow-y-auto overflow-x-auto rounded-xl">
+              <div ref={timelineContainerRef} className="max-h-[calc(100vh-300px)] overflow-y-auto overflow-x-auto rounded-xl relative">
                 {/* Time Header - sticky within scroll container */}
                 <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                   <div className="flex" style={{ minWidth: '1200px' }}>
@@ -474,10 +635,10 @@ export default function TimelinePage() {
 
                 {/* Timeline Rows */}
                 <div className="divide-y divide-gray-100" style={{ minWidth: '1200px' }}>
-                    {groupedData.map(({ resource, parts }) => (
+                    {groupedData.map(({ resource, allBookings, parts }) => (
                       <div key={resource.id}>
                         {/* Resource Header */}
-                        <div className="bg-gray-50 border-b border-gray-200">
+                        <div className="bg-gray-50 border-b border-gray-200 relative">
                           <div className="flex">
                             <div className="w-48 sm:w-64 flex-shrink-0 p-2 sm:p-3 border-r border-gray-200">
                               <div className="font-semibold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
@@ -495,7 +656,20 @@ export default function TimelinePage() {
                                 </div>
                               )}
                             </div>
-                            <div className="flex-1"></div>
+                            <div className="flex-1 relative">
+                              {/* Current Time Indicator Line in Resource Header */}
+                              {currentTimePosition !== null && (
+                                <div 
+                                  className="absolute top-0 bottom-0 z-25 pointer-events-none"
+                                  style={{ 
+                                    left: `${currentTimePosition}%`,
+                                    width: '2px',
+                                  }}
+                                >
+                                  <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-0.5 bg-red-500" />
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -527,9 +701,46 @@ export default function TimelinePage() {
                                 />
                               ))}
 
+                              {/* Current Time Indicator Line */}
+                              {currentTimePosition !== null && (
+                                <div 
+                                  className="absolute top-0 bottom-0 z-25 pointer-events-none"
+                                  style={{ 
+                                    left: `${currentTimePosition}%`,
+                                    width: '2px',
+                                  }}
+                                >
+                                  <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-0.5 bg-red-500" />
+                                </div>
+                              )}
+
+                              {/* Blocked Slots */}
+                              {getBlockedSlotsForPart(resource.id, part?.id || null, allBookings, resource).map((slot, index) => {
+                                const style = getBlockedSlotStyle(slot)
+                                return (
+                                  <div
+                                    key={`blocked-${slot.bookingId}-${index}`}
+                                    className="absolute top-1 bottom-1 rounded px-1 text-xs overflow-hidden"
+                                    style={{
+                                      ...style,
+                                      backgroundColor: 'rgba(156, 163, 175, 0.3)',
+                                      backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(156, 163, 175, 0.2) 4px, rgba(156, 163, 175, 0.2) 8px)',
+                                      border: '1px dashed #9ca3af',
+                                      zIndex: 5,
+                                    }}
+                                    title={`Blokkert av: ${slot.blockedBy}`}
+                                  >
+                                    <div className="flex items-center gap-1 h-full text-gray-500">
+                                      <span>🔒</span>
+                                      <span className="truncate text-[10px] font-medium">Blokkert</span>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+
                               {/* Bookings */}
                               {bookings.map((booking) => {
-                                const style = getBookingStyle(booking)
+                                const style = getBookingStyle(booking, bookings)
                                 const isPending = booking.status === "pending"
                                 const color = resource.color || resource.category?.color || "#3b82f6"
                                 const startTime = parseISO(booking.startTime)
@@ -537,15 +748,16 @@ export default function TimelinePage() {
                                 const timeStr = `${format(startTime, "HH:mm")} - ${format(endTime, "HH:mm")}`
                                 
                                 return (
-                                  <div
+                                  <button
                                     key={booking.id}
-                                    className="absolute top-1 bottom-1 rounded px-2 py-1 text-white text-xs font-medium cursor-pointer hover:shadow-lg transition-shadow overflow-hidden"
+                                    onClick={() => setSelectedBooking(booking)}
+                                    className="absolute top-1 bottom-1 rounded px-2 py-1 text-white text-xs font-medium cursor-pointer hover:shadow-lg hover:scale-[1.02] transition-all overflow-hidden text-left"
                                     style={{
                                       ...style,
                                       backgroundColor: isPending ? `${color}80` : color,
                                       border: isPending ? `2px dashed ${color}` : 'none',
                                     }}
-                                    title={`${booking.title}\n${timeStr}\n${booking.user.name || booking.user.email}\n${isPending ? "Venter på godkjenning" : "Godkjent"}`}
+                                    title={`Klikk for mer info`}
                                   >
                                     <div className="truncate font-semibold">{booking.title}</div>
                                     <div className="truncate text-[10px] opacity-90">
@@ -556,7 +768,7 @@ export default function TimelinePage() {
                                         {booking.user.name}
                                       </div>
                                     )}
-                                  </div>
+                                  </button>
                                 )
                               })}
                             </div>
@@ -569,10 +781,112 @@ export default function TimelinePage() {
               </div>
           )}
         </div>
-      </main>
 
-      <Footer />
-    </div>
+      {/* Booking Detail Modal */}
+      {selectedBooking && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedBooking(null)}
+        >
+          <div 
+            className="bg-white rounded-xl max-w-md w-full shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div 
+              className="p-5 rounded-t-xl"
+              style={{ 
+                backgroundColor: selectedBooking.resource.color || selectedBooking.resource.category?.color || "#3b82f6" 
+              }}
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-white/80 text-sm font-medium">
+                    {selectedBooking.resource.name}
+                    {selectedBooking.resourcePart && ` • ${selectedBooking.resourcePart.name}`}
+                  </p>
+                  <h3 className="text-xl font-bold text-white mt-1">
+                    {selectedBooking.title}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setSelectedBooking(null)}
+                  className="p-1 rounded-full hover:bg-white/20 transition-colors"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 space-y-4">
+              {/* Status */}
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
+                  selectedBooking.status === "pending" 
+                    ? "bg-amber-100 text-amber-700" 
+                    : "bg-green-100 text-green-700"
+                }`}>
+                  {selectedBooking.status === "pending" ? "⏳ Venter på godkjenning" : "✓ Godkjent"}
+                </span>
+              </div>
+
+              {/* Details */}
+              <div className="space-y-3 text-sm">
+                {/* Date and time */}
+                <div className="flex items-start gap-3 text-gray-600">
+                  <Calendar className="w-4 h-4 text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {format(parseISO(selectedBooking.startTime), "EEEE d. MMMM yyyy", { locale: nb })}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-gray-600">
+                  <Clock className="w-4 h-4 text-gray-400" />
+                  <span>
+                    {format(parseISO(selectedBooking.startTime), "HH:mm")} - {format(parseISO(selectedBooking.endTime), "HH:mm")}
+                  </span>
+                </div>
+
+                {/* Location */}
+                <div className="flex items-start gap-3 text-gray-600">
+                  <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-gray-900">{selectedBooking.resource.name}</p>
+                    {selectedBooking.resourcePart && (
+                      <p className="text-gray-500">{selectedBooking.resourcePart.name}</p>
+                    )}
+                    {selectedBooking.resource.category && (
+                      <p className="text-gray-400 text-xs mt-0.5">{selectedBooking.resource.category.name}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* GDPR: Show user info to admins/moderators OR if it's your own booking */}
+                {((session?.user?.role === "admin" || session?.user?.role === "moderator") || selectedBooking.user?.id === session?.user?.id) && selectedBooking.user && (
+                  <div className="flex items-center gap-3 text-gray-600">
+                    <User className="w-4 h-4 text-gray-400" />
+                    <p className="font-medium text-gray-900">{selectedBooking.user.name || "Ukjent bruker"}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t bg-gray-50 rounded-b-xl">
+              <button
+                onClick={() => setSelectedBooking(null)}
+                className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Lukk
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </PageLayout>
   )
 }
 

@@ -54,6 +54,8 @@ export default function NewResourcePage() {
   const [limitDuration, setLimitDuration] = useState(true)
   const [minBookingMinutes, setMinBookingMinutes] = useState("60")
   const [maxBookingMinutes, setMaxBookingMinutes] = useState("240")
+  const [limitMinBookingHours, setLimitMinBookingHours] = useState(false)
+  const [minBookingHours, setMinBookingHours] = useState("")
   const [requiresApproval, setRequiresApproval] = useState(true)
   const [limitAdvanceBooking, setLimitAdvanceBooking] = useState(true)
   const [advanceBookingDays, setAdvanceBookingDays] = useState("30")
@@ -143,6 +145,7 @@ export default function NewResourcePage() {
           categoryId: categoryId || null,
           minBookingMinutes: limitDuration ? parseInt(minBookingMinutes) : null,
           maxBookingMinutes: limitDuration ? parseInt(maxBookingMinutes) : null,
+          minBookingHours: limitMinBookingHours && minBookingHours ? parseFloat(minBookingHours) : null,
           requiresApproval,
           advanceBookingDays: limitAdvanceBooking ? parseInt(advanceBookingDays) : null,
           blockPartsWhenWholeBooked,
@@ -311,12 +314,12 @@ export default function NewResourcePage() {
                 
                 {image ? (
                   <div className="flex items-start gap-4">
-                    <div className="relative w-40 h-24 rounded-xl overflow-hidden bg-gray-100">
+                    <div className="relative w-full max-w-md aspect-video rounded-xl overflow-hidden bg-gray-100">
                       <Image
                         src={image}
                         alt="Fasilitetsbilde"
                         fill
-                        className="object-cover"
+                        className="object-contain"
                       />
                     </div>
                     <div className="flex flex-col gap-2">
@@ -405,6 +408,41 @@ export default function NewResourcePage() {
                         step="15"
                       />
                     </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="limitMinBookingHours"
+                    checked={limitMinBookingHours}
+                    onChange={(e) => {
+                      setLimitMinBookingHours(e.target.checked)
+                      if (!e.target.checked) setMinBookingHours("")
+                    }}
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="limitMinBookingHours" className="text-sm font-medium text-gray-700">
+                    Minimum antall timer en fasilitet kan bookes
+                  </label>
+                </div>
+                
+                {limitMinBookingHours && (
+                  <div className="ml-8">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Antall timer
+                    </label>
+                    <input
+                      type="number"
+                      value={minBookingHours}
+                      onChange={(e) => setMinBookingHours(e.target.value)}
+                      className="input max-w-[200px]"
+                      min="0.5"
+                      step="0.5"
+                      placeholder="F.eks. 2"
+                    />
                   </div>
                 )}
               </div>

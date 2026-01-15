@@ -30,6 +30,8 @@ interface Category {
 interface ResourcePart {
   id: string
   name: string
+  parentId?: string | null
+  children?: { id: string; name: string }[]
 }
 
 interface Resource {
@@ -49,10 +51,19 @@ interface Booking {
   status: string
   resourceId: string
   resourceName: string
+  resourcePartId?: string | null
   resourcePartName?: string | null
   isRecurring?: boolean
   parentBookingId?: string | null
   userId?: string
+}
+
+interface BlockedSlot {
+  startTime: string
+  endTime: string
+  partId: string | null
+  blockedBy: string
+  bookingId: string
 }
 
 interface UserPreferences {
@@ -73,6 +84,8 @@ type ViewMode = "week" | "month"
 export function CalendarView({ categories, resources, bookings: initialBookings }: Props) {
   const { data: session, status: sessionStatus } = useSession()
   const isAdmin = session?.user?.role === "admin"
+  const isModerator = session?.user?.role === "moderator"
+  const canManageBookings = isAdmin || isModerator
   const isLoggedIn = sessionStatus === "authenticated"
   
   const [bookings, setBookings] = useState<Booking[]>(initialBookings)
@@ -166,6 +179,93 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
       return true
     })
   }, [bookings, selectedResourceId, selectedPartId, selectedResource])
+
+  // Calculate blocked slots based on hierarchy for the selected resource
+  const blockedSlots = useMemo(() => {
+    if (!selectedResourceId || !selectedResource) return []
+    
+    const slots: BlockedSlot[] = []
+    const resourceBookings = bookings.filter(b => b.resourceId === selectedResourceId)
+    
+    resourceBookings.forEach(booking => {
+      // If booking is for whole facility (no part), all parts are blocked
+      if (!booking.resourcePartId) {
+        selectedResource.parts.forEach(part => {
+          slots.push({
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            partId: part.id,
+            blockedBy: `Hele ${selectedResource.name}`,
+            bookingId: booking.id
+          })
+          // Also block children
+          if (part.children) {
+            part.children.forEach(child => {
+              slots.push({
+                startTime: booking.startTime,
+                endTime: booking.endTime,
+                partId: child.id,
+                blockedBy: `Hele ${selectedResource.name}`,
+                bookingId: booking.id
+              })
+            })
+          }
+        })
+      } else {
+        // Booking is for a specific part - block whole facility
+        slots.push({
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          partId: null,
+          blockedBy: booking.resourcePartName || "En del",
+          bookingId: booking.id
+        })
+        
+        // Find the booked part and check hierarchy
+        const bookedPart = selectedResource.parts.find(p => p.id === booking.resourcePartId)
+        
+        // If booking is for a parent, block children
+        if (bookedPart?.children && bookedPart.children.length > 0) {
+          bookedPart.children.forEach(child => {
+            slots.push({
+              startTime: booking.startTime,
+              endTime: booking.endTime,
+              partId: child.id,
+              blockedBy: bookedPart.name,
+              bookingId: booking.id
+            })
+          })
+        }
+        
+        // If booking is for a child, block parent
+        if (bookedPart?.parentId) {
+          slots.push({
+            startTime: booking.startTime,
+            endTime: booking.endTime,
+            partId: bookedPart.parentId,
+            blockedBy: booking.resourcePartName || "En del",
+            bookingId: booking.id
+          })
+        }
+      }
+    })
+    
+    return slots
+  }, [bookings, selectedResourceId, selectedResource])
+
+  // Get blocked slots for the selected part view
+  const getBlockedSlotsForDay = useCallback((day: Date) => {
+    // Don't show blocked slots when viewing "Alle deler" - actual bookings show the full picture
+    if (!selectedPartId) return []
+    
+    return blockedSlots.filter(slot => {
+      const start = parseISO(slot.startTime)
+      if (!isSameDay(day, start)) return false
+      
+      // If viewing a specific part, show blocks for that part
+      return slot.partId === selectedPartId
+    })
+  }, [blockedSlots, selectedPartId])
 
   // Week view data
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
@@ -470,7 +570,7 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
           {/* Time grid with sticky header */}
           <div ref={weekViewScrollRef} className="max-h-[650px] overflow-y-auto pr-[17px]">
             {/* Header - sticky */}
-            <div className="grid bg-gray-50 border-b border-gray-200 sticky top-0 z-20 gap-x-2" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
+            <div className="grid bg-gray-50 border-b border-gray-200 sticky top-0 z-20" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
               <div className="p-3 text-center text-sm font-medium text-gray-500" />
               {weekDays.map((day) => (
                 <div 
@@ -493,7 +593,7 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
 
             {/* Time rows */}
             {hours.map((hour) => (
-              <div key={hour} className="grid border-b border-gray-100 last:border-b-0 gap-x-2" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
+              <div key={hour} className="grid border-b border-gray-100 last:border-b-0" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
                 <div className="p-2 text-right text-xs text-gray-400 pr-3">
                   {hour.toString().padStart(2, "0")}:00
                 </div>
@@ -508,6 +608,13 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
                     return start.getHours() === hour
                   })
                   
+                  // Get blocked slots for this day
+                  const dayBlockedSlots = getBlockedSlotsForDay(day)
+                  const blockedSlotsStartingThisHour = dayBlockedSlots.filter(slot => {
+                    const start = parseISO(slot.startTime)
+                    return start.getHours() === hour
+                  })
+                  
                   return (
                     <div 
                       key={`${day.toISOString()}-${hour}`} 
@@ -515,6 +622,43 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
                         isToday(day) ? 'bg-blue-50/30' : ''
                       }`}
                     >
+                      {/* Blocked slots indicator */}
+                      {blockedSlotsStartingThisHour.map((slot, index) => {
+                        const start = parseISO(slot.startTime)
+                        const end = parseISO(slot.endTime)
+                        const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+                        
+                        const gapPx = 1
+                        const cellHeight = 48
+                        const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
+                        const heightPx = durationHours * cellHeight - (gapPx * 2)
+                        
+                        return (
+                          <div
+                            key={`blocked-${slot.bookingId}-${index}`}
+                            className="absolute rounded-md px-2 py-1 text-xs overflow-hidden"
+                            style={{
+                              top: `${topPx}px`,
+                              left: '2px',
+                              width: 'calc(100% - 4px)',
+                              height: `${Math.max(heightPx, 24)}px`,
+                              backgroundColor: 'rgba(156, 163, 175, 0.3)',
+                              backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(156, 163, 175, 0.2) 4px, rgba(156, 163, 175, 0.2) 8px)',
+                              border: '1px dashed #9ca3af',
+                              color: '#6b7280',
+                              zIndex: 5,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                            title={`Blokkert av: ${slot.blockedBy}`}
+                          >
+                            <span className="text-xs">🔒</span>
+                            <span className="truncate text-xs font-medium">Blokkert</span>
+                          </div>
+                        )
+                      })}
+                      
                       {bookingsStartingThisHour.map((booking) => {
                           const start = parseISO(booking.startTime)
                           const end = parseISO(booking.endTime)
@@ -668,7 +812,7 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
           <div className="w-4 h-3 rounded border-2 border-dashed border-gray-400 bg-gray-100" />
           <span className="text-gray-600">Venter på godkjenning</span>
         </div>
-        {isAdmin && (
+        {canManageBookings && (
           <div className="ml-4 pl-4 border-l border-gray-200 text-gray-500 italic">
             Klikk på en booking for å behandle
           </div>
@@ -682,7 +826,7 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="text-lg font-bold text-gray-900">
-                {isAdmin ? "Behandle booking" : "Booking-detaljer"}
+                {canManageBookings ? "Behandle booking" : "Booking-detaljer"}
               </h3>
               <button
                 onClick={() => setSelectedBooking(null)}
@@ -730,7 +874,19 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
                   <Clock className="w-4 h-4 text-gray-400" />
-                  {format(parseISO(selectedBooking.startTime), "HH:mm")} - {format(parseISO(selectedBooking.endTime), "HH:mm")}
+                  {(() => {
+                    const start = parseISO(selectedBooking.startTime)
+                    const end = parseISO(selectedBooking.endTime)
+                    const startDateStr = format(start, "d. MMM yyyy", { locale: nb })
+                    const endDateStr = format(end, "d. MMM yyyy", { locale: nb })
+                    const isSameDay = startDateStr === endDateStr
+                    
+                    if (isSameDay) {
+                      return `${format(start, "HH:mm")} - ${format(end, "HH:mm")}`
+                    } else {
+                      return `${format(start, "d. MMM HH:mm", { locale: nb })} - ${format(end, "d. MMM HH:mm", { locale: nb })}`
+                    }
+                  })()}
                 </div>
               </div>
             </div>
@@ -739,10 +895,10 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
             {(() => {
               const isOwner = selectedBooking.userId === session?.user?.id
               const canCancel = isOwner && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
-              const canEdit = (isOwner || isAdmin) && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
+              const canEdit = (isOwner || canManageBookings) && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
               const isPast = new Date(selectedBooking.startTime) < new Date()
 
-              if (isAdmin) {
+              if (canManageBookings) {
                 return (
                   <div className="p-4 border-t bg-gray-50 rounded-b-xl space-y-3">
                     {/* Recurring booking checkbox */}
@@ -827,25 +983,10 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
                         Kanseller
                       </button>
                     </div>
-                    <button
-                      onClick={() => setSelectedBooking(null)}
-                      className="w-full btn btn-secondary"
-                    >
-                      Lukk
-                    </button>
                   </div>
                 )
               } else {
-                return (
-                  <div className="p-4 border-t bg-gray-50 rounded-b-xl">
-                    <button
-                      onClick={() => setSelectedBooking(null)}
-                      className="w-full btn btn-secondary"
-                    >
-                      Lukk
-                    </button>
-                  </div>
-                )
+                return null
               }
             })()}
           </div>
@@ -856,7 +997,7 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
       {editingBooking && (
         <EditBookingModal
           booking={editingBooking}
-          isAdmin={isAdmin}
+          isAdmin={canManageBookings}
           onClose={() => setEditingBooking(null)}
           onSaved={(updatedBooking) => {
             setBookings(bookings.map(b => 

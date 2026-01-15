@@ -26,6 +26,9 @@ export async function GET() {
           role: true,
           isApproved: true,
           approvedAt: true,
+          emailVerified: true,
+          emailVerifiedAt: true,
+          isMember: true,
           createdAt: true,
           updatedAt: true,
           organization: {

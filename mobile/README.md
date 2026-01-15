@@ -1,6 +1,6 @@
-# Arena Booking - Mobil App
+# Sportflow Booking - Mobil App
 
-React Native / Expo app for Arena Booking-systemet.
+React Native / Expo app for Sportflow Booking-systemet.
 
 ## Funksjoner
 

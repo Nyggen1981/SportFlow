@@ -23,6 +23,9 @@ import {
   Mail,
   ChevronDown,
   ChevronRight,
+  Key,
+  Shield,
+  FileText,
 } from "lucide-react"
 import Image from "next/image"
 import { EmailTemplateEditor } from "@/components/EmailTemplateEditor"
@@ -35,11 +38,25 @@ interface Organization {
   tagline: string
   primaryColor: string
   secondaryColor: string
+  requireUserApproval?: boolean
   smtpHost?: string | null
   smtpPort?: number | null
   smtpUser?: string | null
   smtpPass?: string | null
   smtpFrom?: string | null
+  licenseKey?: string | null
+  vippsClientId?: string | null
+  vippsClientSecret?: string | null
+  vippsSubscriptionKey?: string | null
+  vippsTestMode?: boolean
+  invoiceAddress?: string | null
+  invoicePhone?: string | null
+  invoiceEmail?: string | null
+  invoiceOrgNumber?: string | null
+  invoiceBankAccount?: string | null
+  invoiceNotes?: string | null
+  isMvaRegistered?: boolean
+  allowSelfMembershipClaim?: boolean
 }
 
 export default function AdminSettingsPage() {
@@ -70,6 +87,8 @@ export default function AdminSettingsPage() {
   const [tagline, setTagline] = useState("Kalender")
   const [primaryColor, setPrimaryColor] = useState("#2563eb")
   const [secondaryColor, setSecondaryColor] = useState("#1e40af")
+  const [requireUserApproval, setRequireUserApproval] = useState(true)
+  const [allowSelfMembershipClaim, setAllowSelfMembershipClaim] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // SMTP settings state
@@ -84,6 +103,42 @@ export default function AdminSettingsPage() {
   const [isTestingSmtp, setIsTestingSmtp] = useState(false)
   const [smtpTestResult, setSmtpTestResult] = useState<{ success: boolean; message: string } | null>(null)
 
+  // License settings state
+  const [licenseKey, setLicenseKey] = useState("")
+  const [isTestingLicense, setIsTestingLicense] = useState(false)
+  const [licenseTestResult, setLicenseTestResult] = useState<{ success: boolean; message: string; status?: string } | null>(null)
+  
+  // Vipps settings state
+  const [vippsClientId, setVippsClientId] = useState("")
+  const [vippsClientSecret, setVippsClientSecret] = useState("")
+  const [vippsSubscriptionKey, setVippsSubscriptionKey] = useState("")
+  const [vippsTestMode, setVippsTestMode] = useState(true)
+  const [showVippsSecret, setShowVippsSecret] = useState(false)
+
+  // Invoice template settings state
+  const [invoiceAddress, setInvoiceAddress] = useState("")
+  const [invoicePhone, setInvoicePhone] = useState("")
+  const [invoiceEmail, setInvoiceEmail] = useState("")
+  const [invoiceOrgNumber, setInvoiceOrgNumber] = useState("")
+  const [invoiceBankAccount, setInvoiceBankAccount] = useState("")
+  const [invoiceNotes, setInvoiceNotes] = useState("")
+  const [isMvaRegistered, setIsMvaRegistered] = useState(false)
+  const [licenseInfo, setLicenseInfo] = useState<{
+    valid: boolean
+    status: string
+    expiresAt: string | null
+    daysRemaining: number | null
+    licenseType: string | null
+    licenseTypeName?: string | null
+    modules?: {
+      booking?: boolean
+      pricing?: boolean
+      "match-setup"?: boolean
+      [key: string]: boolean | undefined
+    }
+  } | null>(null)
+  
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login")
@@ -94,27 +149,61 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     if (session?.user?.role === "admin") {
+      // Load organization settings first (critical)
       fetch("/api/admin/settings")
-        .then(res => res.json())
-        .then(data => {
-          setOrg(data)
-          setName(data.name || "")
-          setSlug(data.slug || "")
-          setLogo(data.logo || null)
-          setTagline(data.tagline || "Kalender")
-          setPrimaryColor(data.primaryColor || "#2563eb")
-          setSecondaryColor(data.secondaryColor || "#1e40af")
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to load settings")
+          return res.json()
+        })
+        .then(orgData => {
+          setOrg(orgData)
+          setName(orgData.name || "")
+          setSlug(orgData.slug || "")
+          setLogo(orgData.logo || null)
+          setTagline(orgData.tagline || "Kalender")
+          setPrimaryColor(orgData.primaryColor || "#2563eb")
+          setSecondaryColor(orgData.secondaryColor || "#1e40af")
+          setRequireUserApproval(orgData.requireUserApproval !== false) // Default to true
+          setAllowSelfMembershipClaim(orgData.allowSelfMembershipClaim === true) // Default to false
           
           // Load SMTP settings
-          setSmtpHost(data.smtpHost || "")
-          setSmtpPort(data.smtpPort?.toString() || "587")
-          setSmtpUser(data.smtpUser || "")
-          setSmtpPass(data.smtpPass || "")
-          setSmtpFrom(data.smtpFrom || "")
+          setSmtpHost(orgData.smtpHost || "")
+          setSmtpPort(orgData.smtpPort?.toString() || "587")
+          setSmtpUser(orgData.smtpUser || "")
+          setSmtpPass(orgData.smtpPass || "")
+          setSmtpFrom(orgData.smtpFrom || "")
+          
+          // Load license settings
+          setLicenseKey(orgData.licenseKey || "")
+          
+          // Load Vipps settings
+          setVippsClientId(orgData.vippsClientId || "")
+          setVippsClientSecret(orgData.vippsClientSecret || "")
+          setVippsSubscriptionKey(orgData.vippsSubscriptionKey || "")
+          setVippsTestMode(orgData.vippsTestMode !== false) // Default to true
+          
+          // Load Invoice template settings
+          setInvoiceAddress(orgData.invoiceAddress || "")
+          setInvoicePhone(orgData.invoicePhone || "")
+          setInvoiceEmail(orgData.invoiceEmail || "")
+          setInvoiceOrgNumber(orgData.invoiceOrgNumber || "")
+          setInvoiceBankAccount(orgData.invoiceBankAccount || "")
+          setInvoiceNotes(orgData.invoiceNotes || "")
+          setIsMvaRegistered(orgData.isMvaRegistered || false)
           
           setIsLoading(false)
+          
+          // Fetch license status info
+          fetch("/api/license/status")
+            .then(res => res.json())
+            .then(data => setLicenseInfo(data))
+            .catch(() => {})
         })
-        .catch(() => setIsLoading(false))
+        .catch((error) => {
+          console.error("Error loading settings:", error)
+          setError("Kunne ikke laste innstillinger")
+          setIsLoading(false)
+        })
 
       // Load email templates
       fetchEmailTemplates()
@@ -217,6 +306,80 @@ export default function AdminSettingsPage() {
     }
   }
 
+  const handleRefreshLicense = async () => {
+    try {
+      // Tøm cache og hent ny lisensinfo
+      await fetch("/api/license/clear-cache", { method: "POST" })
+      const response = await fetch("/api/license/status")
+      const data = await response.json()
+      setLicenseInfo(data)
+      setLicenseTestResult({
+        success: true,
+        message: "Lisensinfo oppdatert"
+      })
+    } catch (error) {
+      setLicenseTestResult({
+        success: false,
+        message: "Kunne ikke oppdatere lisensinfo.",
+      })
+    }
+  }
+
+  const handleTestLicense = async () => {
+    setIsTestingLicense(true)
+    setLicenseTestResult(null)
+    
+    try {
+      const response = await fetch("/api/license/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          licenseKey: licenseKey,
+        }),
+      })
+      
+      const data = await response.json()
+      
+      if (data.valid) {
+        setLicenseTestResult({
+          success: true,
+          status: data.status,
+          message: `Organisasjon: ${data.organization}. ${data.daysRemaining ? `${data.daysRemaining} dager igjen.` : ''}`,
+        })
+        
+        // Oppdater lisensinfo og tøm cache
+        setLicenseInfo({
+          valid: true,
+          status: data.status,
+          expiresAt: data.expiresAt || null,
+          daysRemaining: data.daysRemaining || null,
+          licenseType: data.licenseType || null,
+          licenseTypeName: data.licenseTypeName || null,
+          modules: data.modules || undefined
+        })
+        
+        // Tøm lisens-cache på serveren og last siden på nytt etter 2 sekunder
+        await fetch("/api/license/clear-cache", { method: "POST" })
+        setTimeout(() => {
+          window.location.reload()
+        }, 2000)
+      } else {
+        setLicenseTestResult({
+          success: false,
+          status: data.status,
+          message: data.message || data.error || "Lisensen er ikke gyldig",
+        })
+      }
+    } catch (error) {
+      setLicenseTestResult({
+        success: false,
+        message: "Kunne ikke kontakte lisensserveren.",
+      })
+    } finally {
+      setIsTestingLicense(false)
+    }
+  }
+
   const handleResetEmailTemplate = async (templateType: string) => {
     const response = await fetch(`/api/admin/email-templates?templateType=${templateType}`, {
       method: "DELETE",
@@ -261,8 +424,7 @@ export default function AdminSettingsPage() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const saveAllSettings = async () => {
     setIsSubmitting(true)
     setError("")
     setSuccess(false)
@@ -278,12 +440,26 @@ export default function AdminSettingsPage() {
           tagline,
           primaryColor,
           secondaryColor,
+          requireUserApproval,
+          allowSelfMembershipClaim,
           smtpHost: smtpHost || null,
           smtpPort: smtpPort || null,
           smtpUser: smtpUser || null,
           smtpPass: smtpPass || null,
           smtpFrom: smtpFrom || null,
-        })
+          licenseKey: licenseKey || null,
+          vippsClientId: vippsClientId || null,
+          vippsClientSecret: vippsClientSecret || null,
+          vippsSubscriptionKey: vippsSubscriptionKey || null,
+          vippsTestMode: vippsTestMode,
+          invoiceAddress: invoiceAddress || null,
+          invoicePhone: invoicePhone || null,
+          invoiceEmail: invoiceEmail || null,
+          invoiceOrgNumber: invoiceOrgNumber || null,
+          invoiceBankAccount: invoiceBankAccount || null,
+          invoiceNotes: invoiceNotes || null,
+          isMvaRegistered: isMvaRegistered,
+        }),
       })
 
       if (!response.ok) {
@@ -298,6 +474,11 @@ export default function AdminSettingsPage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await saveAllSettings()
   }
 
   if (status === "loading" || isLoading) {
@@ -315,7 +496,66 @@ export default function AdminSettingsPage() {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Floating success/error messages */}
+      {(success || error) && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full px-4 animate-fade-in">
+          {success && (
+            <div className="p-4 rounded-xl bg-green-50 border border-green-100 text-green-700 text-sm flex items-center gap-2 shadow-lg">
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+              <span>Innstillingene er lagret!</span>
+              <button
+                type="button"
+                onClick={() => setSuccess(false)}
+                className="ml-auto text-green-600 hover:text-green-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+          {error && (
+            <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm flex items-center gap-2 shadow-lg">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={() => setError("")}
+                className="ml-auto text-red-600 hover:text-red-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Floating save button */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-40 px-4 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="text-sm text-gray-600">
+            {isSubmitting ? "Lagrer innstillinger..." : "Husk å lagre endringene dine"}
+          </div>
+          <button
+            type="button"
+            onClick={saveAllSettings}
+            disabled={isSubmitting}
+            className="btn btn-primary flex items-center gap-2 px-6 py-2.5 disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Lagrer...
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5" />
+                Lagre alle innstillinger
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
         <Link href="/admin" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6">
           <ArrowLeft className="w-4 h-4" />
           Tilbake til dashboard
@@ -333,18 +573,6 @@ export default function AdminSettingsPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm">
-                {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="p-4 rounded-xl bg-green-50 border border-green-100 text-green-700 text-sm flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5" />
-                Innstillingene er lagret!
-              </div>
-            )}
 
             {/* Organization info */}
             <div className="space-y-4">
@@ -532,30 +760,68 @@ export default function AdminSettingsPage() {
               </div>
             </div>
 
-            {/* Submit */}
-            <div className="flex gap-3 pt-4 border-t">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="btn btn-primary flex-1 py-3 disabled:opacity-50"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Lagrer...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-5 h-5" />
-                    Lagre innstillinger
-                  </>
-                )}
-              </button>
+            {/* User Registration Settings */}
+            <div className="space-y-4">
+              <h2 className="font-semibold text-gray-900 border-b pb-2 flex items-center gap-2">
+                <Settings className="w-5 h-5 text-gray-400" />
+                Brukerregistrering
+              </h2>
+              
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div>
+                  <h3 className="font-medium text-gray-900">Krev godkjenning av nye brukere</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {requireUserApproval 
+                      ? "Nye brukere må godkjennes av admin før de kan logge inn"
+                      : "Nye brukere får automatisk tilgang etter registrering"
+                    }
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRequireUserApproval(!requireUserApproval)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    requireUserApproval ? 'bg-blue-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      requireUserApproval ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div>
+                  <h3 className="font-medium text-gray-900">Tillat brukere å registrere seg som medlem</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {allowSelfMembershipClaim 
+                      ? "Brukere kan selv velge om de er medlem ved registrering"
+                      : "Kun admin kan sette medlemsstatus på brukere"
+                    }
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAllowSelfMembershipClaim(!allowSelfMembershipClaim)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    allowSelfMembershipClaim ? 'bg-blue-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      allowSelfMembershipClaim ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
+
           </form>
         </div>
 
-        {/* SMTP Settings */}
+            {/* SMTP Settings */}
         <div className="card p-6 md:p-8 mt-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
@@ -605,7 +871,7 @@ export default function AdminSettingsPage() {
                   type="text"
                   value={smtpUser}
                   onChange={(e) => setSmtpUser(e.target.value)}
-                  placeholder="arena-booking@idrettslag.no"
+                  placeholder="sportflow@idrettslag.no"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -654,31 +920,53 @@ export default function AdminSettingsPage() {
               </p>
             </div>
 
-            {/* SMTP Test */}
+            {/* SMTP actions */}
             <div className="border-t pt-4 mt-4">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
                 <div>
-                  <h3 className="font-medium text-gray-900">Test e-postinnstillinger</h3>
-                  <p className="text-sm text-gray-500">Send en test-e-post for å verifisere at innstillingene fungerer</p>
+                  <h3 className="font-medium text-gray-900">Lagre og teste e-postinnstillinger</h3>
+                  <p className="text-sm text-gray-500">
+                    Husk å lagre før du tester – både denne og knappen &quot;Lagre innstillinger&quot; øverst lagrer SMTP-oppsettet.
+                  </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleTestSmtp}
-                  disabled={isTestingSmtp}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {isTestingSmtp ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Tester...
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="w-4 h-4" />
-                      Send test-e-post
-                    </>
-                  )}
-                </button>
+                <div className="flex flex-col gap-2 items-start">
+                  <button
+                    type="button"
+                    onClick={saveAllSettings}
+                    disabled={isSubmitting}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Lagrer...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        Lagre e-postinnstillinger
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleTestSmtp}
+                    disabled={isTestingSmtp}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isTestingSmtp ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Tester...
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="w-4 h-4" />
+                        Send test-e-post
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {smtpTestResult && (
@@ -707,6 +995,219 @@ export default function AdminSettingsPage() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Vipps Settings */}
+        <div className="card p-6 md:p-8 mt-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center">
+              <Key className="w-6 h-6 text-yellow-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Vipps-innstillinger</h2>
+              <p className="text-gray-500 text-sm">Konfigurer Vipps for betalingshåndtering. Disse opplysningene får du fra Vipps.</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Vipps Client ID
+                </label>
+                <input
+                  type="text"
+                  value={vippsClientId}
+                  onChange={(e) => setVippsClientId(e.target.value)}
+                  placeholder="F.eks. 12345678"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">Merchant Serial Number fra Vipps</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Vipps Subscription Key
+                </label>
+                <input
+                  type="text"
+                  value={vippsSubscriptionKey}
+                  onChange={(e) => setVippsSubscriptionKey(e.target.value)}
+                  placeholder="F.eks. abc123..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">Subscription Key fra Vipps Portal</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Vipps Client Secret
+              </label>
+              <div className="relative">
+                <input
+                  type={showVippsSecret ? "text" : "password"}
+                  value={vippsClientSecret}
+                  onChange={(e) => setVippsClientSecret(e.target.value)}
+                  placeholder="F.eks. secret123..."
+                  className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowVippsSecret(!showVippsSecret)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showVippsSecret ? "Skjul" : "Vis"}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Client Secret fra Vipps Portal</p>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div>
+                <h3 className="font-medium text-gray-900">Testmodus</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {vippsTestMode 
+                    ? "Bruker Vipps testmiljø (anbefalt for testing)"
+                    : "Bruker Vipps produksjonsmiljø"
+                  }
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setVippsTestMode(!vippsTestMode)}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  vippsTestMode ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    vippsTestMode ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Invoice Settings */}
+        <div className="card p-6 md:p-8 mt-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+              <FileText className="w-6 h-6 text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Fakturainformasjon</h2>
+              <p className="text-gray-500 text-sm">Informasjon som vises på fakturaer</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Organisasjonsnummer
+                </label>
+                <input
+                  type="text"
+                  value={invoiceOrgNumber}
+                  onChange={(e) => setInvoiceOrgNumber(e.target.value)}
+                  placeholder="F.eks. 123 456 789"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Kontonummer
+                </label>
+                <input
+                  type="text"
+                  value={invoiceBankAccount}
+                  onChange={(e) => setInvoiceBankAccount(e.target.value)}
+                  placeholder="F.eks. 1234 56 78901"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Fakturaadresse
+                </label>
+                <input
+                  type="text"
+                  value={invoiceAddress}
+                  onChange={(e) => setInvoiceAddress(e.target.value)}
+                  placeholder="Gateadresse 1, 0000 Sted"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Telefon
+                </label>
+                <input
+                  type="text"
+                  value={invoicePhone}
+                  onChange={(e) => setInvoicePhone(e.target.value)}
+                  placeholder="F.eks. 12 34 56 78"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  E-post for fakturahenvendelser
+                </label>
+                <input
+                  type="email"
+                  value={invoiceEmail}
+                  onChange={(e) => setInvoiceEmail(e.target.value)}
+                  placeholder="faktura@organisasjon.no"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Standardtekst på faktura (valgfritt)
+                </label>
+                <textarea
+                  value={invoiceNotes}
+                  onChange={(e) => setInvoiceNotes(e.target.value)}
+                  placeholder="F.eks. betalingsbetingelser, takk for handelen, etc."
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* MVA Checkbox */}
+            <div className="border border-gray-200 rounded-lg p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isMvaRegistered}
+                  onChange={(e) => setIsMvaRegistered(e.target.checked)}
+                  className="mt-1 w-5 h-5 text-emerald-600 rounded focus:ring-emerald-500"
+                />
+                <div>
+                  <span className="font-medium text-gray-900">Organisasjonen er MVA-registrert</span>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Aktiver dette hvis organisasjonen er registrert i Merverdiavgiftsregisteret. 
+                    MVA (25%) vil da legges til på fakturaer og vises i betalingsoversikter.
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <p className="text-sm text-emerald-800">
+                <strong>Tips:</strong> Denne informasjonen vises på alle fakturaer som genereres. Sørg for at organisasjonsnummer og kontonummer er korrekt.
+              </p>
             </div>
           </div>
         </div>
@@ -888,6 +1389,212 @@ export default function AdminSettingsPage() {
           </p>
         </div>
 
+        {/* License Settings */}
+        <div id="license" className="card p-6 md:p-8 mt-6 scroll-mt-20">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+              <Key className="w-6 h-6 text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Lisens</h2>
+              <p className="text-gray-500 text-sm">Koble til lisensserver for aktivering og validering</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Lisensnøkkel
+              </label>
+              <input
+                type="text"
+                value={licenseKey}
+                onChange={(e) => setLicenseKey(e.target.value)}
+                placeholder="Lim inn lisensnøkkelen her..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-mono text-sm"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Lisensnøkkelen du har fått tildelt. Kontakt leverandør hvis du ikke har en nøkkel.
+              </p>
+            </div>
+
+            {!licenseKey && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <p className="text-sm text-amber-800">
+                  <strong>OBS:</strong> Appen krever en gyldig lisensnøkkel for å fungere i produksjon. 
+                  Uten lisensnøkkel vil brukere ikke kunne logge inn.
+                </p>
+              </div>
+            )}
+
+            {licenseKey && licenseInfo && licenseInfo.status === "active" && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-emerald-800 font-medium">
+                      ✓ Lisens aktiv
+                    </p>
+                    {licenseInfo.expiresAt && (
+                      <p className="text-sm text-emerald-700 mt-1">
+                        Utløper: {new Date(licenseInfo.expiresAt).toLocaleDateString("nb-NO", { 
+                          day: "numeric", 
+                          month: "long", 
+                          year: "numeric" 
+                        })}
+                        {licenseInfo.daysRemaining !== null && (
+                          <span className="ml-2 text-emerald-600">
+                            ({licenseInfo.daysRemaining} dager igjen)
+                          </span>
+                        )}
+                      </p>
+                    )}
+                    {(() => {
+                      // Bygg lisens-type streng med moduler
+                      const typeParts: string[] = []
+                      
+                      // Bruk licenseTypeName hvis tilgjengelig, ellers formater licenseType
+                      if (licenseInfo.licenseTypeName) {
+                        typeParts.push(licenseInfo.licenseTypeName)
+                      } else if (licenseInfo.licenseType) {
+                        typeParts.push(licenseInfo.licenseType.charAt(0).toUpperCase() + licenseInfo.licenseType.slice(1))
+                      }
+                      
+                      // Legg til aktive moduler (unntatt booking som alltid er aktiv)
+                      if (licenseInfo.modules) {
+                        const activeModules: string[] = []
+                        if (licenseInfo.modules.pricing) {
+                          activeModules.push("Betalingsmodul")
+                        }
+                        if (licenseInfo.modules["match-setup"]) {
+                          activeModules.push("Kampoppsett")
+                        }
+                        
+                        if (activeModules.length > 0) {
+                          typeParts.push(...activeModules)
+                        }
+                      }
+                      
+                      if (typeParts.length > 0) {
+                        return (
+                          <p className="text-xs text-emerald-600 mt-1">
+                            Type: {typeParts.join(" + ")}
+                          </p>
+                        )
+                      }
+                      return null
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {licenseKey && licenseInfo && licenseInfo.daysRemaining !== null && licenseInfo.daysRemaining <= 14 && licenseInfo.daysRemaining > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <p className="text-sm text-amber-800">
+                  <strong>⚠️ Lisensen utløper snart!</strong> Kontakt din Sportflow Booking-leverandør for fornyelse.
+                </p>
+              </div>
+            )}
+
+            {licenseKey && !licenseInfo && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                <p className="text-sm text-emerald-800">
+                  <strong>✓</strong> Lisensnøkkel er konfigurert. Trykk &quot;Test lisens&quot; for å verifisere.
+                </p>
+              </div>
+            )}
+
+            {/* License actions */}
+            <div className="border-t pt-4 mt-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+                <div>
+                  <h3 className="font-medium text-gray-900">Lagre og teste lisens</h3>
+                  <p className="text-sm text-gray-500">
+                    Lagre først, deretter test at lisensnøkkelen er gyldig. Bruk "Oppdater lisens" for å tømme cache og hente ny lisensinfo raskt.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={saveAllSettings}
+                    disabled={isSubmitting}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Lagrer...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4" />
+                        Lagre
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRefreshLicense}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 shadow-sm hover:bg-blue-100"
+                    title="Tøm cache og oppdater lisensinfo (nyttig i testfasen)"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Oppdater lisens
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleTestLicense}
+                    disabled={isTestingLicense || !licenseKey}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isTestingLicense ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Tester...
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="w-4 h-4" />
+                        Test lisens
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {licenseTestResult && (
+                <div
+                  className={`p-3 rounded-lg flex items-start gap-2 text-sm ${
+                    licenseTestResult.success
+                      ? "bg-green-50 border border-green-200 text-green-700"
+                      : "bg-red-50 border border-red-200 text-red-700"
+                  }`}
+                >
+                  {licenseTestResult.success ? (
+                    <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-medium">
+                      {licenseTestResult.success ? "Lisens gyldig!" : "Lisensfeil"}
+                      {licenseTestResult.status && ` (${licenseTestResult.status})`}
+                    </p>
+                    <p>{licenseTestResult.message}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLicenseTestResult(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
       </div>
       <Footer />
     </div>
@@ -904,7 +1611,7 @@ export default function AdminSettingsPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `${org?.slug || "arena-booking"}-export-${new Date().toISOString().split("T")[0]}.json`
+      a.download = `${org?.slug || "sportflow-booking"}-export-${new Date().toISOString().split("T")[0]}.json`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

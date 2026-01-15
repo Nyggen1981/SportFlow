@@ -7,27 +7,60 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions)
+  try {
+    const session = await getServerSession(authOptions)
 
-  if (!session?.user || session.user.role !== "admin") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  const { id } = await params
-
-  const resource = await prisma.resource.findUnique({
-    where: { id },
-    include: {
-      category: true,
-      parts: true
+    if (!session?.user || (session.user.systemRole !== "admin" && session.user.role !== "admin")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-  })
 
-  if (!resource || resource.organizationId !== session.user.organizationId) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 })
+    const { id } = await params
+
+    const resource = await prisma.resource.findUnique({
+      where: { id },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            color: true
+          }
+        },
+        parts: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            capacity: true,
+            mapCoordinates: true,
+            adminNote: true,
+            image: true,
+            parentId: true,
+            pricingRules: true
+          },
+          orderBy: {
+            name: "asc"
+          }
+        }
+      }
+    })
+
+    if (!resource || resource.organizationId !== session.user.organizationId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
+
+    return NextResponse.json(resource)
+  } catch (error: any) {
+    console.error("Error fetching resource:", error)
+    return NextResponse.json(
+      { 
+        error: "Kunne ikke laste fasilitet",
+        details: error?.message || "Unknown error",
+        code: error?.code || "UNKNOWN"
+      },
+      { status: 500 }
+    )
   }
-
-  return NextResponse.json(resource)
 }
 
 export async function PATCH(
@@ -75,7 +108,7 @@ export async function PUT(
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session?.user || session.user.role !== "admin") {
+    if (!session?.user || (session.user.systemRole !== "admin" && session.user.role !== "admin")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -100,11 +133,16 @@ export async function PUT(
         location: body.location,
         image: body.image,
         mapImage: body.mapImage,
-        color: body.color,
-        categoryId: body.categoryId,
+        color: body.color || null,
+        ...(body.categoryId !== undefined && body.categoryId !== null && body.categoryId !== "" ? {
+          category: { connect: { id: body.categoryId } }
+        } : body.categoryId === null || body.categoryId === "" ? {
+          category: { disconnect: true }
+        } : {}),
         // 0/9999 = no duration limit (for backwards compatibility)
         minBookingMinutes: body.minBookingMinutes ?? 0,
         maxBookingMinutes: body.maxBookingMinutes ?? 9999,
+        minBookingHours: body.minBookingHours !== undefined ? body.minBookingHours : undefined,
         requiresApproval: body.requiresApproval,
         advanceBookingDays: body.advanceBookingDays,
         blockPartsWhenWholeBooked: body.blockPartsWhenWholeBooked ?? true,
@@ -112,7 +150,15 @@ export async function PUT(
         showOnPublicCalendar: body.showOnPublicCalendar ?? true,
         allowWholeBooking: body.allowWholeBooking ?? true,
         prisInfo: body.prisInfo || null,
-        visPrisInfo: body.visPrisInfo ?? false
+        visPrisInfo: body.visPrisInfo ?? false,
+        // Pricing fields (kun hvis sendt)
+        ...(body.pricingRules !== undefined && {
+          pricingRules: body.pricingRules ? (typeof body.pricingRules === 'string' ? body.pricingRules : JSON.stringify(body.pricingRules)) : null
+        }),
+        // visPrislogikk - kun hvis Prisma-klienten støtter det (krever prisma generate)
+        ...(body.visPrislogikk !== undefined && {
+          visPrislogikk: body.visPrislogikk ?? false
+        } as any)
       }
     })
 
@@ -134,16 +180,33 @@ export async function PUT(
 
     // First pass: create/update parts without parent references
     for (const part of body.parts) {
+      // Only update pricingRules if it's explicitly provided in the request
+      const pricingRulesValue = (part as any).pricingRules !== undefined
+        ? ((part as any).pricingRules 
+            ? (typeof (part as any).pricingRules === 'string' 
+                ? (part as any).pricingRules 
+                : JSON.stringify((part as any).pricingRules))
+            : null)
+        : undefined // Don't update if not provided
+
       if (part.id) {
+        const updateData: any = {
+          name: part.name,
+          description: part.description,
+          capacity: part.capacity,
+          mapCoordinates: part.mapCoordinates,
+          adminNote: part.adminNote || null,
+          image: part.image || null
+        }
+        
+        // Only include pricingRules in update if it was explicitly provided
+        if (pricingRulesValue !== undefined) {
+          updateData.pricingRules = pricingRulesValue
+        }
+        
         await prisma.resourcePart.update({
           where: { id: part.id },
-          data: {
-            name: part.name,
-            description: part.description,
-            capacity: part.capacity,
-            mapCoordinates: part.mapCoordinates,
-            adminNote: part.adminNote || null
-          }
+          data: updateData
         })
         if (part.tempId) {
           tempIdToActualId.set(part.tempId, part.id)
@@ -156,7 +219,9 @@ export async function PUT(
             capacity: part.capacity,
             mapCoordinates: part.mapCoordinates,
             adminNote: part.adminNote || null,
-            resourceId: id
+            image: part.image || null,
+            resourceId: id,
+            pricingRules: pricingRulesValue !== undefined ? pricingRulesValue : null
           }
         })
         if (part.tempId) {
@@ -182,10 +247,14 @@ export async function PUT(
   }
 
     return NextResponse.json(updated)
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating resource:", error)
     return NextResponse.json(
-      { error: "Kunne ikke oppdatere fasilitet", details: String(error) },
+      { 
+        error: "Kunne ikke oppdatere fasilitet", 
+        details: error?.message || String(error),
+        code: error?.code || "UNKNOWN"
+      },
       { status: 500 }
     )
   }

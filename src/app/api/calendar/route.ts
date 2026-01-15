@@ -1,8 +1,19 @@
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import { validateLicense } from "@/lib/license"
 
 export async function GET(request: Request) {
   try {
+    // Sjekk lisens - returner tom liste hvis ugyldig
+    const license = await validateLicense()
+    if (!license.valid) {
+      return NextResponse.json({ 
+        bookings: [],
+        licenseError: true,
+        message: "Lisensen er ikke aktiv"
+      })
+    }
+
     const { searchParams } = new URL(request.url)
     const start = searchParams.get('start')
     const end = searchParams.get('end')

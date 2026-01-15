@@ -60,7 +60,7 @@ export function NavLinks() {
               Fasiliteter
             </Link>
             <Link 
-              href="/calendar" 
+              href="/kalender" 
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
             >
               <Calendar className="w-4 h-4" />
@@ -104,10 +104,10 @@ export function NavLinks() {
             )}
 
             <div className="ml-4 flex items-center gap-3 pl-4 border-l border-gray-200">
-              <div className="text-right">
+              <Link href="/innstillinger" className="text-right hover:opacity-80 transition-opacity cursor-pointer">
                 <p className="text-sm font-medium text-gray-900">{session.user?.name}</p>
                 <p className="text-xs text-gray-500">{session.user?.organizationName}</p>
-              </div>
+              </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}
                 className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
@@ -162,7 +162,7 @@ export function NavLinks() {
                   Fasiliteter
                 </Link>
                 <Link 
-                  href="/calendar" 
+                  href="/kalender" 
                   className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100"
                   onClick={() => setMobileMenuOpen(false)}
                 >

@@ -134,7 +134,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         {/* Version */}
-        <Text style={styles.version}>Arena Booking v1.0.8</Text>
+        <Text style={styles.version}>Sportflow Booking v1.0.8</Text>
       </ScrollView>
     </SafeAreaView>
   )

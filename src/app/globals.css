@@ -25,6 +25,15 @@ body {
   font-family: 'Outfit', system-ui, sans-serif;
 }
 
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -38,6 +47,22 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--secondary);
   border-radius: 4px;
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -209,12 +234,66 @@ body {
   font-size: 0.875rem;
   transition: border-color 0.2s, box-shadow 0.2s;
   background: var(--surface);
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
 }
 
 .input:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Date and time inputs - ensure they're fully clickable */
+input[type="date"],
+input[type="time"] {
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Make the entire input area clickable by making the calendar icon cover the whole field */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+}
+
+input[type="date"]::-webkit-inner-spin-button,
+input[type="time"]::-webkit-inner-spin-button {
+  cursor: pointer;
+}
+
+/* Prevent text selection on date/time fields */
+input[type="date"]:focus,
+input[type="time"]:focus {
+  caret-color: transparent;
+  outline: none;
+}
+
+input[type="date"]::selection,
+input[type="time"]::selection {
+  background: transparent;
+}
+
+input[type="date"]::-moz-selection,
+input[type="time"]::-moz-selection {
+  background: transparent;
 }
 
 /* Animations */

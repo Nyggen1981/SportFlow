@@ -7,7 +7,10 @@ import {
   ChevronRight, 
   ChevronDown,
   GripVertical,
-  FolderOpen
+  FolderOpen,
+  Upload,
+  X,
+  ImageIcon
 } from "lucide-react"
 
 export interface HierarchicalPart {
@@ -18,6 +21,7 @@ export interface HierarchicalPart {
   capacity: string
   mapCoordinates?: string | null
   adminNote?: string | null
+  image?: string | null
   parentId?: string | null
   children?: HierarchicalPart[]
   isNew?: boolean
@@ -82,6 +86,7 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
       description: "",
       capacity: "",
       adminNote: "",
+      image: null,
       parentId,
       isNew: true
     }
@@ -93,6 +98,28 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
     if (parentId) {
       setExpandedIds(new Set([...expandedIds, parentId]))
     }
+  }
+
+  const handleImageUpload = (id: string, file: File) => {
+    if (file.size > 1024 * 1024) {
+      alert("Bildet er for stort. Maks 1MB.")
+      return
+    }
+
+    if (!file.type.startsWith("image/")) {
+      alert("Filen må være et bilde")
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      updatePart(id, "image", reader.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const removeImage = (id: string) => {
+    updatePart(id, "image", "")
   }
 
   const updatePart = (id: string, field: keyof HierarchicalPart, value: string) => {
@@ -196,14 +223,15 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
     const isEditing = editingId === id
     const isDragging = draggedId === id
     const isDragOver = dragOverId === id
+    const showDetails = expandedIds.has(`details-${id}`)
 
     return (
       <div key={id} className="select-none">
         <div 
-          className={`p-3 rounded-lg border bg-white transition-all ${
-            level > 0 ? 'ml-6 mt-2' : 'mt-2'
-          } ${isDragging ? 'opacity-50 border-blue-300' : 'border-gray-200 hover:border-gray-300'} ${
-            isDragOver ? 'border-blue-500 border-2 bg-blue-50' : ''
+          className={`transition-all ${
+            level > 0 ? 'ml-6' : ''
+          } ${isDragging ? 'opacity-50' : ''} ${
+            isDragOver ? 'bg-blue-50' : ''
           }`}
           draggable
           onDragStart={(e) => handleDragStart(e, id)}
@@ -212,18 +240,18 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
           onDrop={(e) => handleDrop(e, id)}
           onDragEnd={handleDragEnd}
         >
-          {/* Header row */}
-          <div className="flex items-center gap-2 group">
+          {/* Main row - compact header */}
+          <div className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-gray-50 group border-b border-gray-100 last:border-b-0">
             {/* Drag handle */}
-            <div className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+            <div className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600">
               <GripVertical className="w-4 h-4" />
             </div>
 
-            {/* Expand/collapse button */}
+            {/* Expand/collapse button for children */}
             <button
               type="button"
               onClick={() => toggleExpand(id)}
-              className={`p-1 rounded hover:bg-gray-100 ${hasChildren ? '' : 'invisible'}`}
+              className={`p-1 rounded hover:bg-gray-200 ${hasChildren ? '' : 'invisible'}`}
             >
               {isExpanded ? (
                 <ChevronDown className="w-4 h-4 text-gray-500" />
@@ -236,7 +264,7 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
             {hasChildren ? (
               <FolderOpen className="w-4 h-4 text-amber-500 flex-shrink-0" />
             ) : (
-              <div className="w-4 h-4 rounded bg-blue-100 border border-blue-300 flex-shrink-0" />
+              <div className="w-3 h-3 rounded bg-blue-500 flex-shrink-0" />
             )}
 
             {/* Name input */}
@@ -260,8 +288,40 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
               </span>
             )}
 
+            {/* Quick info badges */}
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              {part.capacity && (
+                <span className="px-2 py-0.5 bg-gray-100 rounded">
+                  {part.capacity} pers.
+                </span>
+              )}
+              {part.image && (
+                <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
+              )}
+            </div>
+
             {/* Action buttons - show on hover */}
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                type="button"
+                onClick={() => {
+                  const newExpanded = new Set(expandedIds)
+                  if (showDetails) {
+                    newExpanded.delete(`details-${id}`)
+                  } else {
+                    newExpanded.add(`details-${id}`)
+                  }
+                  setExpandedIds(newExpanded)
+                }}
+                className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
+                title={showDetails ? "Skjul detaljer" : "Vis detaljer"}
+              >
+                {showDetails ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+              </button>
               <button
                 type="button"
                 onClick={() => addPart(id)}
@@ -281,37 +341,77 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
             </div>
           </div>
 
-          {/* Details row - always visible */}
-          <div className="mt-2 ml-9 space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                value={part.description || ""}
-                onChange={(e) => updatePart(id, "description", e.target.value)}
-                placeholder="Beskrivelse (valgfri)"
-                className="px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 focus:bg-white focus:border-blue-300"
-              />
-              <input
-                type="number"
-                value={part.capacity || ""}
-                onChange={(e) => updatePart(id, "capacity", e.target.value)}
-                placeholder="Kapasitet"
-                className="px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 focus:bg-white focus:border-blue-300"
+          {/* Details section - collapsible */}
+          {showDetails && (
+            <div className="px-3 py-2 bg-gray-50 rounded-lg mt-1 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  value={part.description || ""}
+                  onChange={(e) => updatePart(id, "description", e.target.value)}
+                  placeholder="Beskrivelse (valgfri)"
+                  className="px-2 py-1.5 text-sm border border-gray-200 rounded bg-white focus:border-blue-300 focus:ring-1 focus:ring-blue-300 outline-none"
+                />
+                <input
+                  type="number"
+                  value={part.capacity || ""}
+                  onChange={(e) => updatePart(id, "capacity", e.target.value)}
+                  placeholder="Kapasitet"
+                  className="px-2 py-1.5 text-sm border border-gray-200 rounded bg-white focus:border-blue-300 focus:ring-1 focus:ring-blue-300 outline-none"
+                />
+              </div>
+              
+              {/* Image upload */}
+              <div className="space-y-2">
+                {part.image ? (
+                  <div className="relative">
+                    <img 
+                      src={part.image} 
+                      alt={part.name}
+                      className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(id)}
+                      className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                      title="Fjern bilde"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                    <Upload className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm text-gray-500">Last opp bilde (valgfri)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          handleImageUpload(id, file)
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+              
+              <textarea
+                value={part.adminNote || ""}
+                onChange={(e) => updatePart(id, "adminNote", e.target.value)}
+                placeholder="Admin notat (f.eks. 'Nøkler hentes i resepsjonen' - vises i godkjent e-post)"
+                rows={2}
+                className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-white focus:border-blue-300 focus:ring-1 focus:ring-blue-300 resize-none outline-none"
               />
             </div>
-            <textarea
-              value={part.adminNote || ""}
-              onChange={(e) => updatePart(id, "adminNote", e.target.value)}
-              placeholder="Admin notat (f.eks. 'Nøkler hentes i resepsjonen' - vises i godkjent e-post)"
-              rows={2}
-              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-gray-50 focus:bg-white focus:border-blue-300 resize-none"
-            />
-          </div>
+          )}
         </div>
 
         {/* Children */}
         {hasChildren && isExpanded && (
-          <div className="border-l-2 border-gray-200 ml-4">
+          <div className="ml-4 mt-1">
             {part.children!.map(child => renderPart(child, level + 1))}
           </div>
         )}
@@ -379,13 +479,13 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
       )}
 
       {/* Tree view */}
-      <div className="border border-gray-200 rounded-xl p-3 min-h-[100px] bg-white">
+      <div className="border border-gray-200 rounded-xl bg-white overflow-hidden">
         {tree.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-4">
+          <p className="text-sm text-gray-500 text-center py-8">
             Ingen deler lagt til ennå
           </p>
         ) : (
-          <div className="space-y-1">
+          <div className="divide-y divide-gray-100">
             {tree.map(part => renderPart(part))}
           </div>
         )}

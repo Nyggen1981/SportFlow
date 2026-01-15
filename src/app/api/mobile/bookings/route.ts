@@ -21,6 +21,14 @@ export async function GET(request: Request) {
       include: {
         resource: true,
         resourcePart: true,
+        payments: {
+          select: {
+            id: true,
+            status: true,
+            paymentMethod: true,
+            amount: true
+          }
+        }
       },
       orderBy: {
         startTime: 'desc',
@@ -63,7 +71,11 @@ export async function POST(request: Request) {
 
     // Get resource to check settings
     const resource = await prisma.resource.findUnique({
-      where: { id: resourceId }
+      where: { id: resourceId },
+      select: {
+        organizationId: true,
+        requiresApproval: true,
+      }
     })
 
     if (!resource) {
@@ -96,6 +108,21 @@ export async function POST(request: Request) {
       )
     }
 
+    // Beregn pris for booking (kun hvis prising er aktivert)
+    let totalAmount: number | null = null
+    const { isPricingEnabled, calculateBookingPrice } = await import("@/lib/pricing")
+    const pricingEnabled = await isPricingEnabled()
+    if (pricingEnabled) {
+      const priceCalculation = await calculateBookingPrice(
+        userId,
+        resourceId,
+        resourcePartId || null,
+        new Date(startTime),
+        new Date(endTime)
+      )
+      totalAmount = priceCalculation.price > 0 ? priceCalculation.price : null
+    }
+
     // Create booking
     const booking = await prisma.booking.create({
       data: {
@@ -111,10 +138,19 @@ export async function POST(request: Request) {
         resourceId,
         resourcePartId: resourcePartId || null,
         userId,
+        totalAmount,
       },
       include: {
         resource: true,
         resourcePart: true,
+        payments: {
+          select: {
+            id: true,
+            status: true,
+            paymentMethod: true,
+            amount: true
+          }
+        }
       },
     })
 
