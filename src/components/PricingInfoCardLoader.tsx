@@ -7,9 +7,10 @@ import { PricingInfoCard } from "./PricingInfoCard"
 interface Props {
   resourceId: string
   resourceName: string
+  legacyPrisInfo?: string | null // Legacy prisinfo text for non-pricing customers
 }
 
-export function PricingInfoCardLoader({ resourceId, resourceName }: Props) {
+export function PricingInfoCardLoader({ resourceId, resourceName, legacyPrisInfo }: Props) {
   const [isLoading, setIsLoading] = useState(true)
   const [pricingData, setPricingData] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
@@ -51,22 +52,37 @@ export function PricingInfoCardLoader({ resourceId, resourceName }: Props) {
     )
   }
 
-  // Error state
+  // Error state - show legacy if available
   if (error) {
-    return (
-      <div className="card p-6">
-        <h3 className="font-semibold text-gray-900 mb-4">Prisinfo</h3>
-        <p className="text-sm text-gray-500">{error}</p>
-      </div>
-    )
-  }
-
-  // Pricing not enabled
-  if (!pricingData?.enabled) {
+    if (legacyPrisInfo) {
+      return (
+        <div className="card p-6">
+          <h3 className="font-semibold text-gray-900 mb-4">Prisinfo</h3>
+          <div className="text-sm text-gray-600 whitespace-pre-line">
+            {legacyPrisInfo}
+          </div>
+        </div>
+      )
+    }
     return null
   }
 
-  // Hidden (visPrislogikk is false)
+  // Pricing not enabled - show legacy prisinfo if available
+  if (!pricingData?.enabled) {
+    if (legacyPrisInfo) {
+      return (
+        <div className="card p-6">
+          <h3 className="font-semibold text-gray-900 mb-4">Prisinfo</h3>
+          <div className="text-sm text-gray-600 whitespace-pre-line">
+            {legacyPrisInfo}
+          </div>
+        </div>
+      )
+    }
+    return null
+  }
+
+  // Hidden (visPrislogikk is false) - pricing enabled but hidden, don't show legacy either
   if (pricingData.hidden) {
     return null
   }
@@ -83,7 +99,7 @@ export function PricingInfoCardLoader({ resourceId, resourceName }: Props) {
     )
   }
 
-  // Render the actual pricing card
+  // Render the actual pricing card (pricing module is enabled)
   return (
     <PricingInfoCard
       resourceName={resourceName}

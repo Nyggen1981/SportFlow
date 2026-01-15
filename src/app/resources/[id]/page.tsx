@@ -309,25 +309,14 @@ export default async function ResourcePage({ params }: Props) {
               </div>
             )}
 
-            {/* Pricing Logic - hentes client-side for instant page load */}
-            {/* PricingInfoCardLoader viser ingenting hvis pricing ikke er aktivert */}
-            {resource.visPrislogikk && (
+            {/* Pricing - hentes client-side for instant page load */}
+            {/* Viser enten moderne prislogikk ELLER legacy prisinfo basert på om betalingsmodul er aktivert */}
+            {(resource.visPrislogikk || (resource.visPrisInfo && resource.prisInfo)) && (
               <PricingInfoCardLoader
                 resourceId={resource.id}
                 resourceName={resource.name}
+                legacyPrisInfo={resource.visPrisInfo ? resource.prisInfo : null}
               />
-            )}
-            
-            {/* Legacy prisinfo tekst - vises hvis satt (for kunder uten betalingsmodul) */}
-            {resource.visPrisInfo && resource.prisInfo && (
-              <div className="card p-6">
-                <h3 className="font-semibold text-gray-900 mb-4">
-                  Prisinfo
-                </h3>
-                <div className="text-sm text-gray-600 whitespace-pre-line">
-                  {resource.prisInfo}
-                </div>
-              </div>
             )}
 
             {/* Parts - Mer informasjon */}

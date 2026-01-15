@@ -144,42 +144,6 @@ export function MapViewer({ mapImage, parts, onPartClick, selectedPartId, select
           )
         })}
 
-        {/* Tooltip on hover */}
-        {hoveredPartId && (() => {
-          const part = partsWithCoords.find(p => p.id === hoveredPartId)
-          if (!part || (!part.description && !part.capacity)) return null
-          
-          const centerX = part.points.reduce((sum, p) => sum + p.x, 0) / part.points.length
-          const minY = Math.min(...part.points.map(p => p.y))
-          
-          return (
-            <div 
-              className="absolute z-30 pointer-events-none transform -translate-x-1/2"
-              style={{
-                left: `${centerX}%`,
-                top: `${Math.max(minY - 2, 5)}%`,
-                transform: "translate(-50%, -100%)"
-              }}
-            >
-              <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-3 min-w-[150px]">
-                <p className="font-semibold text-gray-900 text-sm">{part.name}</p>
-                {part.description && (
-                  <p className="text-xs text-gray-500 mt-1">{part.description}</p>
-                )}
-                {part.capacity && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    Kapasitet: {part.capacity} personer
-                  </p>
-                )}
-                {onPartClick && (
-                  <p className="text-xs text-blue-600 mt-2 font-medium">
-                    Klikk for å velge
-                  </p>
-                )}
-              </div>
-            </div>
-          )
-        })()}
       </div>
 
       {/* Legend */}
