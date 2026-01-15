@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import nodemailer from "nodemailer"
+import { prisma } from "@/lib/prisma"
 
 // Destination email for bug reports
 const BUG_REPORT_EMAIL = "kjetilnygard@hotmail.com"
@@ -13,12 +14,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Beskrivelse er påkrevd" }, { status: 400 })
     }
 
-    // Get SMTP config from environment
-    const smtpHost = process.env.SMTP_HOST
-    const smtpPort = parseInt(process.env.SMTP_PORT || "587")
-    const smtpUser = process.env.SMTP_USER
-    const smtpPass = process.env.SMTP_PASS
-    const smtpFrom = process.env.SMTP_FROM || smtpUser
+    // Get SMTP config from organization (same as booking emails)
+    const organization = await prisma.organization.findFirst({
+      select: {
+        smtpHost: true,
+        smtpPort: true,
+        smtpUser: true,
+        smtpPass: true,
+        smtpFrom: true,
+        name: true,
+      },
+    })
+
+    // Try organization SMTP first, then fall back to env vars
+    const smtpHost = organization?.smtpHost || process.env.SMTP_HOST
+    const smtpPort = organization?.smtpPort || parseInt(process.env.SMTP_PORT || "587")
+    const smtpUser = organization?.smtpUser || process.env.SMTP_USER
+    const smtpPass = organization?.smtpPass || process.env.SMTP_PASS
+    const smtpFrom = organization?.smtpFrom || organization?.smtpUser || process.env.SMTP_FROM || smtpUser
 
     if (!smtpHost || !smtpUser || !smtpPass) {
       console.error("[Bug Report] SMTP not configured")
