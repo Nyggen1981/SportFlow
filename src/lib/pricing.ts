@@ -596,6 +596,18 @@ export async function findPricingRuleForUser(
 }
 
 /**
+ * Finner medlems-prisregel fra en liste av regler
+ * Brukes for å vise besparelser til ikke-medlemmer
+ */
+export function findMemberPricingRule(rules: PricingRule[]): PricingRule | null {
+  if (rules.length === 0) return null
+  
+  // Finn regel med "member" i forRoles
+  const memberRule = rules.find(r => r.forRoles.includes("member"))
+  return memberRule || null
+}
+
+/**
  * Beregner pris for en booking
  */
 export async function calculateBookingPrice(

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-import { isPricingEnabled, getPricingConfig, findPricingRuleForUser } from "@/lib/pricing"
+import { isPricingEnabled, getPricingConfig, findPricingRuleForUser, findMemberPricingRule } from "@/lib/pricing"
 
 // GET - Check what pricing access the current user has for a resource/part
 export async function GET(request: NextRequest) {
@@ -61,6 +61,12 @@ export async function GET(request: NextRequest) {
     }
 
     const rule = ruleMatch.rule
+    
+    // Check if user is non-member to show member savings
+    const memberRule = findMemberPricingRule(config.rules)
+    const userPrice = rule.pricePerHour ?? rule.memberPricePerHour ?? rule.nonMemberPricePerHour ?? 0
+    const memberPrice = memberRule?.pricePerHour ?? memberRule?.memberPricePerHour ?? null
+    const isNonMember = rule.forRoles.includes("user") && !rule.forRoles.includes("member")
 
     return NextResponse.json({
       enabled: true,
@@ -68,13 +74,16 @@ export async function GET(request: NextRequest) {
       hasDailyAccess: rule.model === "DAILY" || rule.model === "FREE",
       hasFixedDurationAccess: rule.model === "FIXED_DURATION" || rule.model === "FREE",
       isFree: rule.model === "FREE",
+      isNonMember,
       rule: {
         model: rule.model,
         pricePerHour: rule.pricePerHour ?? rule.memberPricePerHour ?? rule.nonMemberPricePerHour,
         pricePerDay: rule.pricePerDay ?? rule.memberPricePerDay ?? rule.nonMemberPricePerDay,
         fixedPrice: rule.fixedPrice ?? rule.memberFixedPrice ?? rule.nonMemberFixedPrice,
         fixedPriceDuration: rule.fixedPriceDuration
-      }
+      },
+      // Member price for savings display (only if user is non-member and member price is lower)
+      memberPricePerHour: isNonMember && memberPrice && memberPrice < userPrice ? memberPrice : undefined
     })
   } catch (error) {
     console.error("Error checking pricing access:", error)

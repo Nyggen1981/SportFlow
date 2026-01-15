@@ -53,6 +53,9 @@ export async function GET(request: NextRequest) {
     const userSystemRole = (session.user as any).systemRole || session.user.role // "admin" or "user"
     const userRoleId = (session.user as any).customRoleId // Custom role ID if any
     const isMember = (session.user as any).isMember // Member status
+    
+    // Check if user is non-member (not verified member and not admin)
+    const isNonMember = !isMember && userSystemRole !== "admin"
 
     const filteredPackages = packages.filter(pkg => {
       // VIKTIG: Admin skal KUN se pakker der "admin" er eksplisitt valgt - ingen fallback
@@ -97,8 +100,50 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // Remove forRoles from response (not needed for client)
-    const cleanedPackages = filteredPackages.map(({ forRoles, ...rest }) => rest)
+    // For non-members, find member prices for comparison
+    let memberPackagesMap: Map<string, number> = new Map()
+    
+    if (isNonMember) {
+      // Find packages available to members for the same resource/part
+      const allPackagesForResource = await prisma.fixedPricePackage.findMany({
+        where: {
+          ...(resourceId && !resourcePartId ? { resourceId, resourcePartId: null } : {}),
+          ...(resourcePartId ? { resourcePartId } : {}),
+          organizationId: session.user.organizationId,
+          isActive: true
+        },
+        select: {
+          name: true,
+          durationMinutes: true,
+          price: true,
+          forRoles: true
+        }
+      })
+      
+      // Build map of member prices by name+duration
+      allPackagesForResource.forEach(pkg => {
+        try {
+          const allowedRoles: string[] = pkg.forRoles ? JSON.parse(pkg.forRoles) : []
+          if (allowedRoles.includes("member")) {
+            const key = `${pkg.name}-${pkg.durationMinutes}`
+            memberPackagesMap.set(key, Number(pkg.price))
+          }
+        } catch {}
+      })
+    }
+    
+    // Remove forRoles from response and add memberPrice for non-members
+    const cleanedPackages = filteredPackages.map(({ forRoles, ...rest }) => {
+      const key = `${rest.name}-${rest.durationMinutes}`
+      const memberPrice = isNonMember ? memberPackagesMap.get(key) : undefined
+      const userPrice = Number(rest.price)
+      
+      return {
+        ...rest,
+        // Only include memberPrice if it's lower than user's price
+        memberPrice: memberPrice && memberPrice < userPrice ? memberPrice : undefined
+      }
+    })
 
     return NextResponse.json(cleanedPackages)
   } catch (error) {

@@ -26,6 +26,7 @@ interface FixedPricePackage {
   durationMinutes: number
   price: number
   isActive: boolean
+  memberPrice?: number | null // For non-members: show member price if lower
 }
 
 interface ResourcePart {
@@ -167,6 +168,9 @@ export default function BookResourcePage({ params }: Props) {
   // Pricing access state - tracks if user has hourly/daily pricing access
   const [hasHourlyAccess, setHasHourlyAccess] = useState(false)
   const [isPricingLoading, setIsPricingLoading] = useState(false)
+  const [isNonMember, setIsNonMember] = useState(false)
+  const [memberPricePerHour, setMemberPricePerHour] = useState<number | null>(null)
+  const [currentPricePerHour, setCurrentPricePerHour] = useState<number | null>(null)
 
   // Handle part selection with hierarchy rules
   // When pricing is enabled, only allow one part at a time
@@ -244,14 +248,23 @@ export default function BookResourcePage({ params }: Props) {
         
         // Behandle tilgang
         let hourlyAccess = false
+        let nonMember = false
+        let memberHourlyPrice: number | null = null
+        let userHourlyPrice: number | null = null
         if (accessRes.ok) {
           const accessData = await accessRes.json()
           hourlyAccess = accessData.hasHourlyAccess || false
+          nonMember = accessData.isNonMember || false
+          memberHourlyPrice = accessData.memberPricePerHour || null
+          userHourlyPrice = accessData.rule?.pricePerHour || null
         }
         
         // Oppdater alle state samtidig for å unngå "hopping"
         setAvailablePackages(activePackages)
         setHasHourlyAccess(hourlyAccess)
+        setIsNonMember(nonMember)
+        setMemberPricePerHour(memberHourlyPrice)
+        setCurrentPricePerHour(userHourlyPrice)
         
         // Hvis brukeren ikke har timepris-tilgang og det er pakker, velg automatisk første pakke
         if (!hourlyAccess && activePackages.length > 0 && !selectedPackageId) {
@@ -686,6 +699,13 @@ export default function BookResourcePage({ params }: Props) {
                           <div className="text-sm text-gray-500">
                             Velg varighet selv - pris beregnes per time
                           </div>
+                          {/* Member savings info for non-members */}
+                          {isNonMember && memberPricePerHour && currentPricePerHour && (
+                            <div className="mt-2 flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                              <span>💡</span>
+                              <span>Som medlem: {memberPricePerHour} kr/time (spar {currentPricePerHour - memberPricePerHour} kr/time)</span>
+                            </div>
+                          )}
                         </div>
                       </label>
                     )}
@@ -714,6 +734,13 @@ export default function BookResourcePage({ params }: Props) {
                             Varighet: {formatDuration(pkg.durationMinutes)}
                             {pkg.description && ` - ${pkg.description}`}
                           </div>
+                          {/* Member savings info for non-members */}
+                          {pkg.memberPrice && (
+                            <div className="mt-2 flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                              <span>💡</span>
+                              <span>Som medlem: {pkg.memberPrice.toFixed(0)} kr (spar {(pkg.price - pkg.memberPrice).toFixed(0)} kr)</span>
+                            </div>
+                          )}
                         </div>
                       </label>
                     ))}
