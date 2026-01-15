@@ -90,8 +90,16 @@ export default function CalendarPage() {
   const canManageBookings = isAdmin || isModerator
   
   const [selectedDate, setSelectedDate] = useState(new Date())
-  // Default to month view for all users
-  const [viewMode, setViewMode] = useState<"day" | "week" | "month" | "overview">("month")
+  // Load viewMode from localStorage on mount, default to month
+  const [viewMode, setViewMode] = useState<"day" | "week" | "month" | "overview">(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('calendarViewMode')
+      if (saved && ["day", "week", "month", "overview"].includes(saved)) {
+        return saved as "day" | "week" | "month" | "overview"
+      }
+    }
+    return "month"
+  })
   const [timelineData, setTimelineData] = useState<TimelineData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
@@ -118,6 +126,13 @@ export default function CalendarPage() {
   const datePickerRef = useRef<HTMLDivElement>(null)
 
   // Allow public access - no redirect to login
+
+  // Save viewMode to localStorage when it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('calendarViewMode', viewMode)
+    }
+  }, [viewMode])
 
   // Update current time every minute
   useEffect(() => {
