@@ -1,7 +1,7 @@
 "use client"
 
 import { useIsMobile } from "@/hooks/useDevice"
-import { MobileNavbar } from "./mobile/MobileNavbar"
+import { MobileNavbar } from "@/components/mobile"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 
