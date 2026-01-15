@@ -7,6 +7,17 @@ import { useSession } from "next-auth/react"
 export function ReportBugButton() {
   const { data: session } = useSession()
   const [isOpen, setIsOpen] = useState(false)
+
+  // Kun vis for innloggede med moderator/admin-tilgang (lagledere, trenere, admin)
+  const canReportBugs = session?.user && (
+    session.user.systemRole === "admin" || 
+    session.user.hasModeratorAccess === true ||
+    session.user.customRoleId // Alle med egendefinert rolle
+  )
+
+  if (!canReportBugs) {
+    return null
+  }
   const [description, setDescription] = useState("")
   const [screenshot, setScreenshot] = useState<string | null>(null)
   const [screenshotName, setScreenshotName] = useState<string | null>(null)
