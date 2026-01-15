@@ -22,7 +22,6 @@ export async function GET(
         name: true,
         pricingModel: true,
         pricePerHour: true,
-        memberPricePerHour: true,
         fixedPricePackages: {
           select: {
             id: true,
@@ -37,8 +36,7 @@ export async function GET(
             id: true,
             name: true,
             pricingModel: true,
-            pricePerHour: true,
-            memberPricePerHour: true
+            pricePerHour: true
           }
         }
       }
@@ -56,15 +54,13 @@ export async function GET(
       pricingEnabled: true,
       pricingModel: resource.pricingModel,
       pricePerHour: resource.pricePerHour,
-      memberPricePerHour: resource.memberPricePerHour,
       fixedPricePackages: resource.fixedPricePackages,
       parts: resource.parts?.map(part => ({
         id: part.id,
         name: part.name,
         hasPricing: part.pricingModel === "HOURLY" || part.pricingModel === "FIXED",
         pricingModel: part.pricingModel,
-        pricePerHour: part.pricePerHour,
-        memberPricePerHour: part.memberPricePerHour
+        pricePerHour: part.pricePerHour
       }))
     })
   } catch (error) {
