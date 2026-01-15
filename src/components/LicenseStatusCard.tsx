@@ -120,7 +120,7 @@ export function LicenseStatusCard() {
             {/* Lisens-type */}
             {(license.licenseTypeName || license.licenseType) && (
               <p className="text-xs text-gray-500 mt-1">
-                Type: <span className="font-medium text-gray-700">{license.licenseTypeName || (license.licenseType?.charAt(0).toUpperCase() + license.licenseType?.slice(1))}</span>
+                Type: <span className="font-medium text-gray-700">{license.licenseTypeName || (license.licenseType ? license.licenseType.charAt(0).toUpperCase() + license.licenseType.slice(1) : "")}</span>
               </p>
             )}
             
