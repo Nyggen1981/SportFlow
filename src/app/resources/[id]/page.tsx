@@ -151,8 +151,8 @@ export default async function ResourcePage({ params }: Props) {
     <div className="min-h-screen bg-slate-50">
       <Navbar />
 
-      {/* Hero */}
-      <div className="relative h-64 md:h-80">
+      {/* Hero - smaller on mobile */}
+      <div className="relative h-48 sm:h-64 md:h-80">
         {resource.image ? (
           <Image
             src={resource.image}
@@ -193,10 +193,10 @@ export default async function ResourcePage({ params }: Props) {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
           {/* Main content */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="lg:col-span-2 space-y-6 sm:space-y-8 order-2 lg:order-1">
             {/* Description */}
             {resource.description && (
               <div className="card p-6">
@@ -245,8 +245,8 @@ export default async function ResourcePage({ params }: Props) {
             </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
+          {/* Sidebar - shows first on mobile for quick access to booking button */}
+          <div className="space-y-4 sm:space-y-6 order-1 lg:order-2">
             {/* Book button - tilgangssjekk gjøres på booking-siden */}
             <Link
               href={`/resources/${resource.id}/book`}
@@ -357,6 +357,17 @@ export default async function ResourcePage({ params }: Props) {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Sticky mobile book button - only visible on mobile, positioned above the bottom navbar */}
+      <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent md:hidden z-30">
+        <Link
+          href={`/resources/${resource.id}/book`}
+          className="btn btn-primary w-full py-3.5 text-base font-semibold shadow-lg"
+        >
+          <Calendar className="w-5 h-5" />
+          Book nå
+        </Link>
       </div>
     </div>
   )

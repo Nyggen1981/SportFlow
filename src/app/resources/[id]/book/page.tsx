@@ -548,10 +548,10 @@ export default function BookResourcePage({ params }: Props) {
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-16">
-        <div className="card p-6 md:p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Book {resource.name}</h1>
-          <p className="text-gray-500 mb-8">Fyll ut skjemaet for å sende en bookingforespørsel</p>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 md:pb-16">
+        <div className="card p-4 sm:p-6 md:p-8">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Book {resource.name}</h1>
+          <p className="text-gray-500 mb-6 sm:mb-8 text-sm sm:text-base">Fyll ut skjemaet for å sende en bookingforespørsel</p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Title */}

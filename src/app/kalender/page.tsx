@@ -90,12 +90,16 @@ export default function CalendarPage() {
   const canManageBookings = isAdmin || isModerator
   
   const [selectedDate, setSelectedDate] = useState(new Date())
-  // Load viewMode from localStorage on mount, default to month
+  // Load viewMode from localStorage on mount, default to day on mobile, month on desktop
   const [viewMode, setViewMode] = useState<"day" | "week" | "month" | "overview">(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('calendarViewMode')
       if (saved && ["day", "week", "month", "overview"].includes(saved)) {
         return saved as "day" | "week" | "month" | "overview"
+      }
+      // Default to day view on mobile for better UX
+      if (window.innerWidth < 768) {
+        return "day"
       }
     }
     return "month"

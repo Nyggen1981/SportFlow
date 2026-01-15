@@ -619,7 +619,64 @@ export default function MyBookingsPage() {
                   )}
                 </div>
               ) : (
-                <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+                <>
+                  {/* Mobile card view */}
+                  <div className="md:hidden space-y-3">
+                    {standaloneBookings.concat(
+                      Object.values(recurringGroups).flat()
+                    ).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()).map((booking) => {
+                      const statusInfo = getStatusInfo(booking.status)
+                      const StatusIcon = statusInfo.icon
+                      const isPast = new Date(booking.startTime) < new Date()
+                      
+                      return (
+                        <div
+                          key={booking.id}
+                          onClick={() => setSelectedBooking(booking)}
+                          className={`bg-white rounded-xl border border-gray-200 p-4 cursor-pointer active:scale-[0.98] transition-all ${
+                            isPast || booking.status === "cancelled" || booking.status === "rejected" ? "opacity-70" : ""
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div 
+                              className="w-3 h-3 rounded-full flex-shrink-0 mt-1.5"
+                              style={{ backgroundColor: booking.resource.color || "#3b82f6" }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <h3 className="font-semibold text-gray-900 truncate">{booking.title}</h3>
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusInfo.color} flex-shrink-0`}>
+                                  <StatusIcon className="w-3 h-3" />
+                                  {statusInfo.label}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 mt-1">{booking.resource.name}</p>
+                              {booking.resourcePart && (
+                                <p className="text-xs text-gray-500">→ {booking.resourcePart.name}</p>
+                              )}
+                              <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-4 h-4" />
+                                  {format(parseISO(booking.startTime), "d. MMM", { locale: nb })}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-4 h-4" />
+                                  {format(parseISO(booking.startTime), "HH:mm")} - {format(parseISO(booking.endTime), "HH:mm")}
+                                </span>
+                              </div>
+                              {pricingEnabled && booking.totalAmount && booking.totalAmount > 0 && (
+                                <p className="text-sm font-semibold text-gray-900 mt-2">{Math.round(Number(booking.totalAmount))} kr</p>
+                              )}
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Desktop table view */}
+                  <div className="hidden md:block bg-white rounded-xl border border-gray-200 overflow-x-auto">
                   <table className="w-full min-w-[1000px]">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
@@ -933,7 +990,8 @@ export default function MyBookingsPage() {
                       })}
                     </tbody>
                   </table>
-                </div>
+                  </div>
+                </>
               )}
             </>
           )}

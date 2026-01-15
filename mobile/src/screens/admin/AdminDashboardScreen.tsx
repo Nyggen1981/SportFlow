@@ -98,7 +98,7 @@ export default function AdminDashboardScreen() {
         { 
           text: 'Avslag', 
           style: 'destructive',
-          onPress: (reason) => handleAction(id, 'reject', reason) 
+          onPress: (reason: string | undefined) => handleAction(id, 'reject', reason) 
         },
       ],
       'plain-text'

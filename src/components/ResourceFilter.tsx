@@ -105,14 +105,14 @@ export function ResourceFilter({ categories, resources }: Props) {
               </span>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {categoryResources.map((resource) => (
                 <Link 
                   key={resource.id} 
                   href={`/resources/${resource.id}`}
-                  className="card overflow-hidden group hover:shadow-lg transition-all"
+                  className="card overflow-hidden group hover:shadow-lg transition-all active:scale-[0.98]"
                 >
-                  <div className="h-40 relative">
+                  <div className="h-32 sm:h-40 relative">
                     {resource.image ? (
                       <>
                         <Image
@@ -148,19 +148,19 @@ export function ResourceFilter({ categories, resources }: Props) {
                     </div>
                   </div>
                   
-                  <div className="p-5">
+                  <div className="p-4 sm:p-5">
                     {resource.description && (
-                      <p className="text-gray-600 text-sm line-clamp-2 mb-4">
+                      <p className="text-gray-600 text-sm line-clamp-2 mb-3 sm:mb-4 hidden sm:block">
                         {resource.description}
                       </p>
                     )}
 
-                    {/* Resource parts */}
+                    {/* Resource parts - show fewer on mobile */}
                     {resource.parts.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Kan bookes:</p>
+                      <div className="mb-3 sm:mb-4">
+                        <p className="text-xs text-gray-400 uppercase tracking-wide mb-1.5 sm:mb-2">Kan bookes:</p>
                         <div className="flex flex-wrap gap-1">
-                          {resource.parts.map((part) => (
+                          {resource.parts.slice(0, 3).map((part) => (
                             <span 
                               key={part.id} 
                               className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600"
@@ -168,12 +168,17 @@ export function ResourceFilter({ categories, resources }: Props) {
                               {part.name}
                             </span>
                           ))}
+                          {resource.parts.length > 3 && (
+                            <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-500">
+                              +{resource.parts.length - 3}
+                            </span>
+                          )}
                         </div>
                       </div>
                     )}
 
                     {/* Booking info */}
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-gray-100">
                       <div className="flex items-center gap-4 text-xs text-gray-500">
                         {resource.minBookingMinutes !== null && resource.maxBookingMinutes !== null &&
                          resource.minBookingMinutes !== 0 && resource.maxBookingMinutes !== 9999 && (
