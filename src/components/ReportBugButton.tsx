@@ -6,7 +6,16 @@ import { useSession } from "next-auth/react"
 
 export function ReportBugButton() {
   const { data: session } = useSession()
+  
+  // All hooks must be called before any conditional returns
   const [isOpen, setIsOpen] = useState(false)
+  const [description, setDescription] = useState("")
+  const [screenshot, setScreenshot] = useState<string | null>(null)
+  const [screenshotName, setScreenshotName] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSuccess, setIsSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Kun vis for innloggede med moderator/admin-tilgang (lagledere, trenere, admin)
   const canReportBugs = session?.user && (
@@ -18,13 +27,6 @@ export function ReportBugButton() {
   if (!canReportBugs) {
     return null
   }
-  const [description, setDescription] = useState("")
-  const [screenshot, setScreenshot] = useState<string | null>(null)
-  const [screenshotName, setScreenshotName] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isSuccess, setIsSuccess] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
