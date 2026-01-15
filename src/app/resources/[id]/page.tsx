@@ -34,10 +34,8 @@ interface Props {
 async function getResource(id: string) {
   try {
     const pricingEnabled = await isPricingEnabled()
-    const now = new Date()
-    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
-    const twoMonthsAhead = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
 
+    // Bookings hentes nå client-side via ResourceCalendar for raskere initial load
     const resource = await prisma.resource.findUnique({
       where: { id },
       include: {
@@ -62,38 +60,6 @@ async function getResource(id: string) {
             }
           },
           orderBy: { name: "asc" }
-        },
-        bookings: {
-          where: {
-            status: { in: ["approved", "pending"] },
-            startTime: { gte: twoWeeksAgo, lte: twoMonthsAhead }
-          },
-          select: {
-            id: true,
-            title: true,
-            startTime: true,
-            endTime: true,
-            status: true,
-            isRecurring: true,
-            parentBookingId: true,
-            userId: true,
-            resourcePartId: true,
-            resourcePart: {
-              select: {
-                id: true,
-                name: true,
-                parentId: true
-              }
-            },
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            }
-          },
-          orderBy: { startTime: "asc" }
         }
       }
     })
@@ -108,183 +74,8 @@ async function getResource(id: string) {
       resource.parts = resource.parts.filter(p => partsWithPricingSet.has(p.id))
     }
 
-    // Hent konkurranser knyttet til denne fasiliteten
-    // Inkluderer DRAFT, SCHEDULED og ACTIVE (ikke COMPLETED eller CANCELLED)
-    // Wrapped i try-catch for å håndtere tilfeller der Competition-tabellen ikke finnes ennå
-    let competitions: Array<{
-      id: string
-      name: string
-      startDate: Date
-      endDate: Date | null
-      dailyStartTime: string | null
-      dailyEndTime: string | null
-      matchDuration: number
-      status: string
-      matches: Array<{
-        id: string
-        matchNumber: number
-        roundName: string | null
-        scheduledTime: Date | null
-        status: string
-        homeTeam: { name: string; shortName: string | null } | null
-        awayTeam: { name: string; shortName: string | null } | null
-        homeTeamPlaceholder: string | null
-        awayTeamPlaceholder: string | null
-        resourcePart: { id: string; name: string } | null
-      }>
-    }> = []
-    
-    try {
-      competitions = await prisma.competition.findMany({
-        where: {
-          resourceId: id,
-          status: { in: ["DRAFT", "SCHEDULED", "ACTIVE"] },
-          startDate: { lte: twoMonthsAhead },
-          OR: [
-            { endDate: { gte: twoWeeksAgo } },
-            { endDate: null }
-          ]
-        },
-        select: {
-          id: true,
-          name: true,
-          startDate: true,
-          endDate: true,
-          dailyStartTime: true,
-          dailyEndTime: true,
-          matchDuration: true,
-          status: true,
-          matches: {
-            where: {
-              scheduledTime: { gte: twoWeeksAgo, lte: twoMonthsAhead }
-            },
-            select: {
-              id: true,
-              matchNumber: true,
-              roundName: true,
-              scheduledTime: true,
-              status: true,
-              homeTeam: { select: { name: true, shortName: true } },
-              awayTeam: { select: { name: true, shortName: true } },
-              homeTeamPlaceholder: true,
-              awayTeamPlaceholder: true,
-              resourcePart: { select: { id: true, name: true } }
-            },
-            orderBy: { scheduledTime: "asc" }
-          }
-        }
-      })
-    } catch (competitionError) {
-      // Competition-tabellen finnes kanskje ikke i denne databasen ennå
-      // Dette er OK - vi fortsetter uten konkurranser
-      console.log("[Resource] Competition table not available, skipping:", (competitionError as Error).message)
-    }
-
-    // Generer kalenderhendelser fra konkurranser
-    const matchEvents: Array<{
-      id: string
-      title: string
-      startTime: Date
-      endTime: Date
-      status: "competition"
-      isRecurring: boolean
-      parentBookingId: null
-      userId: null
-      resourcePartId: string | null
-      resourcePart: { id: string; name: string } | null
-      user: null
-      _isMatch: boolean
-      _matchData: {
-        id: string
-        competitionId: string
-        competitionName: string
-        roundName: string | null
-        matchNumber: number
-      }
-    }> = []
-
-    for (const comp of competitions) {
-      // Hvis konkurransen har kamper med tider, vis disse
-      if (comp.matches.length > 0) {
-        for (const match of comp.matches) {
-          if (match.scheduledTime) {
-            const homeTeam = match.homeTeam?.shortName || match.homeTeam?.name || match.homeTeamPlaceholder || "TBD"
-            const awayTeam = match.awayTeam?.shortName || match.awayTeam?.name || match.awayTeamPlaceholder || "TBD"
-            const startTime = new Date(match.scheduledTime)
-            const endTime = new Date(startTime.getTime() + (comp.matchDuration * 60 * 1000))
-
-            matchEvents.push({
-              id: `match-${match.id}`,
-              title: `🏆 ${homeTeam} vs ${awayTeam}`,
-              startTime,
-              endTime,
-              status: "competition",
-              isRecurring: false,
-              parentBookingId: null,
-              userId: null,
-              resourcePartId: match.resourcePart?.id || null,
-              resourcePart: match.resourcePart,
-              user: null,
-              _isMatch: true,
-              _matchData: {
-                id: match.id,
-                competitionId: comp.id,
-                competitionName: comp.name,
-                roundName: match.roundName,
-                matchNumber: match.matchNumber
-              }
-            })
-          }
-        }
-      } else if (comp.dailyStartTime && comp.dailyEndTime) {
-        // Hvis ingen kamper, men tidspunkter er satt, vis blokkering for hele perioden
-        const startDate = new Date(comp.startDate)
-        const endDate = comp.endDate ? new Date(comp.endDate) : startDate
-        
-        // Generer en blokk for hver dag i perioden
-        const currentDate = new Date(Math.max(startDate.getTime(), twoWeeksAgo.getTime()))
-        const lastDate = new Date(Math.min(endDate.getTime(), twoMonthsAhead.getTime()))
-        
-        while (currentDate <= lastDate) {
-          const [startHour, startMin] = comp.dailyStartTime.split(":").map(Number)
-          const [endHour, endMin] = comp.dailyEndTime.split(":").map(Number)
-          
-          const blockStart = new Date(currentDate)
-          blockStart.setHours(startHour, startMin, 0, 0)
-          
-          const blockEnd = new Date(currentDate)
-          blockEnd.setHours(endHour, endMin, 0, 0)
-
-          matchEvents.push({
-            id: `comp-block-${comp.id}-${currentDate.toISOString().split("T")[0]}`,
-            title: `🏆 ${comp.name}`,
-            startTime: blockStart,
-            endTime: blockEnd,
-            status: "competition",
-            isRecurring: false,
-            parentBookingId: null,
-            userId: null,
-            resourcePartId: null,
-            resourcePart: null,
-            user: null,
-            _isMatch: false,
-            _matchData: {
-              id: comp.id,
-              competitionId: comp.id,
-              competitionName: comp.name,
-              roundName: comp.status === "DRAFT" ? "Planlagt" : null,
-              matchNumber: 0
-            }
-          })
-          
-          // Gå til neste dag
-          currentDate.setDate(currentDate.getDate() + 1)
-        }
-      }
-    }
-
-
-    return { ...resource, matchEvents }
+    // Bookings og konkurranser hentes nå client-side via ResourceCalendar
+    return { ...resource, pricingEnabled }
   } catch (error) {
     console.error("Error fetching resource:", error)
     return null
@@ -367,8 +158,8 @@ export default async function ResourcePage({ params }: Props) {
   }
 
   // Hent prislogikk-konfigurasjon (kun hvis aktivert)
-  // isPricingEnabled er allerede kalt i getResource, så vi gjenbruker verdien
-  const pricingEnabled = await isPricingEnabled()
+  // Gjenbruker pricingEnabled fra getResource() for å unngå ekstra lisenssjekk
+  const pricingEnabled = resource.pricingEnabled
   const pricingConfig = pricingEnabled ? await getPricingConfig(id, null) : null
   
   
@@ -692,41 +483,6 @@ export default async function ResourcePage({ params }: Props) {
               <ResourceCalendar 
                 resourceId={resource.id}
                 resourceName={resource.name}
-                bookings={[
-                  // Vanlige bookinger
-                  ...resource.bookings.map(b => ({
-                    id: b.id,
-                    title: b.title,
-                    startTime: (b.startTime instanceof Date ? b.startTime : new Date(b.startTime)).toISOString(),
-                    endTime: (b.endTime instanceof Date ? b.endTime : new Date(b.endTime)).toISOString(),
-                    status: b.status,
-                    resourcePartId: b.resourcePartId,
-                    resourcePartName: b.resourcePart?.name,
-                    resourcePartParentId: b.resourcePart?.parentId,
-                    userId: b.userId,
-                    userName: b.user?.name,
-                    userEmail: b.user?.email,
-                    isRecurring: b.isRecurring || false,
-                    parentBookingId: b.parentBookingId
-                  })),
-                  // Kamper fra konkurranser
-                  ...(resource.matchEvents || []).map((m: { id: string; title: string; startTime: Date; endTime: Date; resourcePartId: string | null; resourcePart: { id: string; name: string } | null; _matchData: { competitionName: string; roundName: string | null; matchNumber: number } }) => ({
-                    id: m.id,
-                    title: m.title,
-                    startTime: m.startTime.toISOString(),
-                    endTime: m.endTime.toISOString(),
-                    status: "competition" as const,
-                    resourcePartId: m.resourcePartId,
-                    resourcePartName: m.resourcePart?.name,
-                    resourcePartParentId: null,
-                    userId: null,
-                    userName: m._matchData.competitionName,
-                    userEmail: m._matchData.roundName || `Kamp ${m._matchData.matchNumber}`,
-                    isRecurring: false,
-                    parentBookingId: null,
-                    isCompetition: true
-                  }))
-                ]}
                 parts={resource.parts.map(p => ({ 
                   id: p.id, 
                   name: p.name,

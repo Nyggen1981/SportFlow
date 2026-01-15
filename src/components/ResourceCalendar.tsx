@@ -59,7 +59,7 @@ interface BlockedSlot {
 interface Props {
   resourceId: string
   resourceName: string
-  bookings: Booking[]
+  bookings?: Booking[] // Now optional - will fetch client-side if not provided
   parts: Part[]
 }
 
@@ -75,18 +75,40 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
   const [viewMode, setViewMode] = useState<ViewMode>("week")
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
-  const [bookings, setBookings] = useState<Booking[]>(initialBookings)
+  const [bookings, setBookings] = useState<Booking[]>(initialBookings || [])
   const [isProcessing, setIsProcessing] = useState(false)
   const [applyToAll, setApplyToAll] = useState(true)
   const [rejectingBookingId, setRejectingBookingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null)
+  const [isLoadingBookings, setIsLoadingBookings] = useState(!initialBookings)
   const weekViewScrollRef = useRef<HTMLDivElement>(null)
 
-  // Update bookings when initialBookings changes
+  // Fetch bookings client-side if not provided via props
   useEffect(() => {
-    setBookings(initialBookings)
-  }, [initialBookings])
+    if (initialBookings) {
+      setBookings(initialBookings)
+      setIsLoadingBookings(false)
+      return
+    }
+
+    const fetchBookings = async () => {
+      setIsLoadingBookings(true)
+      try {
+        const response = await fetch(`/api/resources/${resourceId}/bookings`)
+        if (response.ok) {
+          const data = await response.json()
+          setBookings(data.bookings || [])
+        }
+      } catch (error) {
+        console.error("Failed to fetch bookings:", error)
+      } finally {
+        setIsLoadingBookings(false)
+      }
+    }
+
+    fetchBookings()
+  }, [resourceId, initialBookings])
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -424,8 +446,18 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
         )}
       </div>
 
+      {/* Loading state */}
+      {isLoadingBookings && (
+        <div className="flex items-center justify-center py-16">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <p className="text-sm text-gray-500">Laster kalender...</p>
+          </div>
+        </div>
+      )}
+
       {/* Week view */}
-      {viewMode === "week" && (
+      {!isLoadingBookings && viewMode === "week" && (
         <div className="border border-gray-200 rounded-xl overflow-hidden">
           {/* Time grid with sticky header */}
           <div ref={weekViewScrollRef} className="max-h-[600px] overflow-y-auto pr-[17px]">
@@ -618,7 +650,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
       )}
 
       {/* Month view */}
-      {viewMode === "month" && (
+      {!isLoadingBookings && viewMode === "month" && (
         <div className="border border-gray-200 rounded-xl overflow-hidden">
           {/* Header */}
           <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">
