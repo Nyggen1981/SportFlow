@@ -1349,11 +1349,11 @@ export default function CalendarPage() {
                                     isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
                                   }`}
                                   style={{
-                                    top: `${topPx}px`,
+                                    top: `${topPx + (hasBookingAbove ? 2 : 0)}px`,
                                     left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${gapPxHorizontal / 2}px)`,
                                     width: boxWidth,
-                                    height: `${Math.max(heightPx, 40)}px`,
-                                    minHeight: '40px',
+                                    height: `${Math.max(heightPx - (hasBookingAbove ? 2 : 0) - (hasBookingBelow ? 2 : 0), 36)}px`,
+                                    minHeight: '36px',
                                     backgroundColor: isCompetition 
                                       ? '#fdba74' 
                                       : isPending 
@@ -1361,10 +1361,7 @@ export default function CalendarPage() {
                                         : resourceColor,
                                     borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
                                     color: isCompetition ? '#9a3412' : 'black',
-                                    borderTop: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                    borderBottom: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                    borderLeft: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                    borderRight: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                    border: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid rgba(0,0,0,0.6)',
                                     boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                                     zIndex: 10,
                                     display: 'flex',
