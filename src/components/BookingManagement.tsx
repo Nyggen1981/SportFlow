@@ -162,6 +162,8 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
       }
     } catch (error) {
       console.error("Failed to fetch bookings:", error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
