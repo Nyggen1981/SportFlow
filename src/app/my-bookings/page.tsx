@@ -83,6 +83,14 @@ export default function MyBookingsPage() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [showMobileFilter, setShowMobileFilter] = useState(false)
+  
+  // Recurring group modal state
+  const [selectedRecurringGroup, setSelectedRecurringGroup] = useState<{ groupId: string; bookings: Booking[] } | null>(null)
+  const [bulkEditMode, setBulkEditMode] = useState(false)
+  const [bulkEditData, setBulkEditData] = useState<{ title: string; resourceId: string; resourcePartId: string | null }>({ title: "", resourceId: "", resourcePartId: null })
+  const [availableResources, setAvailableResources] = useState<Array<{ id: string; name: string; parts: Array<{ id: string; name: string }> }>>([])
+  const [isLoadingResources, setIsLoadingResources] = useState(false)
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false)
 
   // Get unique categories from bookings
   const categories = useMemo(() => {
@@ -455,6 +463,53 @@ export default function MyBookingsPage() {
     setEditingBooking(null)
   }, [])
 
+  // Fetch resources for bulk edit
+  const fetchResourcesForBulkEdit = useCallback(async () => {
+    if (availableResources.length > 0) return
+    setIsLoadingResources(true)
+    try {
+      const response = await fetch("/api/resources")
+      if (response.ok) {
+        const data = await response.json()
+        setAvailableResources(data || [])
+      }
+    } catch (error) {
+      console.error("Failed to fetch resources:", error)
+    } finally {
+      setIsLoadingResources(false)
+    }
+  }, [availableResources.length])
+
+  // Handle bulk update of all bookings in a recurring group
+  const handleBulkUpdate = useCallback(async () => {
+    if (!selectedRecurringGroup) return
+    
+    setIsBulkUpdating(true)
+    try {
+      const updatePromises = selectedRecurringGroup.bookings.map(booking =>
+        fetch(`/api/bookings/${booking.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: bulkEditData.title || undefined,
+            resourceId: bulkEditData.resourceId || undefined,
+            resourcePartId: bulkEditData.resourcePartId
+          })
+        })
+      )
+      
+      await Promise.all(updatePromises)
+      await fetchBookings()
+      setSelectedRecurringGroup(null)
+      setBulkEditMode(false)
+      setBulkEditData({ title: "", resourceId: "", resourcePartId: null })
+    } catch (error) {
+      console.error("Failed to bulk update bookings:", error)
+    } finally {
+      setIsBulkUpdating(false)
+    }
+  }, [selectedRecurringGroup, bulkEditData, fetchBookings])
+
   if (status === "loading" || isLoading) {
     return (
       <PageLayout maxWidth="max-w-7xl">
@@ -806,18 +861,29 @@ export default function MyBookingsPage() {
                             {/* Folder Header Row */}
                             <tr 
                               className="bg-blue-50/50 hover:bg-blue-100/50 transition-colors cursor-pointer"
-                              onClick={() => toggleGroupExpansion(groupId)}
+                              onClick={(e) => {
+                                const target = e.target as HTMLElement
+                                if (target.closest('button')) return
+                                setSelectedRecurringGroup({ groupId, bookings: groupBookings })
+                              }}
                             >
                               {activeTab === "history" && <td className="px-4 py-3"></td>}
                               <td className="px-4 py-3" colSpan={2}>
                                 <div className="flex items-center gap-3">
-                                  <div className="p-1">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      toggleGroupExpansion(groupId)
+                                    }}
+                                    className="p-1 rounded hover:bg-blue-200 transition-colors"
+                                    title={isExpanded ? "Skjul detaljer" : "Vis alle bookinger"}
+                                  >
                                     {isExpanded ? (
                                       <ChevronUp className="w-5 h-5 text-blue-600" />
                                     ) : (
                                       <ChevronDown className="w-5 h-5 text-blue-600" />
                                     )}
-                                  </div>
+                                  </button>
                                   <div 
                                     className="w-3 h-3 rounded-full flex-shrink-0"
                                     style={{ backgroundColor: firstBooking.resource.color || "#3b82f6" }}
@@ -1203,6 +1269,247 @@ export default function MyBookingsPage() {
           onSaved={handleBookingSaved}
         />
       )}
+
+      {/* Recurring Group Modal */}
+      {selectedRecurringGroup && (() => {
+        const pendingBookings = selectedRecurringGroup.bookings.filter(b => b.status === "pending")
+        const approvedBookings = selectedRecurringGroup.bookings.filter(b => b.status === "approved")
+        const firstBooking = selectedRecurringGroup.bookings[0]
+        
+        return (
+          <div 
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => {
+              setSelectedRecurringGroup(null)
+              setBulkEditMode(false)
+              setBulkEditData({ title: "", resourceId: "", resourcePartId: null })
+            }}
+          >
+            <div 
+              className="bg-white rounded-xl max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Calendar className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-xl font-bold text-gray-900">Gjentakende booking</h3>
+                    </div>
+                    <p className="text-gray-600">{firstBooking?.title}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {firstBooking?.resource.name}
+                      {firstBooking?.resourcePart && ` • ${firstBooking.resourcePart.name}`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedRecurringGroup(null)
+                      setBulkEditMode(false)
+                      setBulkEditData({ title: "", resourceId: "", resourcePartId: null })
+                    }}
+                    className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                  >
+                    <X className="w-6 h-6 text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 space-y-6">
+                {bulkEditMode ? (
+                  /* Bulk Edit Form */
+                  <div className="space-y-4">
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-sm text-amber-800">
+                        Endringer krever ny godkjenning fra administrator
+                      </p>
+                    </div>
+                    
+                    <h4 className="text-sm font-semibold text-gray-700">Rediger alle {selectedRecurringGroup.bookings.length} bookinger</h4>
+                    
+                    {/* Title */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tittel</label>
+                      <input
+                        type="text"
+                        value={bulkEditData.title}
+                        onChange={(e) => setBulkEditData(prev => ({ ...prev, title: e.target.value }))}
+                        placeholder={firstBooking?.title || "Behold eksisterende"}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">La stå tom for å beholde eksisterende tittel</p>
+                    </div>
+
+                    {/* Resource */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Fasilitet</label>
+                      {isLoadingResources ? (
+                        <div className="flex items-center gap-2 text-gray-500 py-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Laster fasiliteter...
+                        </div>
+                      ) : (
+                        <>
+                          <select
+                            value={bulkEditData.resourceId}
+                            onChange={(e) => setBulkEditData(prev => ({ 
+                              ...prev, 
+                              resourceId: e.target.value,
+                              resourcePartId: null 
+                            }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            <option value="">Behold eksisterende fasilitet</option>
+                            {availableResources.map(resource => (
+                              <option key={resource.id} value={resource.id}>
+                                {resource.name}
+                              </option>
+                            ))}
+                          </select>
+                          
+                          {bulkEditData.resourceId && (() => {
+                            const selectedResource = availableResources.find(r => r.id === bulkEditData.resourceId)
+                            if (selectedResource && selectedResource.parts.length > 0) {
+                              return (
+                                <select
+                                  value={bulkEditData.resourcePartId || ""}
+                                  onChange={(e) => setBulkEditData(prev => ({ 
+                                    ...prev, 
+                                    resourcePartId: e.target.value || null 
+                                  }))}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mt-2"
+                                >
+                                  <option value="">Hele fasiliteten</option>
+                                  {selectedResource.parts.map(part => (
+                                    <option key={part.id} value={part.id}>
+                                      {part.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              )
+                            }
+                            return null
+                          })()}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        onClick={() => {
+                          setBulkEditMode(false)
+                          setBulkEditData({ title: "", resourceId: "", resourcePartId: null })
+                        }}
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                      >
+                        Avbryt
+                      </button>
+                      <button
+                        onClick={handleBulkUpdate}
+                        disabled={isBulkUpdating || (!bulkEditData.title && !bulkEditData.resourceId)}
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        {isBulkUpdating ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Oppdaterer...
+                          </>
+                        ) : (
+                          <>
+                            <Pencil className="w-4 h-4" />
+                            Oppdater alle
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Summary */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="p-3 bg-blue-50 rounded-lg text-center">
+                        <p className="text-2xl font-bold text-blue-700">{selectedRecurringGroup.bookings.length}</p>
+                        <p className="text-xs text-blue-600">Totalt</p>
+                      </div>
+                      <div className="p-3 bg-amber-50 rounded-lg text-center">
+                        <p className="text-2xl font-bold text-amber-700">{pendingBookings.length}</p>
+                        <p className="text-xs text-amber-600">Venter</p>
+                      </div>
+                      <div className="p-3 bg-green-50 rounded-lg text-center">
+                        <p className="text-2xl font-bold text-green-700">{approvedBookings.length}</p>
+                        <p className="text-xs text-green-600">Godkjent</p>
+                      </div>
+                    </div>
+
+                    {/* Edit all button */}
+                    <button
+                      onClick={() => {
+                        fetchResourcesForBulkEdit()
+                        setBulkEditMode(true)
+                        setBulkEditData({
+                          title: "",
+                          resourceId: "",
+                          resourcePartId: null
+                        })
+                      }}
+                      className="w-full px-4 py-2.5 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg font-medium hover:bg-blue-50 hover:border-blue-400 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      Rediger alle bookinger
+                    </button>
+
+                    {/* Booking list */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Alle bookinger i serien</h4>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {selectedRecurringGroup.bookings.map((booking) => (
+                          <div 
+                            key={booking.id}
+                            className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                            onClick={() => {
+                              setSelectedRecurringGroup(null)
+                              setSelectedBooking(booking)
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="text-sm">
+                                <p className="font-medium text-gray-900">
+                                  {format(parseISO(booking.startTime), "EEEE d. MMM", { locale: nb })}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {format(parseISO(booking.startTime), "HH:mm")} - {format(parseISO(booking.endTime), "HH:mm")}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {booking.status === "pending" && (
+                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>
+                              )}
+                              {booking.status === "approved" && (
+                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Godkjent</span>
+                              )}
+                              {booking.status === "rejected" && (
+                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Avslått</span>
+                              )}
+                              {booking.status === "cancelled" && (
+                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Kansellert</span>
+                              )}
+                              <ChevronRight className="w-4 h-4 text-gray-400" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Booking details modal */}
       {selectedBooking && (
