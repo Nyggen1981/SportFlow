@@ -209,8 +209,6 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
       console.error("Failed to bulk update bookings:", error)
     } finally {
       setIsBulkUpdating(false)
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -1323,31 +1321,14 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                           </>
                         )}
                         <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-1">
-                            {booking.status === "pending" && (
-                              <>
-                                <button
-                                  onClick={() => handleAction(booking.id, "approve")}
-                                  disabled={processingId === booking.id}
-                                  className="p-1.5 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors disabled:opacity-50"
-                                  title="Godkjenn"
-                                >
-                                  {processingId === booking.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                                </button>
-                                <button
-                                  onClick={() => handleAction(booking.id, "reject")}
-                                  disabled={processingId === booking.id}
-                                  className="p-1.5 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors disabled:opacity-50"
-                                  title="Avslå"
-                                >
-                                  <XCircle className="w-3 h-3" />
-                                </button>
-                              </>
-                            )}
-                      <button
-                        onClick={() => handleDelete(booking.id)}
-                        disabled={processingId === booking.id}
-                              className="p-1.5 rounded-lg bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                          <div className="flex items-center justify-end">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDelete(booking.id)
+                              }}
+                              disabled={processingId === booking.id}
+                              className="p-1.5 rounded-lg text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
                               title="Slett denne"
                             >
                               <Trash2 className="w-3 h-3" />
@@ -1472,32 +1453,15 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                     </>
                   )}
                   <td className="px-4 py-4">
-                    <div className="flex items-center justify-end gap-2">
-                      {booking.status === "pending" && (
-                        <>
-                          <button
-                            onClick={() => handleAction(booking.id, "approve")}
-                            disabled={processingId === booking.id}
-                            className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors disabled:opacity-50"
-                            title="Godkjenn"
-                          >
-                            {processingId === booking.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                          </button>
-                          <button
-                            onClick={() => handleAction(booking.id, "reject")}
-                            disabled={processingId === booking.id}
-                            className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors disabled:opacity-50"
-                            title="Avslå"
-                          >
-                            <XCircle className="w-4 h-4" />
-                          </button>
-                        </>
-                      )}
-                      {booking.status === "approved" && (
+                    <div className="flex items-center justify-end">
+                      {(booking.status === "pending" || booking.status === "approved") && (
                         <button
-                          onClick={() => handleAction(booking.id, "cancel")}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleAction(booking.id, "cancel")
+                          }}
                           disabled={processingId === booking.id}
-                          className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                          className="p-2 rounded-lg text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
                           title="Kanseller"
                         >
                           {processingId === booking.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
@@ -1505,15 +1469,18 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       )}
                       {(activeTab === "history" || activeTab === "rejected") && (
                         <button
-                          onClick={() => handleDelete(booking.id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDelete(booking.id)
+                          }}
                           disabled={processingId === booking.id}
-                          className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                          className="p-2 rounded-lg text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
                           title="Slett permanent"
                         >
                           {processingId === booking.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                         </button>
-                  )}
-                </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
           ))}

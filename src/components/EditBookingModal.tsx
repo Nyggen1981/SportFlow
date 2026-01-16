@@ -206,34 +206,40 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
                       </div>
                     ) : (
                       <>
-                        <select
-                          value={selectedResourceId}
-                          onChange={(e) => {
-                            setSelectedResourceId(e.target.value)
-                            setSelectedPartId(null) // Reset part when resource changes
-                          }}
-                          className="input w-full"
-                        >
-                          {resources.map(resource => (
-                            <option key={resource.id} value={resource.id}>
-                              {resource.name}
-                            </option>
-                          ))}
-                        </select>
-                        
-                        {selectedResource && selectedResource.parts.length > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Velg fasilitet</p>
                           <select
-                            value={selectedPartId || ""}
-                            onChange={(e) => setSelectedPartId(e.target.value || null)}
+                            value={selectedResourceId}
+                            onChange={(e) => {
+                              setSelectedResourceId(e.target.value)
+                              setSelectedPartId(null) // Reset part when resource changes
+                            }}
                             className="input w-full"
                           >
-                            <option value="">Hele fasiliteten</option>
-                            {selectedResource.parts.map(part => (
-                              <option key={part.id} value={part.id}>
-                                {part.name}
+                            {resources.map(resource => (
+                              <option key={resource.id} value={resource.id}>
+                                {resource.name}
                               </option>
                             ))}
                           </select>
+                        </div>
+                        
+                        {selectedResource && selectedResource.parts.length > 0 && (
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">Velg del av fasilitet (valgfritt)</p>
+                            <select
+                              value={selectedPartId || ""}
+                              onChange={(e) => setSelectedPartId(e.target.value || null)}
+                              className="input w-full"
+                            >
+                              <option value="">Hele fasiliteten</option>
+                              {selectedResource.parts.map(part => (
+                                <option key={part.id} value={part.id}>
+                                  {part.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         )}
                         
                         <div className="flex justify-end">
