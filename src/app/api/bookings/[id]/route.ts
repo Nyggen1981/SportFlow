@@ -64,6 +64,7 @@ export async function PATCH(
       description,
       startTime,
       endTime,
+      resourceId,
       resourcePartId,
       contactName,
       contactEmail,
@@ -108,8 +109,40 @@ export async function PATCH(
       )
     }
 
-    // Check for conflicts if time changed
-    if (startTime || endTime || resourcePartId !== undefined) {
+    // Check for conflicts if time or resource changed
+    const newResourceId = resourceId || booking.resourceId
+    const newResourcePartId = resourcePartId !== undefined ? resourcePartId : booking.resourcePartId
+
+    // If resource is changed, verify the new resource exists and belongs to the same organization
+    if (resourceId && resourceId !== booking.resourceId) {
+      if (!isAdmin) {
+        return NextResponse.json(
+          { error: "Kun administrator kan endre fasilitet" },
+          { status: 403 }
+        )
+      }
+
+      const newResource = await prisma.resource.findUnique({
+        where: { id: resourceId },
+        select: { organizationId: true }
+      })
+
+      if (!newResource) {
+        return NextResponse.json(
+          { error: "Ugyldig fasilitet" },
+          { status: 400 }
+        )
+      }
+
+      if (newResource.organizationId !== session.user.organizationId) {
+        return NextResponse.json(
+          { error: "Ikke tilgang til denne fasiliteten" },
+          { status: 403 }
+        )
+      }
+    }
+
+    if (startTime || endTime || resourcePartId !== undefined || resourceId) {
       const activeStatusFilter = { status: { notIn: ["cancelled", "rejected"] } }
       
       const getTimeOverlapConditions = (bookingStart: Date, bookingEnd: Date) => [
@@ -133,12 +166,10 @@ export async function PATCH(
         }
       ]
 
-      const newResourcePartId = resourcePartId !== undefined ? resourcePartId : booking.resourcePartId
-
       const conflictingBookings = await prisma.booking.findMany({
         where: {
           id: { not: id }, // Exclude current booking
-          resourceId: booking.resourceId,
+          resourceId: newResourceId,
           ...activeStatusFilter,
           OR: [
             { resourcePartId: newResourcePartId },
@@ -164,7 +195,7 @@ export async function PATCH(
       if (matchSetupEnabled) {
         const conflictingCompetitions = await prisma.competition.findMany({
           where: {
-            resourceId: booking.resourceId,
+            resourceId: newResourceId,
             status: { in: ["DRAFT", "SCHEDULED", "ACTIVE"] },
             dailyStartTime: { not: null },
             dailyEndTime: { not: null },
@@ -252,7 +283,8 @@ export async function PATCH(
         description: description !== undefined ? description : booking.description,
         startTime: newStartTime,
         endTime: newEndTime,
-        resourcePartId: resourcePartId !== undefined ? resourcePartId : booking.resourcePartId,
+        resourceId: newResourceId,
+        resourcePartId: newResourcePartId,
         contactName: contactName !== undefined ? contactName : booking.contactName,
         contactEmail: contactEmail !== undefined ? contactEmail : booking.contactEmail,
         contactPhone: contactPhone !== undefined ? contactPhone : booking.contactPhone,

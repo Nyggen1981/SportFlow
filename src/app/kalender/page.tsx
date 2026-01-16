@@ -1635,9 +1635,9 @@ export default function CalendarPage() {
                                   }}
                                   title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
                                 >
-                                  <p className="font-medium truncate w-full">{booking.title}</p>
-                                  <p className={`truncate text-[10px] w-full ${isPending ? 'opacity-70' : 'opacity-80'}`}>
-                                    {format(start, "HH:mm")} - {format(end, "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
+                                  <p className="font-medium text-[7px] sm:text-xs leading-tight w-full overflow-hidden">{booking.title}</p>
+                                  <p className={`text-[6px] sm:text-[10px] leading-tight w-full overflow-hidden ${isPending ? 'opacity-70' : 'opacity-80'}`}>
+                                    {format(start, "HH:mm")}-{format(end, "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
                                   </p>
                                 </div>
                               )
@@ -1726,9 +1726,9 @@ export default function CalendarPage() {
                               }}
                               title={`${format(parseISO(booking.startTime), "HH:mm")}-${format(parseISO(booking.endTime), "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
                             >
-                              <p className="font-medium truncate w-full">{booking.title}</p>
-                              <p className={`truncate text-[10px] w-full ${isPending ? 'opacity-70' : 'opacity-80'}`}>
-                                {format(parseISO(booking.startTime), "HH:mm")} - {format(parseISO(booking.endTime), "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
+                              <p className="font-medium text-[7px] sm:text-xs leading-tight w-full overflow-hidden">{booking.title}</p>
+                              <p className={`text-[6px] sm:text-[10px] leading-tight w-full overflow-hidden ${isPending ? 'opacity-70' : 'opacity-80'}`}>
+                                {format(parseISO(booking.startTime), "HH:mm")}-{format(parseISO(booking.endTime), "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
                               </p>
                             </div>
                           )
@@ -1947,7 +1947,7 @@ export default function CalendarPage() {
                                       >
                                         <div className="flex items-center gap-1 h-full text-gray-500">
                                           <span>🔒</span>
-                                          <span className="truncate text-[10px] font-medium">Blokkert</span>
+                                          <span className="text-[7px] sm:text-[10px] font-medium">Blokkert</span>
                                         </div>
                                       </div>
                                     )
@@ -1980,12 +1980,12 @@ export default function CalendarPage() {
                                         }}
                                         title={isCompetition ? `${booking.title} (konkurranse)` : `Klikk for mer info`}
                                       >
-                                        <div className="truncate font-semibold">{booking.title}</div>
-                                        <div className="truncate text-[10px] opacity-90">
+                                        <div className="font-semibold text-[7px] sm:text-xs leading-tight overflow-hidden">{booking.title}</div>
+                                        <div className="text-[6px] sm:text-[10px] leading-tight opacity-90 overflow-hidden">
                                           {timeStr}
                                         </div>
                                         {!isCompetition && booking.user?.name && (
-                                          <div className="truncate text-[10px] opacity-75">
+                                          <div className="text-[6px] sm:text-[10px] leading-tight opacity-75 overflow-hidden">
                                             {booking.user.name}
                                           </div>
                                         )}
@@ -2173,9 +2173,9 @@ export default function CalendarPage() {
                               }}
                               title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
                             >
-                              <p className="font-medium truncate w-full">{booking.title}</p>
-                              <p className={`truncate text-[10px] w-full ${isPending ? 'opacity-70' : 'opacity-80'}`}>
-                                {format(start, "HH:mm")} - {format(end, "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
+                              <p className="font-medium text-[7px] sm:text-xs leading-tight w-full overflow-hidden">{booking.title}</p>
+                              <p className={`text-[6px] sm:text-[10px] leading-tight w-full overflow-hidden ${isPending ? 'opacity-70' : 'opacity-80'}`}>
+                                {format(start, "HH:mm")}-{format(end, "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
                               </p>
                             </div>
                           )

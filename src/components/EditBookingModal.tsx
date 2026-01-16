@@ -1,8 +1,14 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
-import { X, Loader2, Calendar, Clock, AlertCircle } from "lucide-react"
+import { useState, useCallback, useMemo, useEffect } from "react"
+import { X, Loader2, Calendar, Clock, AlertCircle, Building2 } from "lucide-react"
 import { format } from "date-fns"
+
+interface Resource {
+  id: string
+  name: string
+  parts: Array<{ id: string; name: string }>
+}
 
 interface EditBookingModalProps {
   booking: {
@@ -39,6 +45,33 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
   const [endTime, setEndTime] = useState(roundTo15Min(format(new Date(booking.endTime), "HH:mm")))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
+  
+  // Resource change (admin only)
+  const [resources, setResources] = useState<Resource[]>([])
+  const [isLoadingResources, setIsLoadingResources] = useState(false)
+  const [selectedResourceId, setSelectedResourceId] = useState(booking.resourceId)
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(booking.resourcePartId || null)
+  const [showResourceSelector, setShowResourceSelector] = useState(false)
+
+  // Fetch resources for admin
+  useEffect(() => {
+    if (isAdmin && showResourceSelector) {
+      setIsLoadingResources(true)
+      fetch("/api/resources")
+        .then(res => res.json())
+        .then(data => {
+          setResources(data || [])
+        })
+        .catch(err => console.error("Failed to fetch resources:", err))
+        .finally(() => setIsLoadingResources(false))
+    }
+  }, [isAdmin, showResourceSelector])
+
+  // Get selected resource and its parts
+  const selectedResource = useMemo(() => 
+    resources.find(r => r.id === selectedResourceId),
+    [resources, selectedResourceId]
+  )
 
   // Memoize time options to avoid regenerating on every render
   const timeOptions = useMemo(() => {
@@ -66,15 +99,25 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
         return
       }
 
+      const updateData: any = {
+        title,
+        description: description || null,
+        startTime: newStartTime.toISOString(),
+        endTime: newEndTime.toISOString()
+      }
+
+      // Include resource change if admin changed it
+      if (isAdmin && selectedResourceId !== booking.resourceId) {
+        updateData.resourceId = selectedResourceId
+        updateData.resourcePartId = selectedPartId
+      } else if (isAdmin && selectedPartId !== booking.resourcePartId) {
+        updateData.resourcePartId = selectedPartId
+      }
+
       const response = await fetch(`/api/bookings/${booking.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          description: description || null,
-          startTime: newStartTime.toISOString(),
-          endTime: newEndTime.toISOString()
-        })
+        body: JSON.stringify(updateData)
       })
 
       const data = await response.json()
@@ -90,7 +133,7 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
       setError("En feil oppstod. Prøv igjen.")
       setIsSubmitting(false)
     }
-  }, [title, description, date, startTime, endTime, booking.id, onSaved])
+  }, [title, description, date, startTime, endTime, booking.id, booking.resourceId, booking.resourcePartId, isAdmin, selectedResourceId, selectedPartId, onSaved])
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -118,15 +161,103 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
             </div>
           )}
 
-          {/* Resource (read-only) */}
+          {/* Resource */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
+              <Building2 className="w-4 h-4 inline mr-1" />
               Fasilitet
             </label>
-            <p className="text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
-              {booking.resourceName}
-              {booking.resourcePartName && ` → ${booking.resourcePartName}`}
-            </p>
+            {isAdmin ? (
+              <div className="space-y-2">
+                {!showResourceSelector ? (
+                  <div className="flex items-center gap-2">
+                    <p className="text-gray-600 bg-gray-50 px-3 py-2 rounded-lg flex-1">
+                      {selectedResourceId === booking.resourceId 
+                        ? (
+                          <>
+                            {booking.resourceName}
+                            {booking.resourcePartName && ` → ${booking.resourcePartName}`}
+                          </>
+                        )
+                        : (
+                          <>
+                            {selectedResource?.name || booking.resourceName}
+                            {selectedPartId && selectedResource?.parts.find(p => p.id === selectedPartId)?.name && 
+                              ` → ${selectedResource?.parts.find(p => p.id === selectedPartId)?.name}`
+                            }
+                          </>
+                        )
+                      }
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowResourceSelector(true)}
+                      className="px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      Endre
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    {isLoadingResources ? (
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Laster fasiliteter...
+                      </div>
+                    ) : (
+                      <>
+                        <select
+                          value={selectedResourceId}
+                          onChange={(e) => {
+                            setSelectedResourceId(e.target.value)
+                            setSelectedPartId(null) // Reset part when resource changes
+                          }}
+                          className="input w-full"
+                        >
+                          {resources.map(resource => (
+                            <option key={resource.id} value={resource.id}>
+                              {resource.name}
+                            </option>
+                          ))}
+                        </select>
+                        
+                        {selectedResource && selectedResource.parts.length > 0 && (
+                          <select
+                            value={selectedPartId || ""}
+                            onChange={(e) => setSelectedPartId(e.target.value || null)}
+                            className="input w-full"
+                          >
+                            <option value="">Hele fasiliteten</option>
+                            {selectedResource.parts.map(part => (
+                              <option key={part.id} value={part.id}>
+                                {part.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowResourceSelector(false)
+                            }}
+                            className="text-sm text-gray-600 hover:text-gray-800"
+                          >
+                            Ferdig
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+                {booking.resourceName}
+                {booking.resourcePartName && ` → ${booking.resourcePartName}`}
+              </p>
+            )}
           </div>
 
           {/* Title */}

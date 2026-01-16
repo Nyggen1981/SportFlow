@@ -70,6 +70,7 @@ export default function AdminBookingsPage() {
   
   // Booking details modal state
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [selectedRecurringGroup, setSelectedRecurringGroup] = useState<{ groupId: string; bookings: Booking[] } | null>(null)
   const [invoicePreviewModalOpen, setInvoicePreviewModalOpen] = useState(false)
   const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null)
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null)
@@ -489,7 +490,7 @@ export default function AdminBookingsPage() {
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Betalingsstatus</th>
                     </>
                   )}
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Handling</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -507,14 +508,26 @@ export default function AdminBookingsPage() {
                     <tr 
                       key={booking.id} 
                       className="hover:bg-gray-50 transition-colors cursor-pointer"
-                      onClick={() => setSelectedBooking(booking)}
+                      onClick={() => {
+                        if (isGrouped && groupBookings) {
+                          // For recurring bookings, open group modal
+                          setSelectedRecurringGroup({ groupId: booking._groupId, bookings: groupBookings })
+                        } else {
+                          // For single bookings, open single booking modal
+                          setSelectedBooking(booking)
+                        }
+                      }}
                     >
                       <td className="px-4 py-4">
                         <div className="flex items-start gap-3">
                           {isGrouped && (
                             <button 
-                              onClick={() => toggleGroup(booking._groupId)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleGroup(booking._groupId)
+                              }}
                               className="mt-1 p-0.5 rounded hover:bg-gray-200"
+                              title={isExpanded ? "Skjul detaljer" : "Vis alle bookinger"}
                             >
                               {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                             </button>
@@ -547,7 +560,7 @@ export default function AdminBookingsPage() {
                             )}
                             {booking.status === "rejected" && booking.statusNote && (
                               <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                                <p className="text-xs text-red-800">
+                                <p className="text-xs text-gray-500 mt-1 text-red-800">
                                   <span className="font-medium">Begrunnelse:</span> {booking.statusNote}
                                 </p>
                               </div>
@@ -698,94 +711,7 @@ export default function AdminBookingsPage() {
                         </>
                       )}
                       <td className="px-4 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          {booking.status === "pending" && (
-                            <>
-                              {isGrouped ? (
-                                <div className="flex flex-col gap-1">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleApproveClick(booking.id, true)
-                                    }}
-                                    disabled={processingId === booking.id}
-                                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
-                                  >
-                                    {processingId === booking.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                                    Godkjenn alle
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setRejectingId(booking.id)
-                                      setRejectApplyToAll(true)
-                                    }}
-                                    disabled={processingId === booking.id}
-                                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 flex items-center gap-1"
-                                  >
-                                    <XCircle className="w-3 h-3" />
-                                    Avslå alle
-                                  </button>
-                                </div>
-                              ) : (
-                                <>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleApproveClick(booking.id, false)
-                                    }}
-                                    disabled={processingId === booking.id}
-                                    className="p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
-                                    title="Godkjenn"
-                                  >
-                                    {processingId === booking.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setRejectingId(booking.id)
-                                      setRejectApplyToAll(false)
-                                    }}
-                                    disabled={processingId === booking.id}
-                                    className="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
-                                    title="Avslå"
-                                  >
-                                    <XCircle className="w-4 h-4" />
-                                  </button>
-                                </>
-                              )}
-                            </>
-                          )}
-                          {booking.status === "approved" && booking.invoice && booking.preferredPaymentMethod === "INVOICE" && (
-                            <>
-                              {booking.invoice.status === "DRAFT" && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setSelectedBooking(booking)
-                                  }}
-                                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1"
-                                  title="Se faktura"
-                                >
-                                  <Eye className="w-3 h-3" />
-                                  Se faktura
-                                </button>
-                              )}
-                              {booking.invoice.status === "SENT" && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    setSelectedBooking(booking)
-                                  }}
-                                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 flex items-center gap-1"
-                                  title="Marker som betalt"
-                                >
-                                  <CheckCircle2 className="w-3 h-3" />
-                                  Betalt
-                                </button>
-                              )}
-                            </>
-                          )}
+                        <div className="flex items-center justify-end">
                           {(booking.status === "approved" || booking.status === "pending") && (
                             <button
                               onClick={(e) => {
@@ -808,7 +734,11 @@ export default function AdminBookingsPage() {
                   if (isExpanded && groupBookings && groupBookings.length > 1) {
                     groupBookings.slice(1).forEach((childBooking) => {
                       rows.push(
-                        <tr key={childBooking.id} className="bg-blue-50/30 hover:bg-blue-50/50 transition-colors">
+                        <tr 
+                          key={childBooking.id} 
+                          className="bg-blue-50/30 hover:bg-blue-50/50 transition-colors cursor-pointer"
+                          onClick={() => setSelectedBooking(childBooking)}
+                        >
                           <td className="px-4 py-3">
                             <div className="flex items-start gap-3 pl-8">
                               <div className="w-2 h-2 rounded-full bg-blue-400 mt-2" />
@@ -934,33 +864,19 @@ export default function AdminBookingsPage() {
                             </>
                           )}
                           <td className="px-4 py-3">
-                            <div className="flex items-center justify-end gap-2">
-                              {childBooking.status === "pending" && (
-                                <>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleApproveClick(childBooking.id, false)
-                                    }}
-                                    disabled={processingId === childBooking.id}
-                                    className="p-1.5 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 disabled:opacity-50"
-                                    title="Godkjenn"
-                                  >
-                                    {processingId === childBooking.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setRejectingId(childBooking.id)
-                                      setRejectApplyToAll(false)
-                                    }}
-                                    disabled={processingId === childBooking.id}
-                                    className="p-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50"
-                                    title="Avslå"
-                                  >
-                                    <XCircle className="w-3 h-3" />
-                                  </button>
-                                </>
+                            <div className="flex items-center justify-end">
+                              {(childBooking.status === "approved" || childBooking.status === "pending") && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setCancellingId(childBooking.id)
+                                  }}
+                                  disabled={processingId === childBooking.id}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-red-600 disabled:opacity-50"
+                                  title="Kanseller"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
                               )}
                             </div>
                           </td>
@@ -1061,6 +977,150 @@ export default function AdminBookingsPage() {
           </div>
         </div>
       )}
+
+      {/* Recurring bookings group modal */}
+      {selectedRecurringGroup && (() => {
+        const pendingBookings = selectedRecurringGroup.bookings.filter(b => b.status === "pending")
+        const approvedBookings = selectedRecurringGroup.bookings.filter(b => b.status === "approved")
+        const firstBooking = selectedRecurringGroup.bookings[0]
+        
+        return (
+          <div 
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setSelectedRecurringGroup(null)}
+          >
+            <div 
+              className="bg-white rounded-xl max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Repeat className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-xl font-bold text-gray-900">Gjentakende booking</h3>
+                    </div>
+                    <p className="text-gray-600">{firstBooking?.title}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {firstBooking?.resource.name}
+                      {firstBooking?.resourcePart && ` • ${firstBooking.resourcePart.name}`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedRecurringGroup(null)}
+                    className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                  >
+                    <X className="w-6 h-6 text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 space-y-6">
+                {/* Summary */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="p-3 bg-blue-50 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-blue-700">{selectedRecurringGroup.bookings.length}</p>
+                    <p className="text-xs text-blue-600">Totalt</p>
+                  </div>
+                  <div className="p-3 bg-amber-50 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-amber-700">{pendingBookings.length}</p>
+                    <p className="text-xs text-amber-600">Venter</p>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-green-700">{approvedBookings.length}</p>
+                    <p className="text-xs text-green-600">Godkjent</p>
+                  </div>
+                </div>
+
+                {/* Booking list */}
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Alle bookinger i serien</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {selectedRecurringGroup.bookings.map((booking) => (
+                      <div 
+                        key={booking.id}
+                        className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                        onClick={() => {
+                          setSelectedRecurringGroup(null)
+                          setSelectedBooking(booking)
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="text-sm">
+                            <p className="font-medium text-gray-900">
+                              {format(parseISO(booking.startTime), "EEEE d. MMM", { locale: nb })}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {format(parseISO(booking.startTime), "HH:mm")} - {format(parseISO(booking.endTime), "HH:mm")}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {booking.status === "pending" && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>
+                          )}
+                          {booking.status === "approved" && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Godkjent</span>
+                          )}
+                          {booking.status === "rejected" && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Avslått</span>
+                          )}
+                          <ChevronRight className="w-4 h-4 text-gray-400" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Action buttons for pending bookings */}
+                {pendingBookings.length > 0 && (
+                  <div className="border-t pt-4">
+                    <p className="text-sm text-gray-600 mb-3">
+                      Behandle alle {pendingBookings.length} ventende bookinger samtidig:
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          handleApproveClick(pendingBookings[0].id, true)
+                          setSelectedRecurringGroup(null)
+                        }}
+                        disabled={processingId !== null}
+                        className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        {processingId !== null ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Behandler...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" />
+                            Godkjenn alle
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedRecurringGroup(null)
+                          setRejectingId(pendingBookings[0].id)
+                          setRejectApplyToAll(true)
+                        }}
+                        disabled={processingId !== null}
+                        className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Avslå alle
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Booking details modal */}
       {selectedBooking && (
