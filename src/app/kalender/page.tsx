@@ -556,9 +556,12 @@ export default function CalendarPage() {
   const getBookingColumns = useCallback((dayBookings: Booking[]) => {
     if (dayBookings.length === 0) return new Map<string, { column: number; totalColumns: number }>()
     
-    const sorted = [...dayBookings].sort((a, b) => 
-      parseISO(a.startTime).getTime() - parseISO(b.startTime).getTime()
-    )
+    // Sort by start time, then by id for stable ordering when times are equal
+    const sorted = [...dayBookings].sort((a, b) => {
+      const timeDiff = parseISO(a.startTime).getTime() - parseISO(b.startTime).getTime()
+      if (timeDiff !== 0) return timeDiff
+      return a.id.localeCompare(b.id) // Stable secondary sort by id
+    })
     
     const columns = new Map<string, { column: number; totalColumns: number }>()
     const columnEndTimes: Date[] = []
