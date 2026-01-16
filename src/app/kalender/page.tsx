@@ -117,6 +117,9 @@ export default function CalendarPage() {
   const dayViewScrollRef = useRef<HTMLDivElement>(null)
   const weekViewScrollRef = useRef<HTMLDivElement>(null)
   const datePickerRef = useRef<HTMLDivElement>(null)
+  const mobileDatePickerRef = useRef<HTMLDivElement>(null)
+  const touchStartX = useRef<number | null>(null)
+  const touchEndX = useRef<number | null>(null)
 
   // Allow public access - no redirect to login
 
@@ -264,6 +267,48 @@ export default function CalendarPage() {
       setIsProcessing(false)
     }
   }, [applyToAll, timelineData, fetchTimelineData])
+
+  // Swipe handlers for mobile navigation
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchEndX.current = null
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    if (!touchStartX.current || !touchEndX.current) return
+    
+    const diff = touchStartX.current - touchEndX.current
+    const minSwipeDistance = 50 // minimum distance for swipe
+    
+    if (Math.abs(diff) < minSwipeDistance) return
+    
+    if (diff > 0) {
+      // Swipe left = next
+      if (viewMode === "day") {
+        setSelectedDate(prev => addDays(prev, 1))
+      } else if (viewMode === "week") {
+        setSelectedDate(prev => addWeeks(prev, 1))
+      } else if (viewMode === "month") {
+        setSelectedDate(prev => addMonths(prev, 1))
+      }
+    } else {
+      // Swipe right = previous
+      if (viewMode === "day") {
+        setSelectedDate(prev => addDays(prev, -1))
+      } else if (viewMode === "week") {
+        setSelectedDate(prev => subWeeks(prev, 1))
+      } else if (viewMode === "month") {
+        setSelectedDate(prev => subMonths(prev, 1))
+      }
+    }
+    
+    touchStartX.current = null
+    touchEndX.current = null
+  }, [viewMode])
 
   // Scroll to bottom when day or week view loads (most activity is in the afternoon/evening)
   useEffect(() => {
@@ -814,7 +859,11 @@ export default function CalendarPage() {
   // Close date picker when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      const isOutsideDesktop = datePickerRef.current && !datePickerRef.current.contains(target)
+      const isOutsideMobile = mobileDatePickerRef.current && !mobileDatePickerRef.current.contains(target)
+      // Close if clicking outside both refs (one will be null depending on screen size)
+      if ((isOutsideDesktop || !datePickerRef.current) && (isOutsideMobile || !mobileDatePickerRef.current)) {
         setShowDatePicker(false)
       }
     }
@@ -862,31 +911,33 @@ export default function CalendarPage() {
 
   return (
     <PageLayout fullWidth>
-      <div className="w-full px-2 sm:px-4 md:px-6 lg:px-8 py-2 sm:py-6">
-          {/* Header - Compact on mobile */}
-          <div className="mb-2 sm:mb-6">
-            <div className="flex items-center justify-between gap-2 mb-2 sm:mb-4">
-              {/* Left side - Title (hidden on mobile) and filters */}
+      {/* Mobile: Full screen layout - calendar fills available space */}
+      {/* On mobile: full height minus top navbar (3.5rem) and bottom nav padding is handled by ClientLayout pb-20 */}
+      <div className="w-full px-0 sm:px-4 md:px-6 lg:px-8 py-0 sm:py-6 md:block flex flex-col h-[calc(100dvh-7.5rem)] md:h-auto overflow-x-hidden overflow-y-hidden md:overflow-visible">
+          {/* Header - Ultra compact on mobile */}
+          <div className="px-2 py-1.5 sm:px-0 sm:py-0 sm:mb-6 flex-shrink-0">
+            <div className="flex items-center justify-between gap-2 sm:mb-4">
+              {/* Left side - Mobile: Title + Filter, Desktop: Title + filters */}
               <div className="flex items-center gap-2 sm:gap-4 flex-wrap flex-1">
-                {/* Title - hidden on mobile since bottom nav shows it */}
-                <h1 className="hidden sm:flex text-xl sm:text-2xl font-bold text-gray-900 items-center gap-2">
-                  <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
-                  Kalender
+                {/* Title - visible on both mobile and desktop */}
+                <h1 className="flex text-sm sm:text-2xl font-bold text-gray-900 items-center gap-2">
+                  <Calendar className="w-4 h-4 sm:w-6 sm:h-6" />
+                  <span>Kalender</span>
                 </h1>
                 
-                {/* Mobile filter button */}
+                {/* Mobile: Filter button after title */}
                 {viewMode !== "overview" && (
                   <button
                     onClick={() => setShowMobileFilters(!showMobileFilters)}
-                    className={`sm:hidden flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm ${
+                    className={`sm:hidden flex items-center gap-1 px-2 py-1 rounded-lg text-xs ${
                       showMobileFilters || selectedCategoryId || selectedResourceId
                         ? "bg-blue-600 text-white"
                         : "bg-gray-100 text-gray-700"
                     }`}
                   >
-                    <Filter className="w-4 h-4" />
+                    <Filter className="w-3 h-3" />
                     {(selectedCategoryId || selectedResourceId) && (
-                      <span className="w-2 h-2 bg-white rounded-full" />
+                      <span className="w-1.5 h-1.5 bg-white rounded-full" />
                     )}
                   </button>
                 )}
@@ -940,14 +991,26 @@ export default function CalendarPage() {
                 {viewMode === "overview" && (
                   <button
                     onClick={() => setShowFilter(!showFilter)}
-                    className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm ${
+                    className={`sm:hidden flex items-center justify-center px-1.5 py-0.5 rounded transition-colors ${
+                      showFilter || selectedResources.size > 0
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    <Filter className="w-3 h-3" />
+                  </button>
+                )}
+                {viewMode === "overview" && (
+                  <button
+                    onClick={() => setShowFilter(!showFilter)}
+                    className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg transition-colors text-sm ${
                       showFilter
                         ? "bg-blue-600 text-white"
                         : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
                     }`}
                   >
                     <Filter className="w-4 h-4" />
-                    <span className="hidden sm:inline">Filter</span>
+                    <span>Filter</span>
                     {selectedResources.size > 0 && (
                       <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">
                         {selectedResources.size}
@@ -957,8 +1020,140 @@ export default function CalendarPage() {
                 )}
               </div>
               
-              {/* Date Navigation */}
-              <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+              {/* Mobile: Date picker + view mode buttons on right */}
+              <div className="sm:hidden flex items-center gap-1">
+                <div className="relative" ref={mobileDatePickerRef}>
+                  <button 
+                    className="px-2 py-1 border border-gray-300 rounded-lg bg-white text-xs text-gray-700 flex items-center gap-1"
+                    onClick={handleDatePickerClick}
+                  >
+                    <span>{formattedDate}</span>
+                    <Calendar className="w-3 h-3 text-gray-400" />
+                  </button>
+                  {showDatePicker && (
+                    <div className="fixed left-1/2 transform -translate-x-1/2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 p-3" style={{ minWidth: "280px", top: "6.5rem" }}>
+                      {/* Month Navigation */}
+                      <div className="flex items-center justify-between mb-3">
+                        <button
+                          onClick={() => setDatePickerMonth(prev => subMonths(prev, 1))}
+                          className="p-1 hover:bg-gray-100 rounded"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <div className="text-sm font-medium text-gray-900">
+                          {format(datePickerMonth, "MMMM yyyy", { locale: nb })}
+                        </div>
+                        <button
+                          onClick={() => setDatePickerMonth(prev => addMonths(prev, 1))}
+                          className="p-1 hover:bg-gray-100 rounded"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Day Labels */}
+                      <div className="grid grid-cols-8 gap-0 mb-2">
+                        <div className="text-[10px] text-gray-500 font-medium text-center py-1"></div>
+                        {["ma", "ti", "on", "to", "fr", "lø", "sø"].map((day) => (
+                          <div key={day} className="text-[10px] text-gray-500 font-medium text-center py-1">
+                            {day}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Calendar Grid */}
+                      {(() => {
+                        const monthStart = startOfMonth(datePickerMonth)
+                        const monthEnd = endOfMonth(datePickerMonth)
+                        const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 })
+                        const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
+                        const weeks: Date[][] = []
+                        let currentWeekStart = calendarStart
+                        while (currentWeekStart <= calendarEnd) {
+                          const weekDays = eachDayOfInterval({ start: currentWeekStart, end: endOfWeek(currentWeekStart, { weekStartsOn: 1 }) })
+                          weeks.push(weekDays)
+                          currentWeekStart = addDays(currentWeekStart, 7)
+                        }
+                        return (
+                          <div className="space-y-0">
+                            {weeks.map((week, weekIndex) => (
+                              <div key={weekIndex} className="grid grid-cols-8 gap-0">
+                                <div className="text-[10px] text-gray-400 text-center py-1.5 font-medium">{getWeek(week[0], { weekStartsOn: 1 })}</div>
+                                {week.map((day, dayIndex) => {
+                                  const isCurrentMonth = isSameMonth(day, datePickerMonth)
+                                  const isSelected = isSameDay(day, selectedDate)
+                                  const isTodayDate = isToday(day)
+                                  return (
+                                    <button
+                                      key={dayIndex}
+                                      onClick={() => { setSelectedDate(day); setShowDatePicker(false) }}
+                                      className={`text-xs py-1.5 rounded transition-colors ${
+                                        isSelected ? "bg-blue-600 text-white" :
+                                        isTodayDate ? "bg-blue-100 text-blue-700 font-medium" :
+                                        isCurrentMonth ? "text-gray-900 hover:bg-gray-100" : "text-gray-400"
+                                      }`}
+                                    >
+                                      {format(day, "d")}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })()}
+
+                      {/* Today button */}
+                      <button onClick={() => { setSelectedDate(new Date()); setDatePickerMonth(new Date()); setShowDatePicker(false) }} className="mt-3 w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium">I dag</button>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setViewMode("day")}
+                    className={`px-1.5 py-1 text-[10px] transition-colors ${
+                      viewMode === "day"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700"
+                    }`}
+                  >
+                    Dag
+                  </button>
+                  <button
+                    onClick={() => setViewMode("week")}
+                    className={`px-1.5 py-1 text-[10px] transition-colors border-l border-gray-300 ${
+                      viewMode === "week"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700"
+                    }`}
+                  >
+                    Uke
+                  </button>
+                  <button
+                    onClick={() => setViewMode("month")}
+                    className={`px-1.5 py-1 text-[10px] transition-colors border-l border-gray-300 ${
+                      viewMode === "month"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700"
+                    }`}
+                  >
+                    Mnd
+                  </button>
+                  <button
+                    onClick={() => setViewMode("overview")}
+                    className={`px-1.5 py-1 text-[10px] transition-colors border-l border-gray-300 ${
+                      viewMode === "overview"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700"
+                    }`}
+                  >
+                    Alle
+                  </button>
+                </div>
+              </div>
+              
+              {/* Desktop: Date Navigation with arrows */}
+              <div className="hidden sm:flex items-center gap-4">
                 <button
                   onClick={() => {
                     if (viewMode === "week") {
@@ -975,10 +1170,9 @@ export default function CalendarPage() {
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-gray-500 hidden sm:block" />
+                <div className="hidden sm:flex items-center">
                   <div className="relative" ref={datePickerRef}>
-                    <div className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 min-w-[120px] sm:min-w-[140px] cursor-pointer flex items-center justify-between"
+                    <div className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 min-w-[140px] cursor-pointer flex items-center justify-between gap-1"
                       onClick={handleDatePickerClick}
                     >
                       <span>{formattedDate}</span>
@@ -1115,20 +1309,20 @@ export default function CalendarPage() {
                 {viewMode === "day" && (
                   <button
                     onClick={() => setSelectedDate(new Date())}
-                    className="px-3 sm:px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="hidden sm:block px-3 sm:px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     I dag
                   </button>
                 )}
                 
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1 border border-gray-300 rounded-lg overflow-hidden">
+                <div className="flex items-center gap-1 sm:gap-3">
+                  <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                     <button
                       onClick={() => {
                         setViewMode("day")
                         setSelectedDate(new Date())
                       }}
-                      className={`px-3 py-2 text-sm transition-colors ${
+                      className={`px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm transition-colors ${
                         viewMode === "day"
                           ? "bg-blue-600 text-white"
                           : "bg-white text-gray-700 hover:bg-gray-50"
@@ -1142,7 +1336,7 @@ export default function CalendarPage() {
                         const weekStart = startOfWeek(new Date(), { weekStartsOn: 1, locale: nb })
                         setSelectedDate(weekStart)
                       }}
-                      className={`px-3 py-2 text-sm transition-colors border-l border-gray-300 ${
+                      className={`px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm transition-colors border-l border-gray-300 ${
                         viewMode === "week"
                           ? "bg-blue-600 text-white"
                           : "bg-white text-gray-700 hover:bg-gray-50"
@@ -1155,13 +1349,13 @@ export default function CalendarPage() {
                         setViewMode("month")
                         setSelectedDate(startOfMonth(new Date()))
                       }}
-                      className={`px-3 py-2 text-sm transition-colors border-l border-gray-300 ${
+                      className={`px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm transition-colors border-l border-gray-300 ${
                         viewMode === "month"
                           ? "bg-blue-600 text-white"
                           : "bg-white text-gray-700 hover:bg-gray-50"
                       }`}
                     >
-                      Måned
+                      Mnd
                     </button>
                   </div>
                   <button
@@ -1169,7 +1363,7 @@ export default function CalendarPage() {
                       setViewMode("overview")
                       setSelectedDate(new Date())
                     }}
-                    className={`px-3 py-2 text-sm transition-colors border border-gray-300 rounded-lg ${
+                    className={`px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm transition-colors border border-gray-300 rounded-lg hidden sm:block ${
                       viewMode === "overview"
                         ? "bg-blue-600 text-white border-blue-600"
                         : "bg-white text-gray-700 hover:bg-gray-50"
@@ -1179,12 +1373,12 @@ export default function CalendarPage() {
                   </button>
                 </div>
 
-                {/* Save as default button - only for logged in users */}
+                {/* Save as default button - hidden on mobile */}
                 {isLoggedIn && (
                   <button
                     onClick={savePreferences}
                     disabled={savingPreferences}
-                    className={`p-2 rounded-lg transition-all ${
+                    className={`hidden sm:block p-2 rounded-lg transition-all ${
                       showSaveSuccess 
                         ? "bg-green-100 text-green-700" 
                         : "bg-amber-50 text-amber-700 hover:bg-amber-100"
@@ -1259,28 +1453,35 @@ export default function CalendarPage() {
             </div>
           )}
 
-          {/* Calendar View (Week/Month) */}
+          {/* Calendar View (Week/Month) - fills remaining space on mobile */}
+          <div className="flex-1 min-h-0 md:flex-none">
           {viewMode === "week" ? (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div ref={weekViewScrollRef} className="h-[calc(100vh-300px)] overflow-auto rounded-xl">
-                <div style={{ minWidth: "800px" }}>
+            <div 
+              className="bg-white md:rounded-xl border-y md:border border-gray-200 md:shadow-sm h-full md:h-auto"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              <div ref={weekViewScrollRef} className="h-full md:h-[calc(100vh-300px)] overflow-auto md:rounded-xl">
+                <div className="min-w-0 md:min-w-[800px]">
                   {/* Calendar Header */}
                   <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                     <div className="flex">
-                      <div className="flex-shrink-0 p-2 sm:p-3 font-medium text-gray-700 text-xs sm:text-sm border-r border-gray-200 bg-gray-50" style={{ width: "80px" }}>
-                        Tid
+                      <div className="flex-shrink-0 w-8 sm:w-20 p-1 sm:p-3 font-medium text-gray-700 text-[8px] sm:text-sm border-r border-gray-200 bg-gray-50 flex items-center justify-center">
+                        <span className="hidden sm:inline">Tid</span>
                       </div>
                       {viewDays.map((day, index) => (
                         <div
                           key={index}
-                          className="flex-1 border-r border-gray-200 last:border-r-0 p-2 sm:p-3 text-center bg-gray-50"
-                          style={{ minWidth: "100px" }}
+                          className="flex-1 border-r border-gray-200 last:border-r-0 p-0.5 sm:p-3 text-center bg-gray-50"
                         >
-                          <div className="text-xs sm:text-sm font-medium text-gray-900">
-                            {format(day, "EEEE", { locale: nb })}
+                          <div className="text-[9px] sm:text-sm font-medium text-gray-900">
+                            <span className="sm:hidden">{format(day, "EEEEE", { locale: nb })}</span>
+                            <span className="hidden sm:inline">{format(day, "EEEE", { locale: nb })}</span>
                           </div>
-                          <div className="text-[10px] sm:text-xs text-gray-600 mt-1">
-                            {format(day, "d. MMM", { locale: nb })}
+                          <div className="text-[8px] sm:text-xs text-gray-600">
+                            <span className="sm:hidden">{format(day, "d", { locale: nb })}</span>
+                            <span className="hidden sm:inline">{format(day, "d. MMM", { locale: nb })}</span>
                           </div>
                         </div>
                       ))}
@@ -1290,11 +1491,11 @@ export default function CalendarPage() {
                   {/* Calendar Body */}
                   <div className="flex">
                     {/* Time Labels */}
-                    <div className="flex-shrink-0 border-r border-gray-200 bg-gray-50" style={{ height: "1440px", width: "80px" }}>
+                    <div className="flex-shrink-0 w-8 sm:w-20 border-r border-gray-200 bg-gray-50" style={{ height: "1440px" }}>
                       {Array.from({ length: 24 }).map((_, hour) => (
-                        <div key={hour} className="flex items-center justify-start pl-2 border-b border-gray-100" style={{ height: "60px" }}>
-                          <div className="text-xs sm:text-sm font-medium text-gray-700 text-left">
-                            {format(setHours(startOfDay(selectedDate), hour), "HH:mm")}
+                        <div key={hour} className="flex items-center justify-center border-b border-gray-100" style={{ height: "60px" }}>
+                          <div className="text-[8px] sm:text-sm font-medium text-gray-700">
+                            {format(setHours(startOfDay(selectedDate), hour), "HH")}
                           </div>
                         </div>
                       ))}
@@ -1316,7 +1517,6 @@ export default function CalendarPage() {
                             key={dayIndex}
                             className="flex-1 border-r border-gray-200 last:border-r-0 relative"
                             style={{ 
-                              minWidth: "100px",
                               height: "1440px",
                               backgroundColor: isToday(day) ? 'rgba(59, 130, 246, 0.1)' : 'rgba(249, 250, 251, 0.3)'
                             }}
@@ -1405,41 +1605,41 @@ export default function CalendarPage() {
                                 <div
                                   key={booking.id}
                                   onClick={() => !isCompetition && setSelectedBooking(booking)}
-                            className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-[8px] sm:text-xs pointer-events-auto transition-opacity ${
-                              isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
-                              isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
-                            }`}
-                            style={{
-                              top: `${topPx}px`,
-                              left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${gapPxHorizontal / 2}px)`,
-                              width: boxWidth,
-                              height: `${Math.max(heightPx, 40)}px`,
-                              minHeight: '40px',
-                              backgroundColor: isCompetition 
-                                ? '#fdba74' 
-                                : isPending 
-                                  ? `${resourceColor}20`
-                                  : resourceColor,
-                              borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
-                              color: isCompetition ? '#9a3412' : 'black',
-                              borderTop: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                              borderBottom: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                              borderLeft: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
-                              borderRight: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                              zIndex: 10,
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'flex-start',
-                              alignItems: 'flex-start'
-                            }}
-                            title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
-                          >
-                            <p className="font-medium w-full overflow-hidden whitespace-nowrap" style={{ textOverflow: 'clip' }}>{booking.title}</p>
-                            <p className={`w-full overflow-hidden whitespace-nowrap text-[7px] sm:text-[10px] ${isPending ? 'opacity-70' : 'opacity-80'}`} style={{ textOverflow: 'clip' }}>
-                              {format(start, "HH:mm")}-{format(end, "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
-                            </p>
-                          </div>
+                                  className={`absolute rounded-md px-2 py-1 text-xs pointer-events-auto transition-opacity ${
+                                    isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
+                                    isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
+                                  }`}
+                                  style={{
+                                    top: `${topPx}px`,
+                                    left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${gapPxHorizontal / 2}px)`,
+                                    width: boxWidth,
+                                    height: `${Math.max(heightPx, 40)}px`,
+                                    minHeight: '40px',
+                                    backgroundColor: isCompetition 
+                                      ? '#fdba74' 
+                                      : isPending 
+                                        ? `${resourceColor}20`
+                                        : resourceColor,
+                                    borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
+                                    color: isCompetition ? '#9a3412' : 'black',
+                                    borderTop: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                    borderBottom: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                    borderLeft: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                    borderRight: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                    zIndex: 10,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'flex-start',
+                                    alignItems: 'flex-start'
+                                  }}
+                                  title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
+                                >
+                                  <p className="font-medium truncate w-full">{booking.title}</p>
+                                  <p className={`truncate text-[10px] w-full ${isPending ? 'opacity-70' : 'opacity-80'}`}>
+                                    {format(start, "HH:mm")} - {format(end, "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
+                                  </p>
+                                </div>
                               )
                             })}
                           </div>
@@ -1451,7 +1651,12 @@ export default function CalendarPage() {
               </div>
             </div>
           ) : viewMode === "month" ? (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-[calc(100vh-180px)] sm:h-[calc(100vh-300px)] flex flex-col">
+            <div 
+              className="bg-white md:rounded-xl border-y md:border border-gray-200 md:shadow-sm overflow-hidden h-full md:h-[calc(100vh-300px)] flex flex-col"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
               {/* Calendar Header */}
               <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200 flex-shrink-0">
                 {["Ma", "Ti", "On", "To", "Fr", "Lø", "Sø"].map((day, i) => (
@@ -1521,9 +1726,9 @@ export default function CalendarPage() {
                               }}
                               title={`${format(parseISO(booking.startTime), "HH:mm")}-${format(parseISO(booking.endTime), "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
                             >
-                              <p className="font-medium w-full overflow-hidden whitespace-nowrap" style={{ textOverflow: 'clip' }}>{booking.title}</p>
-                              <p className={`w-full overflow-hidden whitespace-nowrap text-[7px] sm:text-[10px] ${isPending ? 'opacity-70' : 'opacity-80'}`} style={{ textOverflow: 'clip' }}>
-                                {format(parseISO(booking.startTime), "HH:mm")}-{format(parseISO(booking.endTime), "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
+                              <p className="font-medium truncate w-full">{booking.title}</p>
+                              <p className={`truncate text-[10px] w-full ${isPending ? 'opacity-70' : 'opacity-80'}`}>
+                                {format(parseISO(booking.startTime), "HH:mm")} - {format(parseISO(booking.endTime), "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
                               </p>
                             </div>
                           )
@@ -1611,13 +1816,13 @@ export default function CalendarPage() {
                   <p className="text-gray-500">Ingen bookinger for denne dagen</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                <div className="bg-white rounded-xl sm:rounded-xl border border-gray-200 shadow-sm">
                   {/* Scrollable container with sticky header */}
-                  <div ref={timelineContainerRef} className="max-h-[calc(100vh-300px)] overflow-y-auto overflow-x-auto rounded-xl relative">
+                  <div ref={timelineContainerRef} className="max-h-[calc(100dvh-10rem)] sm:max-h-[calc(100vh-300px)] overflow-y-auto overflow-x-auto rounded-xl relative">
                     {/* Time Header - sticky within scroll container */}
                     <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                       <div className="flex" style={{ minWidth: '1200px' }}>
-                        <div className="w-48 sm:w-64 flex-shrink-0 p-2 sm:p-3 font-medium text-gray-700 text-xs sm:text-sm border-r border-gray-200 bg-gray-50">
+                        <div className="w-36 sm:w-64 flex-shrink-0 p-1.5 sm:p-3 font-medium text-gray-700 text-[10px] sm:text-sm border-r border-gray-200 bg-gray-50">
                           <span className="hidden sm:inline">Fasilitet / Del</span>
                           <span className="sm:hidden">Fasilitet</span>
                         </div>
@@ -1646,19 +1851,19 @@ export default function CalendarPage() {
                               <div className="flex">
                                 <Link 
                                   href={`/resources/${resource.id}`}
-                                  className="w-48 sm:w-64 flex-shrink-0 p-2 sm:p-3 border-r border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer"
+                                  className="w-36 sm:w-64 flex-shrink-0 p-1.5 sm:p-3 border-r border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer"
                                 >
-                                  <div className="font-semibold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
+                                  <div className="font-semibold text-gray-900 flex items-center gap-1.5 sm:gap-2 text-xs sm:text-base">
                                     {resource.category && (
                                       <div
-                                        className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0"
+                                        className="w-2 h-2 sm:w-3 sm:h-3 rounded-full flex-shrink-0"
                                         style={{ backgroundColor: resource.category.color || "#6b7280" }}
                                       />
                                     )}
                                     <span className="truncate hover:text-blue-600 transition-colors">{resource.name}</span>
                                   </div>
                                   {resource.category && (
-                                    <div className="text-[10px] sm:text-xs text-gray-500 mt-0.5 sm:mt-1 truncate">
+                                    <div className="hidden sm:block text-xs text-gray-500 mt-1 truncate">
                                       {resource.category.name}
                                     </div>
                                   )}
@@ -1687,21 +1892,21 @@ export default function CalendarPage() {
                                 className="flex border-b border-gray-100 hover:bg-gray-50 transition-colors"
                               >
                                 {/* Part Label */}
-                                <div className="w-48 sm:w-64 flex-shrink-0 p-2 sm:p-3 border-r border-gray-200">
-                                  <div className={`text-xs sm:text-sm text-gray-700 ${isChild ? 'pl-4 sm:pl-5' : ''}`}>
+                                <div className="w-36 sm:w-64 flex-shrink-0 p-1 sm:p-3 border-r border-gray-200">
+                                  <div className={`text-[10px] sm:text-sm text-gray-700 ${isChild ? 'pl-2 sm:pl-5' : ''}`}>
                                     {part ? (
-                                      <span className={`truncate block flex items-center gap-1.5 ${isChild ? 'text-gray-500' : 'text-gray-600'}`}>
-                                        {isChild && <span className="text-gray-300">└</span>}
+                                      <span className={`truncate block flex items-center gap-1 ${isChild ? 'text-gray-500' : 'text-gray-600'}`}>
+                                        {isChild && <span className="text-gray-300 text-[8px] sm:text-base">└</span>}
                                         {part.name}
                                       </span>
                                     ) : (
-                                      <span className="font-medium text-gray-900">Hele fasiliteten</span>
+                                      <span className="font-medium text-gray-900">Hele</span>
                                     )}
                                   </div>
                                 </div>
 
                                 {/* Timeline Bar Area */}
-                                <div className="flex-1 relative" style={{ minHeight: "60px" }}>
+                                <div className="flex-1 relative" style={{ minHeight: "36px" }}>
                                   {/* Time Grid Lines - match header columns */}
                                   {timeSlots.map((_, index) => (
                                     <div
@@ -1806,34 +2011,39 @@ export default function CalendarPage() {
               <p className="text-gray-500">Laster data...</p>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="h-[calc(100vh-300px)] overflow-x-auto rounded-xl flex flex-col">
+            <div 
+              className="bg-white md:rounded-xl border-y md:border border-gray-200 md:shadow-sm h-full md:h-auto"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              <div className="h-full md:h-[calc(100vh-300px)] overflow-hidden md:overflow-x-auto rounded-xl flex flex-col">
                 {/* Calendar Header */}
                 <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200 flex-shrink-0">
-                  <div className="flex" style={{ minWidth: "800px" }}>
-                    <div className="flex-shrink-0 p-2 sm:p-3 font-medium text-gray-700 text-xs sm:text-sm border-r border-gray-200 bg-gray-50" style={{ width: "80px" }}>
+                  <div className="flex">
+                    <div className="flex-shrink-0 w-12 sm:w-20 p-1 sm:p-3 font-medium text-gray-700 text-[10px] sm:text-sm border-r border-gray-200 bg-gray-50 text-center">
                       Tid
                     </div>
-                    <div className="flex-1 border-r border-gray-200 last:border-r-0 p-2 sm:p-3 text-center bg-gray-50">
+                    <div className="flex-1 border-r border-gray-200 last:border-r-0 p-1 sm:p-3 text-center bg-gray-50">
                       <div className="text-xs sm:text-sm font-medium text-gray-900">
-                        {format(selectedDate, "EEEE", { locale: nb })}
+                        {format(selectedDate, "EEE", { locale: nb })}
                       </div>
-                      <div className="text-[10px] text-gray-600 mt-1">
-                        {format(selectedDate, "d. MMM yyyy", { locale: nb })}
+                      <div className="text-[10px] text-gray-600">
+                        {format(selectedDate, "d. MMM", { locale: nb })}
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Calendar Body - Single row showing entire day */}
-                <div ref={dayViewScrollRef} className="overflow-y-auto flex-1 min-h-0" style={{ minWidth: "800px" }}>
+                <div ref={dayViewScrollRef} className="overflow-y-auto flex-1 min-h-0">
                   <div className="flex">
                     {/* Time Labels */}
-                    <div className="flex-shrink-0 border-r border-gray-200 bg-gray-50" style={{ height: "1440px", width: "80px" }}>
+                    <div className="flex-shrink-0 w-12 sm:w-20 border-r border-gray-200 bg-gray-50" style={{ height: "1440px" }}>
                       {Array.from({ length: 24 }).map((_, hour) => (
-                        <div key={hour} className="flex items-center justify-start pl-2 border-b border-gray-100" style={{ height: "60px" }}>
-                          <div className="text-xs sm:text-sm font-medium text-gray-700 text-left">
-                            {format(setHours(startOfDay(selectedDate), hour), "HH:mm")}
+                        <div key={hour} className="flex items-center justify-center border-b border-gray-100" style={{ height: "60px" }}>
+                          <div className="text-[10px] sm:text-sm font-medium text-gray-700">
+                            {format(setHours(startOfDay(selectedDate), hour), "HH")}
                           </div>
                         </div>
                       ))}
@@ -1933,7 +2143,7 @@ export default function CalendarPage() {
                             <div
                               key={booking.id}
                               onClick={() => !isCompetition && setSelectedBooking(booking)}
-                              className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-[8px] sm:text-xs pointer-events-auto transition-opacity ${
+                              className={`absolute rounded-md px-2 py-1 text-xs pointer-events-auto transition-opacity ${
                                 isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
                                 isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
                               }`}
@@ -1963,9 +2173,9 @@ export default function CalendarPage() {
                               }}
                               title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
                             >
-                              <p className="font-medium w-full overflow-hidden whitespace-nowrap" style={{ textOverflow: 'clip' }}>{booking.title}</p>
-                              <p className={`w-full overflow-hidden whitespace-nowrap text-[7px] sm:text-[10px] ${isPending ? 'opacity-70' : 'opacity-80'}`} style={{ textOverflow: 'clip' }}>
-                                {format(start, "HH:mm")}-{format(end, "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
+                              <p className="font-medium truncate w-full">{booking.title}</p>
+                              <p className={`truncate text-[10px] w-full ${isPending ? 'opacity-70' : 'opacity-80'}`}>
+                                {format(start, "HH:mm")} - {format(end, "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
                               </p>
                             </div>
                           )
@@ -1978,6 +2188,7 @@ export default function CalendarPage() {
             </div>
           )
           )}
+          </div>
         </div>
 
       {/* Booking Info Modal */}
