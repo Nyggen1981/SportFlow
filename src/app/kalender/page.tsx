@@ -862,9 +862,10 @@ export default function CalendarPage() {
 
   return (
     <PageLayout fullWidth>
-      <div className="w-full px-2 sm:px-4 md:px-6 lg:px-8 py-2 sm:py-6">
-          {/* Header - Compact on mobile */}
-          <div className="mb-2 sm:mb-6">
+      {/* Mobile: Full screen layout without page scroll */}
+      <div className="w-full px-2 sm:px-4 md:px-6 lg:px-8 py-1 sm:py-6 md:block flex flex-col h-[calc(100vh-4rem)] md:h-auto overflow-hidden md:overflow-visible">
+          {/* Header - Ultra compact on mobile */}
+          <div className="mb-1 sm:mb-6 flex-shrink-0">
             <div className="flex items-center justify-between gap-2 mb-2 sm:mb-4">
               {/* Left side - Title (hidden on mobile) and filters */}
               <div className="flex items-center gap-2 sm:gap-4 flex-wrap flex-1">
@@ -1121,14 +1122,14 @@ export default function CalendarPage() {
                   </button>
                 )}
                 
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1 border border-gray-300 rounded-lg overflow-hidden">
+                <div className="flex items-center gap-1 sm:gap-3">
+                  <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                     <button
                       onClick={() => {
                         setViewMode("day")
                         setSelectedDate(new Date())
                       }}
-                      className={`px-3 py-2 text-sm transition-colors ${
+                      className={`px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm transition-colors ${
                         viewMode === "day"
                           ? "bg-blue-600 text-white"
                           : "bg-white text-gray-700 hover:bg-gray-50"
@@ -1142,7 +1143,7 @@ export default function CalendarPage() {
                         const weekStart = startOfWeek(new Date(), { weekStartsOn: 1, locale: nb })
                         setSelectedDate(weekStart)
                       }}
-                      className={`px-3 py-2 text-sm transition-colors border-l border-gray-300 ${
+                      className={`px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm transition-colors border-l border-gray-300 ${
                         viewMode === "week"
                           ? "bg-blue-600 text-white"
                           : "bg-white text-gray-700 hover:bg-gray-50"
@@ -1155,13 +1156,13 @@ export default function CalendarPage() {
                         setViewMode("month")
                         setSelectedDate(startOfMonth(new Date()))
                       }}
-                      className={`px-3 py-2 text-sm transition-colors border-l border-gray-300 ${
+                      className={`px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm transition-colors border-l border-gray-300 ${
                         viewMode === "month"
                           ? "bg-blue-600 text-white"
                           : "bg-white text-gray-700 hover:bg-gray-50"
                       }`}
                     >
-                      Måned
+                      Mnd
                     </button>
                   </div>
                   <button
@@ -1169,7 +1170,7 @@ export default function CalendarPage() {
                       setViewMode("overview")
                       setSelectedDate(new Date())
                     }}
-                    className={`px-3 py-2 text-sm transition-colors border border-gray-300 rounded-lg ${
+                    className={`px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm transition-colors border border-gray-300 rounded-lg hidden sm:block ${
                       viewMode === "overview"
                         ? "bg-blue-600 text-white border-blue-600"
                         : "bg-white text-gray-700 hover:bg-gray-50"
@@ -1259,10 +1260,11 @@ export default function CalendarPage() {
             </div>
           )}
 
-          {/* Calendar View (Week/Month) */}
+          {/* Calendar View (Week/Month) - fills remaining space on mobile */}
+          <div className="flex-1 min-h-0 md:flex-none">
           {viewMode === "week" ? (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div ref={weekViewScrollRef} className="h-[calc(100vh-300px)] overflow-auto rounded-xl">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm h-full md:h-auto">
+              <div ref={weekViewScrollRef} className="h-full md:h-[calc(100vh-300px)] overflow-auto rounded-xl">
                 <div style={{ minWidth: "800px" }}>
                   {/* Calendar Header */}
                   <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
@@ -1451,7 +1453,7 @@ export default function CalendarPage() {
               </div>
             </div>
           ) : viewMode === "month" ? (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-[calc(100vh-180px)] sm:h-[calc(100vh-300px)] flex flex-col">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden h-full md:h-[calc(100vh-300px)] flex flex-col">
               {/* Calendar Header */}
               <div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200 flex-shrink-0">
                 {["Ma", "Ti", "On", "To", "Fr", "Lø", "Sø"].map((day, i) => (
@@ -1806,8 +1808,8 @@ export default function CalendarPage() {
               <p className="text-gray-500">Laster data...</p>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="h-[calc(100vh-300px)] overflow-x-auto rounded-xl flex flex-col">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm h-full md:h-auto">
+              <div className="h-full md:h-[calc(100vh-300px)] overflow-x-auto rounded-xl flex flex-col">
                 {/* Calendar Header */}
                 <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200 flex-shrink-0">
                   <div className="flex" style={{ minWidth: "800px" }}>
@@ -1978,6 +1980,7 @@ export default function CalendarPage() {
             </div>
           )
           )}
+          </div>
         </div>
 
       {/* Booking Info Modal */}
