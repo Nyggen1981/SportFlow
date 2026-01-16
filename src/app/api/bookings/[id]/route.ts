@@ -115,13 +115,6 @@ export async function PATCH(
 
     // If resource is changed, verify the new resource exists and belongs to the same organization
     if (resourceId && resourceId !== booking.resourceId) {
-      if (!isAdmin) {
-        return NextResponse.json(
-          { error: "Kun administrator kan endre fasilitet" },
-          { status: 403 }
-        )
-      }
-
       const newResource = await prisma.resource.findUnique({
         where: { id: resourceId },
         select: { organizationId: true }

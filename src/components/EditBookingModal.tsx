@@ -106,11 +106,11 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
         endTime: newEndTime.toISOString()
       }
 
-      // Include resource change if admin changed it
-      if (isAdmin && selectedResourceId !== booking.resourceId) {
+      // Include resource change if resource or part was changed
+      if (selectedResourceId !== booking.resourceId) {
         updateData.resourceId = selectedResourceId
         updateData.resourcePartId = selectedPartId
-      } else if (isAdmin && selectedPartId !== booking.resourcePartId) {
+      } else if (selectedPartId !== booking.resourcePartId) {
         updateData.resourcePartId = selectedPartId
       }
 
@@ -167,103 +167,101 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
               <Building2 className="w-4 h-4 inline mr-1" />
               Fasilitet
             </label>
-            {isAdmin ? (
-              <div className="space-y-2">
-                {!showResourceSelector ? (
-                  <div className="flex items-center gap-2">
-                    <p className="text-gray-600 bg-gray-50 px-3 py-2 rounded-lg flex-1">
-                      {selectedResourceId === booking.resourceId 
-                        ? (
-                          <>
-                            {booking.resourceName}
-                            {booking.resourcePartName && ` → ${booking.resourcePartName}`}
-                          </>
-                        )
-                        : (
-                          <>
-                            {selectedResource?.name || booking.resourceName}
-                            {selectedPartId && selectedResource?.parts.find(p => p.id === selectedPartId)?.name && 
-                              ` → ${selectedResource?.parts.find(p => p.id === selectedPartId)?.name}`
-                            }
-                          </>
-                        )
-                      }
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setShowResourceSelector(true)}
-                      className="px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    >
-                      Endre
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    {isLoadingResources ? (
-                      <div className="flex items-center gap-2 text-gray-500">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Laster fasiliteter...
+            <div className="space-y-2">
+              {!showResourceSelector ? (
+                <div className="flex items-center gap-2">
+                  <p className="text-gray-600 bg-gray-50 px-3 py-2 rounded-lg flex-1">
+                    {selectedResourceId === booking.resourceId 
+                      ? (
+                        <>
+                          {booking.resourceName}
+                          {booking.resourcePartName && ` → ${booking.resourcePartName}`}
+                        </>
+                      )
+                      : (
+                        <>
+                          {selectedResource?.name || booking.resourceName}
+                          {selectedPartId && selectedResource?.parts.find(p => p.id === selectedPartId)?.name && 
+                            ` → ${selectedResource?.parts.find(p => p.id === selectedPartId)?.name}`
+                          }
+                        </>
+                      )
+                    }
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowResourceSelector(true)}
+                    className="px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  >
+                    Endre
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  {isLoadingResources ? (
+                    <div className="flex items-center gap-2 text-gray-500">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Laster fasiliteter...
+                    </div>
+                  ) : (
+                    <>
+                      {!isAdmin && (
+                        <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                          Endring av fasilitet krever ny godkjenning fra administrator
+                        </p>
+                      )}
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Velg fasilitet</p>
+                        <select
+                          value={selectedResourceId}
+                          onChange={(e) => {
+                            setSelectedResourceId(e.target.value)
+                            setSelectedPartId(null) // Reset part when resource changes
+                          }}
+                          className="input w-full"
+                        >
+                          {resources.map(resource => (
+                            <option key={resource.id} value={resource.id}>
+                              {resource.name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    ) : (
-                      <>
+                      
+                      {selectedResource && selectedResource.parts.length > 0 && (
                         <div>
-                          <p className="text-xs text-gray-500 mb-1">Velg fasilitet</p>
+                          <p className="text-xs text-gray-500 mb-1">Velg del av fasilitet (valgfritt)</p>
                           <select
-                            value={selectedResourceId}
-                            onChange={(e) => {
-                              setSelectedResourceId(e.target.value)
-                              setSelectedPartId(null) // Reset part when resource changes
-                            }}
+                            value={selectedPartId || ""}
+                            onChange={(e) => setSelectedPartId(e.target.value || null)}
                             className="input w-full"
                           >
-                            {resources.map(resource => (
-                              <option key={resource.id} value={resource.id}>
-                                {resource.name}
+                            <option value="">Hele fasiliteten</option>
+                            {selectedResource.parts.map(part => (
+                              <option key={part.id} value={part.id}>
+                                {part.name}
                               </option>
                             ))}
                           </select>
                         </div>
-                        
-                        {selectedResource && selectedResource.parts.length > 0 && (
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">Velg del av fasilitet (valgfritt)</p>
-                            <select
-                              value={selectedPartId || ""}
-                              onChange={(e) => setSelectedPartId(e.target.value || null)}
-                              className="input w-full"
-                            >
-                              <option value="">Hele fasiliteten</option>
-                              {selectedResource.parts.map(part => (
-                                <option key={part.id} value={part.id}>
-                                  {part.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-                        
-                        <div className="flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowResourceSelector(false)
-                            }}
-                            className="text-sm text-gray-600 hover:text-gray-800"
-                          >
-                            Ferdig
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
-                {booking.resourceName}
-                {booking.resourcePartName && ` → ${booking.resourcePartName}`}
-              </p>
-            )}
+                      )}
+                      
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowResourceSelector(false)
+                          }}
+                          className="text-sm text-gray-600 hover:text-gray-800"
+                        >
+                          Ferdig
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Title */}
