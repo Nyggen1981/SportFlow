@@ -46,16 +46,16 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   
-  // Resource change (admin only)
+  // Resource change
   const [resources, setResources] = useState<Resource[]>([])
   const [isLoadingResources, setIsLoadingResources] = useState(false)
   const [selectedResourceId, setSelectedResourceId] = useState(booking.resourceId)
   const [selectedPartId, setSelectedPartId] = useState<string | null>(booking.resourcePartId || null)
   const [showResourceSelector, setShowResourceSelector] = useState(false)
 
-  // Fetch resources for admin
+  // Fetch resources when user opens the resource selector
   useEffect(() => {
-    if (isAdmin && showResourceSelector) {
+    if (showResourceSelector && resources.length === 0) {
       setIsLoadingResources(true)
       fetch("/api/resources")
         .then(res => res.json())
@@ -65,7 +65,7 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
         .catch(err => console.error("Failed to fetch resources:", err))
         .finally(() => setIsLoadingResources(false))
     }
-  }, [isAdmin, showResourceSelector])
+  }, [showResourceSelector, resources.length])
 
   // Get selected resource and its parts
   const selectedResource = useMemo(() => 
