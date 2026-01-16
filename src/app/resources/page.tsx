@@ -1,7 +1,7 @@
 import { PageLayout } from "@/components/PageLayout"
 import { ResourceFilter } from "@/components/ResourceFilter"
+import { ResourcesHeader } from "@/components/ResourcesHeader"
 import { prisma } from "@/lib/prisma"
-import { Building2 } from "lucide-react"
 import { isPricingEnabled, hasPricingRules } from "@/lib/pricing"
 
 // Revalidate every hour (3600 seconds) to reduce ISR writes
@@ -109,41 +109,30 @@ export default async function ResourcesPage() {
 
   return (
     <PageLayout maxWidth="max-w-7xl">
-      <div className="py-8">
-        {/* Page Header */}
-        <div className="mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
-            Fasiliteter
-          </h1>
-          <p className="text-sm sm:text-base text-gray-500">
-            Utforsk alle tilgjengelige fasiliteter og book det du trenger
-          </p>
-        </div>
-
-      <ResourceFilter 
-        categories={categories.map(c => ({
-          id: c.id,
-          name: c.name,
-          color: c.color
-        }))}
-        resources={resources.map(r => ({
-          id: r.id,
-          name: r.name,
-          description: r.description,
-          location: r.location,
-          image: r.image,
-          minBookingMinutes: r.minBookingMinutes,
-          maxBookingMinutes: r.maxBookingMinutes,
-          requiresApproval: r.requiresApproval,
-          category: r.category ? {
-            id: r.category.id,
-            name: r.category.name,
-            color: r.category.color
-          } : null,
-          parts: r.parts.map(p => ({ id: p.id, name: p.name }))
-        }))}
-      />
+      <div className="py-2 sm:py-8 px-2 sm:px-0">
+        <ResourcesHeader 
+          categories={categories.map(c => ({
+            id: c.id,
+            name: c.name,
+            color: c.color
+          }))}
+          resources={resources.map(r => ({
+            id: r.id,
+            name: r.name,
+            description: r.description,
+            location: r.location,
+            image: r.image,
+            minBookingMinutes: r.minBookingMinutes,
+            maxBookingMinutes: r.maxBookingMinutes,
+            requiresApproval: r.requiresApproval,
+            category: r.category ? {
+              id: r.category.id,
+              name: r.category.name,
+              color: r.category.color
+            } : null,
+            parts: r.parts.map(p => ({ id: p.id, name: p.name }))
+          }))}
+        />
       </div>
     </PageLayout>
   )

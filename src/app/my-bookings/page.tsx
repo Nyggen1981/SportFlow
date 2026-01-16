@@ -23,7 +23,8 @@ import {
   X,
   ChevronUp,
   ChevronDown,
-  FolderOpen
+  FolderOpen,
+  Filter
 } from "lucide-react"
 import { EditBookingModal } from "@/components/EditBookingModal"
 import { format, isToday, isTomorrow, isThisWeek, parseISO } from "date-fns"
@@ -81,6 +82,7 @@ export default function MyBookingsPage() {
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const [showMobileFilter, setShowMobileFilter] = useState(false)
 
   // Get unique categories from bookings
   const categories = useMemo(() => {
@@ -465,24 +467,80 @@ export default function MyBookingsPage() {
 
   return (
     <PageLayout maxWidth="max-w-7xl">
-      <div className="py-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <ClipboardList className="w-5 h-5 sm:w-6 sm:h-6" />
-                Mine bookinger
+      <div className="py-2 sm:py-8 px-2 sm:px-0">
+        {/* Header - Similar to Fasiliteter */}
+        <div className="mb-3 sm:mb-6">
+          <div className="flex items-center gap-2 sm:gap-4">
+            {/* Left side - Title + Filter on mobile */}
+            <div className="flex items-center gap-2 flex-1">
+              <h1 className="flex text-sm sm:text-2xl font-bold text-gray-900 items-center gap-2">
+                <ClipboardList className="w-4 h-4 sm:w-6 sm:h-6" />
+                <span>Mine bookinger</span>
               </h1>
-              <p className="text-sm sm:text-base text-gray-500">Oversikt over dine reservasjoner</p>
+              
+              {/* Mobile: Filter button after title */}
+              {(categories.length > 0 || resources.length > 0) && (
+                <button
+                  onClick={() => setShowMobileFilter(!showMobileFilter)}
+                  className={`sm:hidden flex items-center gap-1 px-2 py-1 rounded-lg text-xs ${
+                    showMobileFilter || selectedCategoryId || selectedResourceId
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  <Filter className="w-3 h-3" />
+                  {(selectedCategoryId || selectedResourceId) && (
+                    <span className="w-1.5 h-1.5 bg-white rounded-full" />
+                  )}
+                </button>
+              )}
             </div>
+
+            {/* Ny booking button - hidden on mobile */}
             <Link 
               href="/resources" 
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm sm:text-base"
+              className="hidden sm:flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-base"
             >
               <Plus className="w-4 h-4" />
               Ny booking
             </Link>
           </div>
+          
+          <p className="text-xs sm:text-base text-gray-500 mt-1 hidden sm:block">Oversikt over dine reservasjoner</p>
+        </div>
+
+        {/* Mobile Filter Dropdown */}
+        {showMobileFilter && (
+          <div className="sm:hidden mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+            {categories.length > 0 && (
+              <select
+                value={selectedCategoryId || ""}
+                onChange={(e) => {
+                  setSelectedCategoryId(e.target.value || null)
+                  setSelectedResourceId(null)
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Alle kategorier</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            )}
+            {resources.length > 0 && (
+              <select
+                value={selectedResourceId || ""}
+                onChange={(e) => setSelectedResourceId(e.target.value || null)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Alle fasiliteter</option>
+                {resources.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
 
           {bookings.length === 0 ? (
             <div className="card p-12 text-center">
@@ -497,8 +555,8 @@ export default function MyBookingsPage() {
             <>
               {/* Filter and Tabs */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                {/* Filters */}
-                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                {/* Desktop Filters - hidden on mobile */}
+                <div className="hidden sm:flex items-center gap-2 sm:gap-3 flex-wrap">
                   {categories.length > 0 && (
                     <select
                       value={selectedCategoryId || ""}

@@ -1405,41 +1405,41 @@ export default function CalendarPage() {
                                 <div
                                   key={booking.id}
                                   onClick={() => !isCompetition && setSelectedBooking(booking)}
-                                  className={`absolute rounded-md px-2 py-1 text-xs pointer-events-auto transition-opacity ${
-                                    isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
-                                    isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
-                                  }`}
-                                  style={{
-                                    top: `${topPx}px`,
-                                    left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${gapPxHorizontal / 2}px)`,
-                                    width: boxWidth,
-                                    height: `${Math.max(heightPx, 40)}px`,
-                                    minHeight: '40px',
-                                    backgroundColor: isCompetition 
-                                      ? '#fdba74' 
-                                      : isPending 
-                                        ? `${resourceColor}20`
-                                        : resourceColor,
-                                    borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
-                                    color: isCompetition ? '#9a3412' : 'black',
-                                    borderTop: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                    borderBottom: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                    borderLeft: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                    borderRight: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                                    zIndex: 10,
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    justifyContent: 'flex-start',
-                                    alignItems: 'flex-start'
-                                  }}
-                                  title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
-                                >
-                                  <p className="font-medium truncate w-full">{booking.title}</p>
-                                  <p className={`truncate text-[10px] w-full ${isPending ? 'opacity-70' : 'opacity-80'}`}>
-                                    {format(start, "HH:mm")} - {format(end, "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
-                                  </p>
-                                </div>
+                            className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-[8px] sm:text-xs pointer-events-auto transition-opacity ${
+                              isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
+                              isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
+                            }`}
+                            style={{
+                              top: `${topPx}px`,
+                              left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${gapPxHorizontal / 2}px)`,
+                              width: boxWidth,
+                              height: `${Math.max(heightPx, 40)}px`,
+                              minHeight: '40px',
+                              backgroundColor: isCompetition 
+                                ? '#fdba74' 
+                                : isPending 
+                                  ? `${resourceColor}20`
+                                  : resourceColor,
+                              borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
+                              color: isCompetition ? '#9a3412' : 'black',
+                              borderTop: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                              borderBottom: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                              borderLeft: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
+                              borderRight: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                              zIndex: 10,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'flex-start',
+                              alignItems: 'flex-start'
+                            }}
+                            title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
+                          >
+                            <p className="font-medium w-full overflow-hidden whitespace-nowrap" style={{ textOverflow: 'clip' }}>{booking.title}</p>
+                            <p className={`w-full overflow-hidden whitespace-nowrap text-[7px] sm:text-[10px] ${isPending ? 'opacity-70' : 'opacity-80'}`} style={{ textOverflow: 'clip' }}>
+                              {format(start, "HH:mm")}-{format(end, "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
+                            </p>
+                          </div>
                               )
                             })}
                           </div>
@@ -1521,9 +1521,9 @@ export default function CalendarPage() {
                               }}
                               title={`${format(parseISO(booking.startTime), "HH:mm")}-${format(parseISO(booking.endTime), "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
                             >
-                              <p className="font-medium truncate w-full">{booking.title}</p>
-                              <p className={`truncate text-[10px] w-full ${isPending ? 'opacity-70' : 'opacity-80'}`}>
-                                {format(parseISO(booking.startTime), "HH:mm")} - {format(parseISO(booking.endTime), "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
+                              <p className="font-medium w-full overflow-hidden whitespace-nowrap" style={{ textOverflow: 'clip' }}>{booking.title}</p>
+                              <p className={`w-full overflow-hidden whitespace-nowrap text-[7px] sm:text-[10px] ${isPending ? 'opacity-70' : 'opacity-80'}`} style={{ textOverflow: 'clip' }}>
+                                {format(parseISO(booking.startTime), "HH:mm")}-{format(parseISO(booking.endTime), "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
                               </p>
                             </div>
                           )
@@ -1933,7 +1933,7 @@ export default function CalendarPage() {
                             <div
                               key={booking.id}
                               onClick={() => !isCompetition && setSelectedBooking(booking)}
-                              className={`absolute rounded-md px-2 py-1 text-xs pointer-events-auto transition-opacity ${
+                              className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-[8px] sm:text-xs pointer-events-auto transition-opacity ${
                                 isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
                                 isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
                               }`}
@@ -1963,9 +1963,9 @@ export default function CalendarPage() {
                               }}
                               title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
                             >
-                              <p className="font-medium truncate w-full">{booking.title}</p>
-                              <p className={`truncate text-[10px] w-full ${isPending ? 'opacity-70' : 'opacity-80'}`}>
-                                {format(start, "HH:mm")} - {format(end, "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
+                              <p className="font-medium w-full overflow-hidden whitespace-nowrap" style={{ textOverflow: 'clip' }}>{booking.title}</p>
+                              <p className={`w-full overflow-hidden whitespace-nowrap text-[7px] sm:text-[10px] ${isPending ? 'opacity-70' : 'opacity-80'}`} style={{ textOverflow: 'clip' }}>
+                                {format(start, "HH:mm")}-{format(end, "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
                               </p>
                             </div>
                           )

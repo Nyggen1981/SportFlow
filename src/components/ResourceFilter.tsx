@@ -65,13 +65,13 @@ export function ResourceFilter({ categories, resources }: Props) {
 
   return (
     <>
-      {/* Category filter */}
-      <div className="py-6">
+      {/* Category filter - Compact on mobile */}
+      <div className="py-2 sm:py-6">
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <select
             value={selectedCategory || ""}
             onChange={(e) => handleCategorySelect(e.target.value || null)}
-            className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-2 sm:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Alle kategorier</option>
             {categories.map((c) => (
@@ -84,35 +84,35 @@ export function ResourceFilter({ categories, resources }: Props) {
       </div>
 
       {/* Resources by category */}
-      <div className="pb-16">
+      <div className="pb-24 sm:pb-16">
         {visibleCategories.map((categoryName) => {
           const { category, resources: categoryResources } = grouped[categoryName]
           return (
-          <section key={categoryName} className="mb-12">
-            <div className="flex items-center gap-3 mb-6">
+          <section key={categoryName} className="mb-6 sm:mb-12">
+            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-6">
               <div 
-                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center"
                 style={{ backgroundColor: `${category?.color || '#3b82f6'}20` }}
               >
                 <div 
-                  className="w-5 h-5 rounded-full"
+                  className="w-3.5 h-3.5 sm:w-5 sm:h-5 rounded-full"
                   style={{ backgroundColor: category?.color || '#3b82f6' }}
                 />
               </div>
-              <h2 className="text-xl font-semibold text-gray-900">{categoryName}</h2>
-              <span className="px-2 py-1 bg-gray-100 rounded-full text-sm text-gray-500">
-                {categoryResources.length} {categoryResources.length === 1 ? 'fasilitet' : 'fasiliteter'}
+              <h2 className="text-base sm:text-xl font-semibold text-gray-900">{categoryName}</h2>
+              <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-gray-100 rounded-full text-xs sm:text-sm text-gray-500">
+                {categoryResources.length}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
               {categoryResources.map((resource) => (
                 <Link 
                   key={resource.id} 
                   href={`/resources/${resource.id}`}
                   className="card overflow-hidden group hover:shadow-lg transition-all active:scale-[0.98]"
                 >
-                  <div className="h-32 sm:h-40 relative">
+                  <div className="h-24 sm:h-40 relative">
                     {resource.image ? (
                       <>
                         <Image
@@ -137,18 +137,18 @@ export function ResourceFilter({ categories, resources }: Props) {
                       />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <h3 className="text-xl font-bold text-white">{resource.name}</h3>
+                    <div className="absolute bottom-2 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4">
+                      <h3 className="text-base sm:text-xl font-bold text-white">{resource.name}</h3>
                       {resource.location && (
-                        <p className="text-white/80 text-sm flex items-center gap-1 mt-1">
-                          <MapPin className="w-4 h-4" />
+                        <p className="text-white/80 text-xs sm:text-sm flex items-center gap-1 mt-0.5 sm:mt-1">
+                          <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
                           {resource.location}
                         </p>
                       )}
                     </div>
                   </div>
                   
-                  <div className="p-4 sm:p-5">
+                  <div className="p-3 sm:p-5">
                     {resource.description && (
                       <p className="text-gray-600 text-sm line-clamp-2 mb-3 sm:mb-4 hidden sm:block">
                         {resource.description}
@@ -157,20 +157,19 @@ export function ResourceFilter({ categories, resources }: Props) {
 
                     {/* Resource parts - show fewer on mobile */}
                     {resource.parts.length > 0 && (
-                      <div className="mb-3 sm:mb-4">
-                        <p className="text-xs text-gray-400 uppercase tracking-wide mb-1.5 sm:mb-2">Kan bookes:</p>
+                      <div className="mb-2 sm:mb-4">
                         <div className="flex flex-wrap gap-1">
-                          {resource.parts.slice(0, 3).map((part) => (
+                          {resource.parts.slice(0, 2).map((part) => (
                             <span 
                               key={part.id} 
-                              className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600"
+                              className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-gray-100 rounded text-[10px] sm:text-xs text-gray-600"
                             >
                               {part.name}
                             </span>
                           ))}
-                          {resource.parts.length > 3 && (
-                            <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-500">
-                              +{resource.parts.length - 3}
+                          {resource.parts.length > 2 && (
+                            <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-gray-100 rounded text-[10px] sm:text-xs text-gray-500">
+                              +{resource.parts.length - 2}
                             </span>
                           )}
                         </div>
@@ -178,22 +177,15 @@ export function ResourceFilter({ categories, resources }: Props) {
                     )}
 
                     {/* Booking info */}
-                    <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-gray-100">
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        {resource.minBookingMinutes !== null && resource.maxBookingMinutes !== null &&
-                         resource.minBookingMinutes !== 0 && resource.maxBookingMinutes !== 9999 && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5" />
-                            {resource.minBookingMinutes}-{resource.maxBookingMinutes} min
-                          </span>
-                        )}
+                    <div className="flex items-center justify-between pt-2 sm:pt-4 border-t border-gray-100">
+                      <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs text-gray-500">
                         {resource.requiresApproval && (
-                          <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">
-                            Krever godkjenning
+                          <span className="px-1.5 sm:px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">
+                            Godkjenning kreves
                           </span>
                         )}
                       </div>
-                      <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                      <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
                     </div>
                   </div>
                 </Link>

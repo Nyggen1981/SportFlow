@@ -768,7 +768,7 @@ export default function AdminSettingsPage() {
               </h2>
               
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div>
+                <div className="flex-1 mr-4">
                   <h3 className="font-medium text-gray-900">Krev godkjenning av nye brukere</h3>
                   <p className="text-sm text-gray-500 mt-1">
                     {requireUserApproval 
@@ -777,23 +777,26 @@ export default function AdminSettingsPage() {
                     }
                   </p>
                 </div>
-                <button
-                  type="button"
+                <div
                   onClick={() => setRequireUserApproval(!requireUserApproval)}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                    requireUserApproval ? 'bg-blue-600' : 'bg-gray-200'
-                  }`}
+                  className="relative cursor-pointer"
+                  style={{ width: '44px', height: '24px' }}
                 >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                      requireUserApproval ? 'translate-x-5' : 'translate-x-0'
+                  <div 
+                    className={`absolute top-1/2 -translate-y-1/2 left-0 right-0 h-3 rounded-full transition-colors duration-200 ${
+                      requireUserApproval ? 'bg-blue-600' : 'bg-gray-300'
                     }`}
                   />
-                </button>
+                  <div
+                    className={`absolute top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white shadow-md border border-gray-200 transition-all duration-200 ${
+                      requireUserApproval ? 'left-6' : 'left-0'
+                    }`}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div>
+                <div className="flex-1 mr-4">
                   <h3 className="font-medium text-gray-900">Tillat brukere å registrere seg som medlem</h3>
                   <p className="text-sm text-gray-500 mt-1">
                     {allowSelfMembershipClaim 
@@ -802,19 +805,22 @@ export default function AdminSettingsPage() {
                     }
                   </p>
                 </div>
-                <button
-                  type="button"
+                <div
                   onClick={() => setAllowSelfMembershipClaim(!allowSelfMembershipClaim)}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                    allowSelfMembershipClaim ? 'bg-blue-600' : 'bg-gray-200'
-                  }`}
+                  className="relative cursor-pointer"
+                  style={{ width: '44px', height: '24px' }}
                 >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                      allowSelfMembershipClaim ? 'translate-x-5' : 'translate-x-0'
+                  <div 
+                    className={`absolute top-1/2 -translate-y-1/2 left-0 right-0 h-3 rounded-full transition-colors duration-200 ${
+                      allowSelfMembershipClaim ? 'bg-blue-600' : 'bg-gray-300'
                     }`}
                   />
-                </button>
+                  <div
+                    className={`absolute top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white shadow-md border border-gray-200 transition-all duration-200 ${
+                      allowSelfMembershipClaim ? 'left-6' : 'left-0'
+                    }`}
+                  />
+                </div>
               </div>
             </div>
 
@@ -1066,7 +1072,7 @@ export default function AdminSettingsPage() {
             </div>
 
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-              <div>
+              <div className="flex-1 mr-4">
                 <h3 className="font-medium text-gray-900">Testmodus</h3>
                 <p className="text-sm text-gray-500 mt-1">
                   {vippsTestMode 
@@ -1075,19 +1081,22 @@ export default function AdminSettingsPage() {
                   }
                 </p>
               </div>
-              <button
-                type="button"
+              <div
                 onClick={() => setVippsTestMode(!vippsTestMode)}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  vippsTestMode ? 'bg-blue-600' : 'bg-gray-200'
-                }`}
+                className="relative cursor-pointer"
+                style={{ width: '44px', height: '24px' }}
               >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    vippsTestMode ? 'translate-x-5' : 'translate-x-0'
+                <div 
+                  className={`absolute top-1/2 -translate-y-1/2 left-0 right-0 h-3 rounded-full transition-colors duration-200 ${
+                    vippsTestMode ? 'bg-blue-600' : 'bg-gray-300'
                   }`}
                 />
-              </button>
+                <div
+                  className={`absolute top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white shadow-md border border-gray-200 transition-all duration-200 ${
+                    vippsTestMode ? 'left-6' : 'left-0'
+                  }`}
+                />
+              </div>
             </div>
           </div>
         </div>

@@ -371,24 +371,24 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
   }, [bookings, applyToAll])
 
   return (
-    <div>
+    <div className="overflow-x-hidden">
       {/* Controls */}
-      <div className="flex flex-col gap-4 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 sm:gap-4 mb-3 sm:mb-6">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => viewMode === "week" 
                 ? setCurrentDate(subWeeks(currentDate, 1))
                 : setCurrentDate(subMonths(currentDate, 1))
               }
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-1 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
-            <h3 className="font-semibold text-gray-900 min-w-[200px] text-center">
+            <h3 className="font-semibold text-gray-900 text-xs sm:text-base text-center">
               {viewMode === "week" 
-                ? `${format(weekStart, "d. MMMM", { locale: nb })} - ${format(addDays(weekStart, 6), "d. MMMM yyyy", { locale: nb })}`
-                : format(currentDate, "MMMM yyyy", { locale: nb })
+                ? `${format(weekStart, "d.", { locale: nb })} - ${format(addDays(weekStart, 6), "d. MMM", { locale: nb })}`
+                : format(currentDate, "MMM yyyy", { locale: nb })
               }
             </h3>
             <button
@@ -396,23 +396,23 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
                 ? setCurrentDate(addWeeks(currentDate, 1))
                 : setCurrentDate(addMonths(currentDate, 1))
               }
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="p-1 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
               onClick={() => setCurrentDate(new Date())}
-              className="ml-2 px-3 py-1.5 text-sm rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+              className="ml-1 sm:ml-2 px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
             >
               I dag
             </button>
           </div>
 
           {/* View toggle */}
-          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+          <div className="flex items-center gap-0.5 sm:gap-1 bg-gray-100 p-0.5 sm:p-1 rounded-lg">
             <button
               onClick={() => setViewMode("week")}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                 viewMode === "week" 
                   ? "bg-white text-gray-900 shadow-sm" 
                   : "text-gray-600 hover:text-gray-900"
@@ -422,13 +422,13 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
             </button>
             <button
               onClick={() => setViewMode("month")}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                 viewMode === "month" 
                   ? "bg-white text-gray-900 shadow-sm" 
                   : "text-gray-600 hover:text-gray-900"
               }`}
             >
-              Måned
+              Mnd
             </button>
           </div>
         </div>
@@ -437,7 +437,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
           <select
             value={selectedPart || ""}
             onChange={(e) => setSelectedPart(e.target.value || null)}
-            className="input max-w-[200px]"
+            className="input text-xs sm:text-sm py-1 sm:py-2 max-w-full sm:max-w-[200px]"
           >
             <option value="">Alle deler</option>
             {parts.map(part => (
@@ -459,23 +459,23 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
 
       {/* Week view */}
       {!isLoadingBookings && viewMode === "week" && (
-        <div className="border border-gray-200 rounded-xl overflow-hidden">
+        <div className="border border-gray-200 rounded-lg sm:rounded-xl overflow-hidden">
           {/* Time grid with sticky header */}
-          <div ref={weekViewScrollRef} className="max-h-[600px] overflow-y-auto pr-[17px]">
+          <div ref={weekViewScrollRef} className="max-h-[400px] sm:max-h-[600px] overflow-y-auto overflow-x-hidden">
             {/* Header - sticky */}
-            <div className="grid bg-gray-50 border-b border-gray-200 sticky top-0 z-20" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
-              <div className="p-3 text-center text-sm font-medium text-gray-500" />
+            <div className="grid bg-gray-50 border-b border-gray-200 sticky top-0 z-20" style={{ gridTemplateColumns: '40px repeat(7, 1fr)' }}>
+              <div className="p-1 sm:p-3 text-center text-[10px] sm:text-sm font-medium text-gray-500" />
               {weekDays.map((day) => (
                 <div 
                   key={day.toISOString()} 
-                  className={`p-3 text-center border-l border-gray-200 ${
+                  className={`p-1 sm:p-3 text-center border-l border-gray-200 ${
                     isToday(day) ? 'bg-blue-50' : ''
                   }`}
                 >
-                  <p className="text-xs text-gray-500 uppercase">
-                    {format(day, "EEE", { locale: nb })}
+                  <p className="text-[8px] sm:text-xs text-gray-500 uppercase">
+                    {format(day, "EEEEE", { locale: nb })}
                   </p>
-                  <p className={`text-lg font-semibold ${
+                  <p className={`text-xs sm:text-lg font-semibold ${
                     isToday(day) ? 'text-blue-600' : 'text-gray-900'
                   }`}>
                     {format(day, "d")}
@@ -486,9 +486,9 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
 
             {/* Time slots */}
             {hours.map((hour) => (
-              <div key={hour} className="grid border-b border-gray-100 last:border-b-0" style={{ gridTemplateColumns: '60px repeat(7, 1fr)' }}>
-                <div className="p-2 text-right text-xs text-gray-400 pr-3">
-                  {hour.toString().padStart(2, "0")}:00
+              <div key={hour} className="grid border-b border-gray-100 last:border-b-0" style={{ gridTemplateColumns: '40px repeat(7, 1fr)' }}>
+                <div className="p-1 sm:p-2 text-right text-[10px] sm:text-xs text-gray-400 pr-1 sm:pr-3">
+                  {hour.toString().padStart(2, "0")}
                 </div>
                 {weekDays.map((day) => {
                   // Get all bookings for this day and calculate columns

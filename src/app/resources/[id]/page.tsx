@@ -148,11 +148,11 @@ export default async function ResourcePage({ params }: Props) {
   // Pricing-sjekk og data hentes nå client-side via PricingInfoCardLoader
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 overflow-x-hidden">
       <Navbar />
 
-      {/* Hero - smaller on mobile */}
-      <div className="relative h-48 sm:h-64 md:h-80">
+      {/* Hero - compact on mobile, with top padding for navbar */}
+      <div className="relative h-36 sm:h-64 md:h-80 pt-2 sm:pt-0">
         {resource.image ? (
           <Image
             src={resource.image}
@@ -170,22 +170,23 @@ export default async function ResourcePage({ params }: Props) {
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-black/20" />
-        <div className="absolute inset-0 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-end pb-8">
+        <div className="absolute inset-0 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 flex flex-col justify-between pt-3 pb-3 sm:justify-end sm:pt-0 sm:pb-8">
           <Link 
             href="/resources" 
-            className="inline-flex items-center gap-2 text-white/80 hover:text-white mb-4 text-sm"
+            className="inline-flex items-center gap-1.5 sm:gap-2 text-white/80 hover:text-white text-xs sm:text-sm w-fit"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Tilbake til fasiliteter
+            <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="sm:hidden">Tilbake</span>
+            <span className="hidden sm:inline">Tilbake til fasiliteter</span>
           </Link>
           <div>
-            <span className="inline-block px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white text-sm mb-3">
+            <span className="inline-block px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-white/20 backdrop-blur-sm text-white text-xs sm:text-sm mb-1.5 sm:mb-3">
               {resource.category?.name || "Fasilitet"}
             </span>
-            <h1 className="text-3xl md:text-4xl font-bold text-white">{resource.name}</h1>
+            <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-white">{resource.name}</h1>
             {resource.location && (
-              <p className="text-white/80 flex items-center gap-2 mt-2">
-                <MapPin className="w-5 h-5" />
+              <p className="text-white/80 flex items-center gap-1 sm:gap-2 mt-1 sm:mt-2 text-xs sm:text-base">
+                <MapPin className="w-3 h-3 sm:w-5 sm:h-5" />
                 {resource.location}
               </p>
             )}
@@ -193,13 +194,13 @@ export default async function ResourcePage({ params }: Props) {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-8 pb-24 sm:pb-8">
+        <div className="grid lg:grid-cols-3 gap-3 sm:gap-8">
           {/* Main content */}
-          <div className="lg:col-span-2 space-y-6 sm:space-y-8 order-2 lg:order-1">
-            {/* Description */}
+          <div className="lg:col-span-2 space-y-3 sm:space-y-8 order-2 lg:order-1">
+            {/* Description - hidden on mobile */}
             {resource.description && (
-              <div className="card p-6">
+              <div className="card p-3 sm:p-6 hidden sm:block">
                 <h2 className="text-lg font-semibold text-gray-900 mb-3">Om fasiliteten</h2>
                 <p className="text-gray-600">{resource.description}</p>
               </div>
@@ -207,10 +208,10 @@ export default async function ResourcePage({ params }: Props) {
 
             {/* Map Overview */}
             {resource.mapImage && resource.parts.length > 0 && (
-              <div className="card p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-blue-600" />
-                  Oversiktskart
+              <div className="card p-3 sm:p-6">
+                <h2 className="text-sm sm:text-lg font-semibold text-gray-900 mb-2 sm:mb-4 flex items-center gap-1.5 sm:gap-2">
+                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                  Kart
                 </h2>
                 <MapViewer
                   mapImage={resource.mapImage}
@@ -227,9 +228,9 @@ export default async function ResourcePage({ params }: Props) {
             )}
 
             {/* Calendar */}
-            <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-blue-600" />
+            <div className="card p-3 sm:p-6">
+              <h2 className="text-sm sm:text-lg font-semibold text-gray-900 mb-2 sm:mb-4 flex items-center gap-1.5 sm:gap-2">
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                 Kalender
               </h2>
               <ResourceCalendar 
@@ -245,16 +246,18 @@ export default async function ResourcePage({ params }: Props) {
             </div>
           </div>
 
-          {/* Sidebar - shows first on mobile for quick access to booking button */}
-          <div className="space-y-4 sm:space-y-6 order-1 lg:order-2">
-            {/* Book button - tilgangssjekk gjøres på booking-siden */}
-            <Link
-              href={`/resources/${resource.id}/book`}
-              className="btn btn-primary w-full py-4 text-lg"
-            >
-              <Calendar className="w-5 h-5" />
-              Book nå
-            </Link>
+          {/* Sidebar */}
+          <div className="space-y-3 sm:space-y-6 order-1 lg:order-2">
+            {/* Book button - only visible on desktop, mobile uses sticky button */}
+            <div className="hidden sm:block">
+              <Link
+                href={`/resources/${resource.id}/book`}
+                className="btn btn-primary w-full py-4 text-lg flex"
+              >
+                <Calendar className="w-5 h-5" />
+                Book nå
+              </Link>
+            </div>
 
             {/* Quick info - Vises kun hvis minst én innstilling er aktiv */}
             {((resource.minBookingMinutes !== 0 && resource.minBookingMinutes !== null) || 
@@ -262,16 +265,16 @@ export default async function ResourcePage({ params }: Props) {
               (resource.minBookingHours && Number(resource.minBookingHours) > 0) ||
               resource.advanceBookingDays ||
               resource.requiresApproval) && (
-              <div className="card p-6">
-                <h3 className="font-semibold text-gray-900 mb-4">Booking-info</h3>
-                <div className="space-y-4">
+              <div className="card p-3 sm:p-6">
+                <h3 className="font-semibold text-gray-900 mb-2 sm:mb-4 text-sm sm:text-base">Booking-info</h3>
+                <div className="space-y-2 sm:space-y-4">
                   {/* Minimum antall timer - vises kun hvis satt */}
                   {resource.minBookingHours && Number(resource.minBookingHours) > 0 && (
-                    <div className="flex items-start gap-3">
-                      <Clock className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium text-gray-900">Minimum varighet</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-xs sm:text-sm font-medium text-gray-900">Min. varighet</p>
+                        <p className="text-xs sm:text-sm text-gray-500">
                           {Number(resource.minBookingHours)} timer
                         </p>
                       </div>
@@ -280,23 +283,23 @@ export default async function ResourcePage({ params }: Props) {
                   {/* Varighet - vises kun hvis begrenset */}
                   {((resource.minBookingMinutes !== 0 && resource.minBookingMinutes !== null) || 
                     (resource.maxBookingMinutes !== 9999 && resource.maxBookingMinutes !== null)) && (
-                    <div className="flex items-start gap-3">
-                      <Clock className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium text-gray-900">Varighet</p>
-                        <p className="text-sm text-gray-500">
-                          {`${resource.minBookingMinutes || 0} - ${resource.maxBookingMinutes || 9999} minutter`}
+                        <p className="text-xs sm:text-sm font-medium text-gray-900">Varighet</p>
+                        <p className="text-xs sm:text-sm text-gray-500">
+                          {`${resource.minBookingMinutes || 0}-${resource.maxBookingMinutes || 9999} min`}
                         </p>
                       </div>
                     </div>
                   )}
                   {/* Forhåndsbestilling - vises kun hvis begrenset */}
                   {resource.advanceBookingDays && (
-                    <div className="flex items-start gap-3">
-                      <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium text-gray-900">Forhåndsbestilling</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-xs sm:text-sm font-medium text-gray-900">Forhåndsbestilling</p>
+                        <p className="text-xs sm:text-sm text-gray-500">
                           Inntil {resource.advanceBookingDays} dager frem
                         </p>
                       </div>
@@ -304,13 +307,10 @@ export default async function ResourcePage({ params }: Props) {
                   )}
                   {/* Godkjenning - vises kun hvis kreves */}
                   {resource.requiresApproval && (
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="w-5 h-5 text-amber-500 mt-0.5" />
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium text-gray-900">Godkjenning</p>
-                        <p className="text-sm text-gray-500">
-                          Krever godkjenning fra admin
-                        </p>
+                        <p className="text-xs sm:text-sm font-medium text-gray-900">Godkjenning kreves</p>
                       </div>
                     </div>
                   )}
@@ -336,15 +336,15 @@ export default async function ResourcePage({ params }: Props) {
               />
             )}
 
-            {/* Opening hours */}
+            {/* Opening hours - hidden on mobile */}
             {openingHours && (
-              <div className="card p-6">
-                <h3 className="font-semibold text-gray-900 mb-4">Åpningstider</h3>
-                <div className="space-y-2">
+              <div className="card p-3 sm:p-6 hidden sm:block">
+                <h3 className="font-semibold text-gray-900 mb-2 sm:mb-4 text-sm sm:text-base">Åpningstider</h3>
+                <div className="space-y-1 sm:space-y-2">
                   {Object.entries(openingHours).map(([day, hours]) => {
                     const h = hours as { open: string; close: string }
                     return (
-                      <div key={day} className="flex justify-between text-sm">
+                      <div key={day} className="flex justify-between text-xs sm:text-sm">
                         <span className="text-gray-600">{dayNames[day]}</span>
                         <span className="text-gray-900 font-medium">
                           {h.open} - {h.close}
@@ -359,16 +359,17 @@ export default async function ResourcePage({ params }: Props) {
         </div>
       </div>
 
-      {/* Sticky mobile book button - only visible on mobile, positioned above the bottom navbar */}
-      <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent md:hidden z-30">
-        <Link
-          href={`/resources/${resource.id}/book`}
-          className="btn btn-primary w-full py-3.5 text-base font-semibold shadow-lg"
-        >
-          <Calendar className="w-5 h-5" />
-          Book nå
-        </Link>
-      </div>
+      {/* Sticky mobile book button - floating pill on right side */}
+      <Link
+        href={`/resources/${resource.id}/book`}
+        className="fixed bottom-20 right-4 sm:hidden z-30 flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-full shadow-lg transition-all active:scale-95"
+        style={{ 
+          boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)'
+        }}
+      >
+        <Calendar className="w-4 h-4" />
+        Book nå
+      </Link>
     </div>
   )
 }

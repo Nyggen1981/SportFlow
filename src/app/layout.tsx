@@ -12,12 +12,6 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "SportFlow - Smartere Klubbdrift",
   description: "Book haller, rom og fasiliteter enkelt og oversiktlig",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "SportFlow",
-  },
   formatDetection: {
     telephone: false,
   },
@@ -38,9 +32,8 @@ export default function RootLayout({
   return (
     <html lang="no" suppressHydrationWarning>
       <head>
-        <link rel="apple-touch-icon" href="/kvadratisk-logo.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="mobile-web-app-capable" content="yes" />
+        {/* Favicon */}
+        <link rel="icon" href="/favicon.ico" />
       </head>
       <body className={`${outfit.variable} font-sans antialiased`} suppressHydrationWarning>
         <Providers>

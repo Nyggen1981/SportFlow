@@ -530,40 +530,41 @@ export default function BookResourcePage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
+      {/* Header - Compact on mobile */}
       <div 
-        className="h-32"
+        className="h-16 sm:h-32"
         style={{ 
           background: `linear-gradient(135deg, ${resource.category?.color || '#3b82f6'}ee, ${resource.category?.color || '#3b82f6'}88)`
         }}
       >
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center">
+        <div className="max-w-3xl mx-auto px-3 sm:px-6 lg:px-8 h-full flex items-center">
           <Link 
             href={`/resources/${id}`}
-            className="flex items-center gap-2 text-white/80 hover:text-white"
+            className="flex items-center gap-1.5 sm:gap-2 text-white/80 hover:text-white text-sm sm:text-base"
           >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Tilbake til {resource.name}</span>
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="hidden sm:inline">Tilbake til {resource.name}</span>
+            <span className="sm:hidden">Tilbake</span>
           </Link>
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-20 md:pb-16">
-        <div className="card p-4 sm:p-6 md:p-8">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Book {resource.name}</h1>
-          <p className="text-gray-500 mb-6 sm:mb-8 text-sm sm:text-base">Fyll ut skjemaet for å sende en bookingforespørsel</p>
+      <div className="max-w-3xl mx-auto px-3 sm:px-6 lg:px-8 -mt-4 sm:-mt-8 pb-24 sm:pb-16">
+        <div className="card p-3 sm:p-6 md:p-8">
+          <h1 className="text-lg sm:text-2xl font-bold text-gray-900 mb-1 sm:mb-2">Book {resource.name}</h1>
+          <p className="text-gray-500 mb-4 sm:mb-8 text-xs sm:text-base">Fyll ut skjemaet for å sende en bookingforespørsel</p>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                 Tittel på booking *
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="input"
+                className="input text-sm sm:text-base py-2 sm:py-2.5"
                 placeholder="F.eks. A-lag trening"
                 required
               />
@@ -571,22 +572,22 @@ export default function BookResourcePage({ params }: Props) {
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                 Beskrivelse
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="input min-h-[100px]"
+                className="input min-h-[80px] sm:min-h-[100px] text-sm sm:text-base"
                 placeholder="Eventuell tilleggsinformasjon..."
               />
             </div>
 
             {/* Part selection with map */}
             {resource.parts.length > 0 && (
-              <div className="space-y-4">
-                <label className="block text-sm font-medium text-gray-700">
-                  Velg del(er) av {resource.name} {!resource.allowWholeBooking && <span className="text-red-500">*</span>}
+              <div className="space-y-2 sm:space-y-4">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700">
+                  Velg del av {resource.name} {!resource.allowWholeBooking && <span className="text-red-500">*</span>}
                 </label>
                 
                 {/* Map view if available */}
@@ -603,15 +604,15 @@ export default function BookResourcePage({ params }: Props) {
                     </div>
                     
                     {/* Selected parts display */}
-                    <div className={`p-4 rounded-xl border-2 transition-all ${
+                    <div className={`p-2 sm:p-4 rounded-lg sm:rounded-xl border-2 transition-all ${
                       selectedParts.length > 0
                         ? "border-blue-500 bg-blue-50" 
                         : !resource.allowWholeBooking 
                           ? "border-red-300 bg-red-50"
                           : "border-gray-200 bg-gray-50"
                     }`}>
-                      <p className="text-sm text-gray-500 mb-1">Valgt del:</p>
-                      <p className="font-semibold text-gray-900">
+                      <p className="text-xs text-gray-500 mb-0.5 sm:mb-1">Valgt del:</p>
+                      <p className="font-semibold text-gray-900 text-sm sm:text-base">
                         {selectedParts.length > 0 
                           ? selectedParts.map(id => resource.parts.find(p => p.id === id)?.name).filter(Boolean).join(", ")
                           : resource.allowWholeBooking 
@@ -619,14 +620,7 @@ export default function BookResourcePage({ params }: Props) {
                             : "Velg del"
                         }
                       </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        Kun én del kan velges per booking
-                      </p>
                     </div>
-                    
-                    <p className="text-xs text-gray-500">
-                      Klikk på en del i kartet for å velge den.
-                    </p>
                   </div>
                 ) : (
                   /* Fallback radio list if no map - only one part can be selected */
@@ -767,13 +761,13 @@ export default function BookResourcePage({ params }: Props) {
             )}
 
             {/* Date and time */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Fra</h3>
-                <div className="grid md:grid-cols-2 gap-4">
+                <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3">Fra</h3>
+                <div className="grid grid-cols-2 gap-2 sm:gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <Calendar className="w-4 h-4 inline mr-1" />
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
                       Dato *
                     </label>
                     <input
@@ -782,44 +776,27 @@ export default function BookResourcePage({ params }: Props) {
                       value={startDate}
                       onChange={(e) => {
                         setStartDate(e.target.value)
-                        // Auto-set end date to same date if not set or if end date is before start date
                         if (!endDate || (endDate && new Date(e.target.value) > new Date(endDate))) {
                           setEndDate(e.target.value)
                         }
                       }}
-                      className="input cursor-pointer w-full"
+                      className="input cursor-pointer w-full text-sm sm:text-base py-1.5 sm:py-2"
                       min={new Date().toISOString().split("T")[0]}
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <Clock className="w-4 h-4 inline mr-1" />
-                      Klokkeslett *
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                      <Clock className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                      Tid *
                     </label>
                     <select
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      onMouseDown={(e) => {
-                        // Scroll to bottom when clicking to open dropdown
-                        const select = e.target as HTMLSelectElement
-                        setTimeout(() => {
-                          if (select.options.length > 0) {
-                            select.selectedIndex = select.options.length - 1
-                            // Reset to actual value after a brief moment
-                            setTimeout(() => {
-                              const selectedIndex = Array.from(select.options).findIndex(opt => opt.value === startTime)
-                              if (selectedIndex > 0) {
-                                select.selectedIndex = selectedIndex
-                              }
-                            }, 50)
-                          }
-                        }, 0)
-                      }}
-                      className="input cursor-pointer w-full"
+                      className="input cursor-pointer w-full text-sm sm:text-base py-1.5 sm:py-2"
                       required
                     >
-                      <option value="">Velg tid</option>
+                      <option value="">Velg</option>
                       {timeOptions.map(({ value, label }) => (
                         <option key={value} value={value}>{label}</option>
                       ))}
@@ -829,20 +806,19 @@ export default function BookResourcePage({ params }: Props) {
               </div>
               
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Til</h3>
-                <div className="grid md:grid-cols-2 gap-4">
+                <h3 className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3">Til</h3>
+                <div className="grid grid-cols-2 gap-2 sm:gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <Calendar className="w-4 h-4 inline mr-1" />
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
                       Dato *
                     </label>
                     {usePackage && selectedPackageId ? (
-                      // When using a package, end date is calculated automatically
-                      <div className="input bg-gray-100 flex items-center justify-between">
+                      <div className="input bg-gray-100 flex items-center justify-between text-sm sm:text-base py-1.5 sm:py-2">
                         <span className={endDate ? "text-gray-900" : "text-gray-400"}>
                           {endDate ? new Date(endDate).toLocaleDateString("nb-NO") : "Velg startdato"}
                         </span>
-                        <span className="text-xs text-gray-500">(automatisk)</span>
+                        <span className="text-[10px] sm:text-xs text-gray-500">(auto)</span>
                       </div>
                     ) : (
                       <input
@@ -850,49 +826,32 @@ export default function BookResourcePage({ params }: Props) {
                         lang="no"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="input cursor-pointer w-full"
+                        className="input cursor-pointer w-full text-sm sm:text-base py-1.5 sm:py-2"
                         min={startDate || new Date().toISOString().split("T")[0]}
                         required
                       />
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <Clock className="w-4 h-4 inline mr-1" />
-                      Klokkeslett *
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                      <Clock className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
+                      Tid *
                     </label>
                     {usePackage && selectedPackageId ? (
-                      // When using a package, end time is calculated automatically
-                      <div className="input bg-gray-100 flex items-center justify-between">
+                      <div className="input bg-gray-100 flex items-center justify-between text-sm sm:text-base py-1.5 sm:py-2">
                         <span className={endTime ? "text-gray-900" : "text-gray-400"}>
                           {endTime || "Velg starttid"}
                         </span>
-                        <span className="text-xs text-gray-500">(automatisk)</span>
+                        <span className="text-[10px] sm:text-xs text-gray-500">(auto)</span>
                       </div>
                     ) : (
                       <select
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
-                        onMouseDown={(e) => {
-                          // Scroll to bottom when clicking to open dropdown
-                          const select = e.target as HTMLSelectElement
-                          setTimeout(() => {
-                            if (select.options.length > 0) {
-                              select.selectedIndex = select.options.length - 1
-                              // Reset to actual value after a brief moment
-                              setTimeout(() => {
-                                const selectedIndex = Array.from(select.options).findIndex(opt => opt.value === endTime)
-                                if (selectedIndex > 0) {
-                                  select.selectedIndex = selectedIndex
-                                }
-                              }, 50)
-                            }
-                          }, 0)
-                        }}
-                        className="input cursor-pointer w-full"
+                        className="input cursor-pointer w-full text-sm sm:text-base py-1.5 sm:py-2"
                         required
                       >
-                        <option value="">Velg tid</option>
+                        <option value="">Velg</option>
                         {timeOptions.map(({ value, label }) => (
                           <option key={value} value={value}>{label}</option>
                         ))}
@@ -905,29 +864,27 @@ export default function BookResourcePage({ params }: Props) {
 
             {/* Vis varighetsinfo kun for timeleie, ikke for fastprispakker */}
             {!usePackage && (
-              <p className="text-sm text-gray-500">
+              <p className="text-xs sm:text-sm text-gray-500">
                 {resource.minBookingMinutes !== null && resource.maxBookingMinutes !== null &&
                  resource.minBookingMinutes !== 0 && resource.maxBookingMinutes !== 9999 ? (
-                  <>Varighet må være mellom {resource.minBookingMinutes} og {resource.maxBookingMinutes} minutter</>
-                ) : (
-                  <>Ubegrenset varighet</>
-                )}
+                  <>Varighet: {resource.minBookingMinutes}-{resource.maxBookingMinutes} min</>
+                ) : null}
               </p>
             )}
 
             {/* Recurring booking */}
-            <div className="p-4 bg-gray-50 rounded-xl space-y-4">
-              <div className="flex items-center gap-3">
+            <div className="p-3 sm:p-4 bg-gray-50 rounded-lg sm:rounded-xl space-y-3 sm:space-y-4">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <input
                   type="checkbox"
                   id="isRecurring"
                   checked={isRecurring}
                   onChange={(e) => setIsRecurring(e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="w-4 h-4 sm:w-5 sm:h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                <label htmlFor="isRecurring" className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                  <Repeat className="w-4 h-4" />
-                  Gjentakende arrangement
+                <label htmlFor="isRecurring" className="text-xs sm:text-sm font-medium text-gray-700 flex items-center gap-1.5 sm:gap-2">
+                  <Repeat className="w-3 h-3 sm:w-4 sm:h-4" />
+                  Gjentakende
                 </label>
               </div>
 
@@ -1115,28 +1072,29 @@ export default function BookResourcePage({ params }: Props) {
             )}
 
             {/* Submit */}
-            <div className="space-y-3 pt-4">
-              <div className="flex flex-col sm:flex-row gap-3">
+            <div className="space-y-2 sm:space-y-3 pt-3 sm:pt-4">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="btn btn-primary flex-1 py-3 disabled:opacity-50"
+                className="btn btn-primary flex-1 py-2.5 sm:py-3 text-sm sm:text-base disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
                     Sender...
                   </>
                 ) : (
                   <>
-                    <Calendar className="w-5 h-5" />
-                    Send bookingforespørsel
+                    <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="hidden sm:inline">Send bookingforespørsel</span>
+                    <span className="sm:hidden">Send forespørsel</span>
                   </>
                 )}
               </button>
               <Link
                 href={`/resources/${id}`}
-                className="btn btn-secondary py-3"
+                className="btn btn-secondary py-2.5 sm:py-3 text-sm sm:text-base"
               >
                 Avbryt
               </Link>

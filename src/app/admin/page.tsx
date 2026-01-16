@@ -11,7 +11,8 @@ import {
   Settings,
   Layers,
   Shield,
-  Trophy
+  Trophy,
+  ArrowLeft
 } from "lucide-react"
 import { BookingManagement } from "@/components/BookingManagement"
 import { LicenseStatusCard } from "@/components/LicenseStatusCard"
@@ -89,6 +90,15 @@ export default async function AdminPage() {
 
       <main className="flex-1">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Mobile back button */}
+            <Link 
+              href="/kalender" 
+              className="md:hidden inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 mb-4 text-sm"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Tilbake
+            </Link>
+
             {/* Header */}
             <div className="mb-6">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">

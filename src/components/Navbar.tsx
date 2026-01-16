@@ -176,6 +176,35 @@ export function Navbar() {
             </Link>
           </div>
 
+          {/* Mobile Profile/Login + Logout buttons */}
+          <div className="flex md:hidden items-center gap-1">
+            {isLoggedIn ? (
+              <>
+                <Link
+                  href="/innstillinger"
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  <span>Profil</span>
+                </Link>
+                <button
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Logg inn</span>
+              </Link>
+            )}
+          </div>
+
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
             {session ? (
@@ -207,8 +236,8 @@ export function Navbar() {
                   )}
                 </Link>
 
-                {/* Konkurranser - vises kun for vanlige brukere (ikke admins eller kampoppsett-admins) */}
-                {matchSetupEnabled && !canAccessAdmin && !hasMatchSetupAccess && (
+                {/* Konkurranser - vises for alle roller når modulen er aktivert */}
+                {matchSetupEnabled && (
                   <Link 
                     href="/competitions" 
                     className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
@@ -294,26 +323,7 @@ export function Navbar() {
             )}
           </div>
 
-          {/* Mobile: Show user avatar/login only, navigation is in bottom bar */}
-          <div className="md:hidden flex items-center">
-            {session ? (
-              <Link 
-                href="/innstillinger" 
-                className="flex items-center gap-2 px-2 py-1 rounded-lg text-gray-600 hover:bg-gray-100"
-              >
-                <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
-                  <User className="w-4 h-4 text-teal-600" />
-                </div>
-              </Link>
-            ) : (
-              <Link 
-                href="/login" 
-                className="px-3 py-1.5 bg-teal-600 text-white text-sm font-medium rounded-lg"
-              >
-                Logg inn
-              </Link>
-            )}
-          </div>
+          {/* Mobile: Navigation is handled by bottom navbar */}
         </div>
       </div>
 
