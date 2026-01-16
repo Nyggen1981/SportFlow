@@ -205,11 +205,6 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
                     </div>
                   ) : (
                     <>
-                      {!isAdmin && (
-                        <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
-                          Endring av fasilitet krever ny godkjenning fra administrator
-                        </p>
-                      )}
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Velg fasilitet</p>
                         <select
