@@ -122,6 +122,9 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
   // Expanded recurring groups state
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   
+  // Recurring group modal state
+  const [selectedRecurringGroup, setSelectedRecurringGroup] = useState<{ groupId: string; bookings: Booking[] } | null>(null)
+  
   const now = new Date()
   
   // Clear selection when tab changes
@@ -1068,7 +1071,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Betalingsstatus</th>
                   </>
                 )}
-                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Handling</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -1086,22 +1089,30 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                     <tr 
                       className="bg-blue-50/50 hover:bg-blue-100/50 transition-colors cursor-pointer"
                       onClick={(e) => {
-                        // Ikke toggle hvis man klikker på action-knapper
+                        // Ikke åpne modal hvis man klikker på action-knapper
                         const target = e.target as HTMLElement
                         if (target.closest('button')) return
-                        toggleGroupExpansion(groupId)
+                        // Åpne recurring group modal
+                        setSelectedRecurringGroup({ groupId, bookings: groupBookings })
                       }}
                     >
                       {canDelete && <td className="px-4 py-3"></td>}
                       <td className="px-4 py-3" colSpan={2}>
                         <div className="flex items-center gap-3">
-                          <div className="p-1">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              toggleGroupExpansion(groupId)
+                            }}
+                            className="p-1 rounded hover:bg-blue-200 transition-colors"
+                            title={isExpanded ? "Skjul detaljer" : "Vis alle bookinger"}
+                          >
                             {isExpanded ? (
                               <ChevronUp className="w-5 h-5 text-blue-600" />
                             ) : (
                               <ChevronDown className="w-5 h-5 text-blue-600" />
                             )}
-                          </div>
+                          </button>
                     <div 
                       className="w-3 h-3 rounded-full flex-shrink-0"
                             style={{ backgroundColor: firstBooking.resource.color || "#3b82f6" }}
@@ -1161,41 +1172,13 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       )}
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
-                          {pendingCount > 0 && (
-                            <>
-                      <button
-                                onClick={() => executeAction(firstBooking.id, "approve", true)}
-                                disabled={processingId !== null}
-                                className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-1"
-                                title={`Godkjenn alle ${pendingCount} ventende`}
-                              >
-                                <CheckCircle2 className="w-3 h-3" />
-                                Godkjenn alle
-                              </button>
-                              <button
-                                onClick={() => {
-                                  // Reject all - use first pending booking
-                                  const firstPending = groupBookings.find(b => b.status === "pending")
-                                  if (firstPending) {
-                                    setRejectingBookingId(firstPending.id)
-                                    setRejectReason("")
-                                    setRejectAllInGroup(true)
-                                    setRejectModalOpen(true)
-                                  }
-                                }}
-                                disabled={processingId !== null}
-                                className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-1"
-                                title="Avslå alle"
-                              >
-                                <XCircle className="w-3 h-3" />
-                                Avslå alle
-                              </button>
-                            </>
-                          )}
                           <button
-                            onClick={() => handleDelete(firstBooking.id, true)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(firstBooking.id, true)
+                            }}
                             disabled={processingId !== null}
-                        className="p-2 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                        className="p-2 rounded-lg text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
                             title="Slett alle i serien"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -2190,6 +2173,154 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
           }}
         />
       )}
+
+      {/* Recurring Group Modal */}
+      {selectedRecurringGroup && (() => {
+        const pendingBookings = selectedRecurringGroup.bookings.filter(b => b.status === "pending")
+        const approvedBookings = selectedRecurringGroup.bookings.filter(b => b.status === "approved")
+        const firstBooking = selectedRecurringGroup.bookings[0]
+        
+        return (
+          <div 
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setSelectedRecurringGroup(null)}
+          >
+            <div 
+              className="bg-white rounded-xl max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Calendar className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-xl font-bold text-gray-900">Gjentakende booking</h3>
+                    </div>
+                    <p className="text-gray-600">{firstBooking?.title}</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {firstBooking?.resource.name}
+                      {firstBooking?.resourcePart && ` • ${firstBooking.resourcePart.name}`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedRecurringGroup(null)}
+                    className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                  >
+                    <X className="w-6 h-6 text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 space-y-6">
+                {/* Summary */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="p-3 bg-blue-50 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-blue-700">{selectedRecurringGroup.bookings.length}</p>
+                    <p className="text-xs text-blue-600">Totalt</p>
+                  </div>
+                  <div className="p-3 bg-amber-50 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-amber-700">{pendingBookings.length}</p>
+                    <p className="text-xs text-amber-600">Venter</p>
+                  </div>
+                  <div className="p-3 bg-green-50 rounded-lg text-center">
+                    <p className="text-2xl font-bold text-green-700">{approvedBookings.length}</p>
+                    <p className="text-xs text-green-600">Godkjent</p>
+                  </div>
+                </div>
+
+                {/* Booking list */}
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Alle bookinger i serien</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {selectedRecurringGroup.bookings.map((booking) => (
+                      <div 
+                        key={booking.id}
+                        className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                        onClick={() => {
+                          setSelectedRecurringGroup(null)
+                          setSelectedBooking(booking)
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="text-sm">
+                            <p className="font-medium text-gray-900">
+                              {format(new Date(booking.startTime), "EEEE d. MMM", { locale: nb })}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {format(new Date(booking.startTime), "HH:mm")} - {format(new Date(booking.endTime), "HH:mm")}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {booking.status === "pending" && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>
+                          )}
+                          {booking.status === "approved" && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Godkjent</span>
+                          )}
+                          {booking.status === "rejected" && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Avslått</span>
+                          )}
+                          {booking.status === "cancelled" && (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Kansellert</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Action buttons for pending bookings */}
+                {pendingBookings.length > 0 && (
+                  <div className="border-t pt-4">
+                    <p className="text-sm text-gray-600 mb-3">
+                      Behandle alle {pendingBookings.length} ventende bookinger samtidig:
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          await executeAction(pendingBookings[0].id, "approve", true)
+                          setSelectedRecurringGroup(null)
+                        }}
+                        disabled={processingId !== null}
+                        className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        {processingId !== null ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Behandler...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" />
+                            Godkjenn alle
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedRecurringGroup(null)
+                          setRejectingBookingId(pendingBookings[0].id)
+                          setRejectReason("")
+                          setRejectAllInGroup(true)
+                          setRejectModalOpen(true)
+                        }}
+                        disabled={processingId !== null}
+                        className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Avslå alle
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
