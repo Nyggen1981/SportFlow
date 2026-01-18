@@ -1138,30 +1138,28 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       setSelectedRecurringGroup({ groupId, bookings: groupBookings })
                     }}
                   >
-                    {canDelete && <td className="px-4 py-3"></td>}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                    {canDelete && <td className="px-4 py-4"></td>}
+                    <td className="px-4 py-4">
+                      <div className="flex items-start gap-2">
                         <div 
-                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          className="w-3 h-3 rounded-full flex-shrink-0 mt-1"
                           style={{ backgroundColor: firstBooking.resource.color || "#3b82f6" }}
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-gray-900">{firstBooking.title}</span>
-                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
-                              📅 {groupBookings.length}x
-                            </span>
-                          </div>
+                          <p className="font-medium text-gray-900">{firstBooking.title}</p>
+                          <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 mt-0.5">
+                            📅 {groupBookings.length}x
+                          </span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-4">
                       <p className="text-sm text-gray-600">
                         {firstBooking.resource.name}
                         {firstBooking.resourcePart && ` → ${firstBooking.resourcePart.name}`}
                       </p>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-4">
                       <div>
                         <p className="text-sm font-medium text-gray-900">
                           {format(new Date(firstBooking.startTime), "d. MMM", { locale: nb })} - {format(new Date(lastBooking.startTime), "d. MMM yyyy", { locale: nb })}
@@ -1171,21 +1169,21 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         </p>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-4">
                       <div>
                         <p className="text-sm text-gray-900">{firstBooking.user.name || "—"}</p>
                         <p className="text-xs text-gray-500">{firstBooking.user.email}</p>
                       </div>
                     </td>
-                    {pricingEnabled && (
+                    {pricingEnabled ? (
                       <>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-4">
                           <p className="text-xs text-gray-400">—</p>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-4">
                           <p className="text-xs text-gray-400">—</p>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-4">
                           <div className="flex items-center gap-1 flex-wrap">
                             {pendingCount > 0 && (
                               <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">{pendingCount} venter</span>
@@ -1199,9 +1197,8 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                           </div>
                         </td>
                       </>
-                    )}
-                    {!pricingEnabled && (
-                      <td className="px-4 py-3">
+                    ) : (
+                      <td className="px-4 py-4">
                         <div className="flex items-center gap-1 flex-wrap">
                           {pendingCount > 0 && (
                             <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">{pendingCount} venter</span>
@@ -1215,18 +1212,20 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         </div>
                       </td>
                     )}
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDelete(firstBooking.id, true)
-                        }}
-                        disabled={processingId !== null}
-                        className="p-2 rounded-lg text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
-                        title="Slett alle i serien"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center justify-end">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDelete(firstBooking.id, true)
+                          }}
+                          disabled={processingId !== null}
+                          className="p-2 rounded-lg text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                          title="Slett alle i serien"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )
