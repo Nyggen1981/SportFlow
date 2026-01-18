@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, use, useCallback, useMemo } from "react"
+import { useState, useEffect, use, useCallback, useMemo, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -393,8 +393,17 @@ export default function BookResourcePage({ params }: Props) {
     calculatePrice()
   }, [pricingEnabled, startDate, startTime, endDate, endTime, selectedParts, id, resource, session?.user?.id, usePackage, selectedPackageId, availablePackages])
 
+  // Ref to prevent race condition with double-clicks
+  const isSubmittingRef = useRef(false)
+
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Prevent double-submit with ref (handles race condition)
+    if (isSubmittingRef.current) {
+      return
+    }
+    isSubmittingRef.current = true
     setIsSubmitting(true)
     setError("")
 
@@ -402,6 +411,7 @@ export default function BookResourcePage({ params }: Props) {
     if (resource && !resource.allowWholeBooking && resource.parts.length > 0 && selectedParts.length === 0) {
       setError("Du må velge minst en del for denne fasiliteten")
       setIsSubmitting(false)
+      isSubmittingRef.current = false
       return
     }
 
@@ -409,6 +419,7 @@ export default function BookResourcePage({ params }: Props) {
     if (!startDate || !startTime || !endDate || !endTime) {
       setError("Du må fylle ut både start- og sluttidspunkt")
       setIsSubmitting(false)
+      isSubmittingRef.current = false
       return
     }
 
@@ -420,6 +431,7 @@ export default function BookResourcePage({ params }: Props) {
       if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
         setError("Ugyldig dato eller tid")
         setIsSubmitting(false)
+        isSubmittingRef.current = false
         return
       }
       
@@ -427,6 +439,7 @@ export default function BookResourcePage({ params }: Props) {
       if (endDateTime <= startDateTime) {
         setError("Sluttidspunkt må være etter starttidspunkt")
         setIsSubmitting(false)
+        isSubmittingRef.current = false
         return
       }
 
@@ -470,6 +483,7 @@ export default function BookResourcePage({ params }: Props) {
       setError(err instanceof Error ? err.message : "Noe gikk galt")
     } finally {
       setIsSubmitting(false)
+      isSubmittingRef.current = false
     }
   }, [resource, selectedParts, id, startDate, startTime, endDate, endTime, title, description, contactName, contactEmail, contactPhone, isRecurring, recurringType, recurringEndDate, pricingEnabled, calculatedPrice, preferredPaymentMethod, usePackage, selectedPackageId])
 

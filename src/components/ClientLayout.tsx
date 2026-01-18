@@ -27,10 +27,12 @@ function MobileNavbar() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
   const [competitionsEnabled, setCompetitionsEnabled] = useState(false)
   const [hasMatchSetupAccess, setHasMatchSetupAccess] = useState(false)
+  const [hasPendingBookings, setHasPendingBookings] = useState(false)
   
   const isAdmin = session?.user?.systemRole === "admin"
   const isModerator = session?.user?.hasModeratorAccess ?? false
   const isLoggedIn = !!session?.user
+  const canAccessAdmin = isAdmin || isModerator
 
   // Check if competitions module is enabled
   useEffect(() => {
@@ -49,6 +51,28 @@ function MobileNavbar() {
         .catch(() => setHasMatchSetupAccess(false))
     }
   }, [isLoggedIn, isAdmin])
+
+  // Fetch pending bookings status for admin/moderators
+  useEffect(() => {
+    if (canAccessAdmin) {
+      const fetchPendingStatus = async () => {
+        try {
+          const response = await fetch("/api/admin/bookings/pending-count")
+          if (response.ok) {
+            const data = await response.json()
+            setHasPendingBookings(data.count > 0)
+          }
+        } catch (error) {
+          console.error("Failed to fetch pending status:", error)
+        }
+      }
+      
+      fetchPendingStatus()
+      // Refresh every 30 seconds
+      const interval = setInterval(fetchPendingStatus, 30000)
+      return () => clearInterval(interval)
+    }
+  }, [canAccessAdmin])
 
   const navItems: { href: string; icon: React.ReactNode; label: string; requiresAuth: boolean; slot: number; color?: string }[] = []
 
@@ -91,6 +115,7 @@ function MobileNavbar() {
     
     const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
     const isBookButton = item.href === "/resources"
+    const isAdminSlot = slotNum === 5 && (isAdmin || isModerator)
     
     // Determine colors based on item.color property
     const getIconColor = () => {
@@ -123,7 +148,12 @@ function MobileNavbar() {
           </>
         ) : (
           <>
-            <div className={getIconColor()}>{item.icon}</div>
+            <div className={`relative ${getIconColor()}`}>
+              {item.icon}
+              {isAdminSlot && hasPendingBookings && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+              )}
+            </div>
             <span className={`text-xs mt-1 text-center whitespace-pre-line leading-tight ${getLabelColor()}`}>{item.label}</span>
           </>
         )}

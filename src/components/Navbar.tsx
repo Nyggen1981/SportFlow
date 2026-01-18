@@ -32,8 +32,7 @@ export function Navbar() {
   const { data: session } = useSession()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [org, setOrg] = useState<Organization | null>(orgCache?.data || null)
-  const [pendingCount, setPendingCount] = useState(0)
-  const [unreadBookings, setUnreadBookings] = useState(0)
+  const [hasPendingBookings, setHasPendingBookings] = useState(false)
   const [hasMatchSetupAccess, setHasMatchSetupAccess] = useState(false)
   const [matchSetupEnabled, setMatchSetupEnabled] = useState(false)
 
@@ -59,49 +58,27 @@ export function Navbar() {
       .catch(() => {})
   }, [])
 
-  // Fetch pending bookings count for admin and moderators
+  // Fetch pending bookings status for admin and moderators
   useEffect(() => {
     if (canAccessAdmin) {
-      const fetchPendingCount = async () => {
+      const fetchPendingStatus = async () => {
         try {
           const response = await fetch("/api/admin/bookings/pending-count")
           if (response.ok) {
             const data = await response.json()
-            setPendingCount(data.count)
+            setHasPendingBookings(data.count > 0)
           }
         } catch (error) {
-          console.error("Failed to fetch pending count:", error)
+          console.error("Failed to fetch pending status:", error)
         }
       }
       
-      fetchPendingCount()
+      fetchPendingStatus()
       // Refresh every 30 seconds
-      const interval = setInterval(fetchPendingCount, 30000)
+      const interval = setInterval(fetchPendingStatus, 30000)
       return () => clearInterval(interval)
     }
   }, [canAccessAdmin])
-
-  // Fetch unread bookings count for logged-in users
-  useEffect(() => {
-    if (isLoggedIn) {
-      const fetchUnreadCount = async () => {
-        try {
-          const response = await fetch("/api/bookings/unread")
-          if (response.ok) {
-            const data = await response.json()
-            setUnreadBookings(data.total)
-          }
-        } catch (error) {
-          console.error("Failed to fetch unread count:", error)
-        }
-      }
-      
-      fetchUnreadCount()
-      // Refresh every 30 seconds
-      const interval = setInterval(fetchUnreadCount, 30000)
-      return () => clearInterval(interval)
-    }
-  }, [isLoggedIn])
 
   // Check match setup module status (for all users, including not logged in)
   useEffect(() => {
@@ -229,11 +206,6 @@ export function Navbar() {
                 >
                   <ClipboardList className="w-4 h-4" />
                   Mine bookinger
-                  {unreadBookings > 0 && (
-                    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-green-500 text-white text-xs font-bold rounded-full animate-pulse">
-                      {unreadBookings > 99 ? "99+" : unreadBookings}
-                    </span>
-                  )}
                 </Link>
 
                 {/* Konkurranser - vises for alle roller når modulen er aktivert */}
@@ -269,10 +241,8 @@ export function Navbar() {
                   >
                     <Settings className="w-4 h-4" />
                     {isAdmin ? "Admin" : "Moderator"}
-                    {pendingCount > 0 && (
-                      <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
-                        {pendingCount > 99 ? "99+" : pendingCount}
-                      </span>
+                    {hasPendingBookings && (
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
                     )}
                   </Link>
                 )}
@@ -356,11 +326,6 @@ export function Navbar() {
                 >
                   <ClipboardList className="w-5 h-5" />
                   Mine bookinger
-                  {unreadBookings > 0 && (
-                    <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-green-500 text-white text-xs font-bold rounded-full">
-                      {unreadBookings}
-                    </span>
-                  )}
                 </Link>
 
                 {/* Konkurranser - vises kun for vanlige brukere (ikke admins eller kampoppsett-admins) - mobil */}
@@ -399,10 +364,8 @@ export function Navbar() {
                   >
                     <Settings className="w-5 h-5" />
                     {isAdmin ? "Admin" : "Moderator"}
-                    {pendingCount > 0 && (
-                      <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-xs font-bold rounded-full">
-                        {pendingCount}
-                      </span>
+                    {hasPendingBookings && (
+                      <span className="ml-1.5 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
                     )}
                   </Link>
                 )}

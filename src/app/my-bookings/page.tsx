@@ -81,7 +81,7 @@ export default function MyBookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  // Removed expandedGroups for cleaner UI - all details shown in modal
   const [showMobileFilter, setShowMobileFilter] = useState(false)
   
   // Recurring group modal state
@@ -423,18 +423,6 @@ export default function MyBookingsPage() {
     return { recurringGroups: groups, standaloneBookings: standalone }
   }, [activeBookings])
 
-  // Toggle group expansion
-  const toggleGroupExpansion = useCallback((groupId: string) => {
-    setExpandedGroups(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(groupId)) {
-        newSet.delete(groupId)
-      } else {
-        newSet.add(groupId)
-      }
-      return newSet
-    })
-  }, [])
 
   const formatDateLabel = useCallback((dateStr: string) => {
     const date = parseISO(dateStr)
@@ -830,7 +818,7 @@ export default function MyBookingsPage() {
                             {getSortIcon("date")}
                           </div>
                         </th>
-                        {pricingEnabled && (
+                        {pricingEnabled ? (
                           <>
                             <th 
                               className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
@@ -842,174 +830,95 @@ export default function MyBookingsPage() {
                               </div>
                             </th>
                             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Betalingsmetode</th>
-                            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Betalingsstatus</th>
+                            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                           </>
+                        ) : (
+                          <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                         )}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {/* Render recurring groups as folders */}
+                      {/* Render recurring groups as single rows - click opens modal */}
                       {Object.entries(recurringGroups).map(([groupId, groupBookings]) => {
-                        const isExpanded = expandedGroups.has(groupId)
                         const firstBooking = groupBookings[0]
                         const lastBooking = groupBookings[groupBookings.length - 1]
                         const pendingCount = groupBookings.filter(b => b.status === "pending").length
                         const approvedCount = groupBookings.filter(b => b.status === "approved").length
+                        const rejectedCount = groupBookings.filter(b => b.status === "rejected" || b.status === "cancelled").length
 
                         return (
-                          <React.Fragment key={`group-${groupId}`}>
-                            {/* Folder Header Row */}
-                            <tr 
-                              className="bg-blue-50/50 hover:bg-blue-100/50 transition-colors cursor-pointer"
-                              onClick={(e) => {
-                                const target = e.target as HTMLElement
-                                if (target.closest('button')) return
-                                setSelectedRecurringGroup({ groupId, bookings: groupBookings })
-                              }}
-                            >
-                              {activeTab === "history" && <td className="px-4 py-3"></td>}
-                              <td className="px-4 py-3" colSpan={2}>
-                                <div className="flex items-center gap-3">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      toggleGroupExpansion(groupId)
-                                    }}
-                                    className="p-1 rounded hover:bg-blue-200 transition-colors"
-                                    title={isExpanded ? "Skjul detaljer" : "Vis alle bookinger"}
-                                  >
-                                    {isExpanded ? (
-                                      <ChevronUp className="w-5 h-5 text-blue-600" />
-                                    ) : (
-                                      <ChevronDown className="w-5 h-5 text-blue-600" />
-                                    )}
-                                  </button>
-                                  <div 
-                                    className="w-3 h-3 rounded-full flex-shrink-0"
-                                    style={{ backgroundColor: firstBooking.resource.color || "#3b82f6" }}
-                                  />
-                                  <div className="flex-1 min-w-0 overflow-hidden">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="font-semibold text-blue-900 truncate max-w-[150px]">{firstBooking.title}</span>
-                                      <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-200 text-blue-800 whitespace-nowrap">
-                                        📅 {groupBookings.length}x
-                                      </span>
-                                      {pendingCount > 0 && (
-                                        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700 whitespace-nowrap">
-                                          {pendingCount} venter
-                                        </span>
-                                      )}
-                                      {approvedCount > 0 && (
-                                        <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 whitespace-nowrap">
-                                          {approvedCount} godkjent
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="text-xs text-blue-600 mt-1 truncate">
-                                      {firstBooking.resource.name}
-                                      {firstBooking.resourcePart && ` → ${firstBooking.resourcePart.name}`}
-                                    </p>
+                          <tr 
+                            key={`group-${groupId}`}
+                            className="bg-blue-50/30 hover:bg-blue-100/50 transition-colors cursor-pointer"
+                            onClick={() => setSelectedRecurringGroup({ groupId, bookings: groupBookings })}
+                          >
+                            {activeTab === "history" && <td className="px-4 py-3"></td>}
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div 
+                                  className="w-3 h-3 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: firstBooking.resource.color || "#3b82f6" }}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-medium text-gray-900">{firstBooking.title}</span>
+                                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+                                      📅 {groupBookings.length}x
+                                    </span>
                                   </div>
                                 </div>
-                              </td>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <p className="text-sm text-gray-600">
+                                {firstBooking.resource.name}
+                                {firstBooking.resourcePart && ` → ${firstBooking.resourcePart.name}`}
+                              </p>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {format(parseISO(firstBooking.startTime), "d. MMM", { locale: nb })} - {format(parseISO(lastBooking.startTime), "d. MMM yyyy", { locale: nb })}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {groupBookings.length} datoer
+                                </p>
+                              </div>
+                            </td>
+                            {pricingEnabled ? (
+                              <>
+                                <td className="px-4 py-3"><p className="text-xs text-gray-400">—</p></td>
+                                <td className="px-4 py-3"><p className="text-xs text-gray-400">—</p></td>
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    {pendingCount > 0 && (
+                                      <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">{pendingCount} venter</span>
+                                    )}
+                                    {approvedCount > 0 && (
+                                      <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700">{approvedCount} godkj.</span>
+                                    )}
+                                    {rejectedCount > 0 && (
+                                      <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700">{rejectedCount} avsl.</span>
+                                    )}
+                                  </div>
+                                </td>
+                              </>
+                            ) : (
                               <td className="px-4 py-3">
-                                <div>
-                                  <p className="text-sm font-medium text-blue-900">
-                                    {format(parseISO(firstBooking.startTime), "d. MMM", { locale: nb })} - {format(parseISO(lastBooking.startTime), "d. MMM yyyy", { locale: nb })}
-                                  </p>
-                                  <p className="text-xs text-blue-600">
-                                    {groupBookings.length} datoer
-                                  </p>
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {pendingCount > 0 && (
+                                    <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">{pendingCount} venter</span>
+                                  )}
+                                  {approvedCount > 0 && (
+                                    <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700">{approvedCount} godkj.</span>
+                                  )}
+                                  {rejectedCount > 0 && (
+                                    <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700">{rejectedCount} avsl.</span>
+                                  )}
                                 </div>
                               </td>
-                              {pricingEnabled && (
-                                <>
-                                  <td className="px-4 py-3"><p className="text-xs text-blue-600">—</p></td>
-                                  <td className="px-4 py-3"><p className="text-xs text-blue-600">—</p></td>
-                                  <td className="px-4 py-3"><p className="text-xs text-blue-600">—</p></td>
-                                </>
-                              )}
-                            </tr>
-                            
-                            {/* Child Booking Rows (when expanded) */}
-                            {isExpanded && groupBookings.map((booking) => {
-                              const statusInfo = getStatusInfo(booking.status)
-                              const StatusIcon = statusInfo.icon
-                              const isPast = new Date(booking.startTime) < new Date()
-                              const paymentStatus = getPaymentStatus(booking)
-
-                              return (
-                                <tr 
-                                  key={booking.id}
-                                  className={`bg-gray-50/50 hover:bg-gray-100 transition-colors cursor-pointer ${
-                                    isPast || booking.status === "cancelled" || booking.status === "rejected" ? "opacity-70" : ""
-                                  }`}
-                                  onClick={(e) => {
-                                    const target = e.target as HTMLElement
-                                    if (target.closest('input[type="checkbox"]')) return
-                                    setSelectedBooking(booking)
-                                  }}
-                                >
-                                  {activeTab === "history" && (
-                                    <td className="px-4 py-3 pl-8">
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedForDelete.has(booking.id)}
-                                        onChange={() => toggleSelectBooking(booking.id)}
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
-                                      />
-                                    </td>
-                                  )}
-                                  <td className="px-4 py-3 pl-12">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-1 h-8 bg-blue-300 rounded-full" />
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                          <span className="font-medium text-gray-700">{booking.title}</span>
-                                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusInfo.color}`}>
-                                            <StatusIcon className="w-3 h-3" />
-                                            {statusInfo.label}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <p className="text-sm text-gray-600">{booking.resource.name}</p>
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <div>
-                                      <p className="text-sm font-medium text-gray-900">
-                                        {format(parseISO(booking.startTime), "d. MMM yyyy", { locale: nb })}
-                                      </p>
-                                      <p className="text-xs text-gray-500">
-                                        {format(parseISO(booking.startTime), "HH:mm")} - {format(parseISO(booking.endTime), "HH:mm")}
-                                      </p>
-                                    </div>
-                                  </td>
-                                  {pricingEnabled && (
-                                    <>
-                                      <td className="px-4 py-3">
-                                        {booking.totalAmount && booking.totalAmount > 0 ? (
-                                          <p className="text-sm font-semibold text-gray-900">{Math.round(Number(booking.totalAmount))} kr</p>
-                                        ) : (
-                                          <p className="text-xs text-gray-400">Gratis</p>
-                                        )}
-                                      </td>
-                                      <td className="px-4 py-3"><p className="text-xs text-gray-400">—</p></td>
-                                      <td className="px-4 py-3">
-                                        {paymentStatus === "paid" && <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Betalt</span>}
-                                        {paymentStatus === "unpaid" && <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Ikke betalt</span>}
-                                        {paymentStatus === "pending_payment" && <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>}
-                                        {paymentStatus === "free" && <p className="text-xs text-gray-400">—</p>}
-                                      </td>
-                                    </>
-                                  )}
-                                </tr>
-                              )
-                            })}
-                          </React.Fragment>
+                            )}
+                          </tr>
                         )
                       })}
                       
@@ -1050,13 +959,7 @@ export default function MyBookingsPage() {
                                   style={{ backgroundColor: booking.resource.color || "#3b82f6" }}
                                 />
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-medium text-gray-900">{booking.title}</span>
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusInfo.color}`}>
-                                      <StatusIcon className="w-3 h-3" />
-                                      {statusInfo.label}
-                                    </span>
-                                  </div>
+                                  <span className="font-medium text-gray-900">{booking.title}</span>
                                   {booking.description && (
                                     <p className="text-xs text-gray-500 mt-1 line-clamp-2">{booking.description}</p>
                                   )}
@@ -1064,12 +967,10 @@ export default function MyBookingsPage() {
                               </div>
                             </td>
                             <td className="px-4 py-4">
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">{booking.resource.name}</p>
-                                {booking.resourcePart && (
-                                  <p className="text-xs text-gray-500 mt-0.5">{booking.resourcePart.name}</p>
-                                )}
-                              </div>
+                              <p className="text-sm text-gray-600">
+                                {booking.resource.name}
+                                {booking.resourcePart && ` → ${booking.resourcePart.name}`}
+                              </p>
                             </td>
                             <td className="px-4 py-4">
                               <div>
@@ -1081,7 +982,7 @@ export default function MyBookingsPage() {
                                 </p>
                               </div>
                             </td>
-                            {pricingEnabled && (
+                            {pricingEnabled ? (
                               <>
                                 <td className="px-4 py-4">
                                   {booking.totalAmount && booking.totalAmount > 0 ? (
@@ -1102,12 +1003,23 @@ export default function MyBookingsPage() {
                                   )}
                                 </td>
                                 <td className="px-4 py-4">
-                                  {paymentStatus === "paid" && <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Betalt</span>}
-                                  {paymentStatus === "unpaid" && <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">Ikke betalt</span>}
-                                  {paymentStatus === "pending_payment" && <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter på betaling</span>}
-                                  {paymentStatus === "free" && <p className="text-xs text-gray-400">Gratis</p>}
+                                  <div className="flex flex-col gap-1">
+                                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium w-fit ${statusInfo.color}`}>
+                                      <StatusIcon className="w-3 h-3" />
+                                      {statusInfo.label}
+                                    </span>
+                                    {paymentStatus === "paid" && <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-emerald-100 text-emerald-700 w-fit">Betalt</span>}
+                                    {paymentStatus === "unpaid" && <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-500 w-fit">Ubetalt</span>}
+                                  </div>
                                 </td>
                               </>
+                            ) : (
+                              <td className="px-4 py-4">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${statusInfo.color}`}>
+                                  <StatusIcon className="w-3 h-3" />
+                                  {statusInfo.label}
+                                </span>
+                              </td>
                             )}
                           </tr>
                         )

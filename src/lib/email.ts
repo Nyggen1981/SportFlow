@@ -209,7 +209,11 @@ export async function getNewBookingRequestEmail(
   time: string,
   userName: string,
   userEmail: string,
-  description?: string
+  description?: string,
+  recurringInfo?: {
+    count: number
+    endDate: string
+  }
 ) {
   const customTemplate = await getEmailTemplate(organizationId, "new_booking")
   const defaultTemplates = getDefaultEmailTemplates()
@@ -219,15 +223,23 @@ export async function getNewBookingRequestEmail(
   }
   const organizationName = await getOrganizationName(organizationId)
 
+  // Build recurring info text if applicable
+  const recurringText = recurringInfo && recurringInfo.count > 1
+    ? `🔄 Gjentakende booking: ${recurringInfo.count} datoer (${date} - ${recurringInfo.endDate})`
+    : undefined
+
   return renderEmailTemplate(template, {
     bookingTitle,
     resourceName,
-    date,
+    date: recurringInfo && recurringInfo.count > 1 
+      ? `${date} (første av ${recurringInfo.count} datoer)`
+      : date,
     time,
     userName,
     userEmail,
     description,
     organizationName,
+    recurringInfo: recurringText,
   })
 }
 

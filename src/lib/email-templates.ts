@@ -114,6 +114,12 @@ export function getDefaultEmailTemplates() {
                 {{#if description}}<p><strong>Beskrivelse:</strong> {{description}}</p>{{/if}}
               </div>
               
+              {{#if recurringInfo}}
+              <div class="info-box" style="background: #fef3c7; border-left-color: #f59e0b;">
+                <p style="margin: 0; font-weight: 600; color: #92400e;">{{recurringInfo}}</p>
+              </div>
+              {{/if}}
+              
               <p>Logg inn i admin-panelet for å godkjenne eller avslå bookingen.</p>
             </div>
             <div class="footer">

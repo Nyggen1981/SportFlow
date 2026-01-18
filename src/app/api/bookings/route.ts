@@ -536,10 +536,16 @@ export async function POST(request: Request) {
             if (part) resourceName = `${resource.name} → ${part.name}`
           }
 
+          // Build recurring info if applicable
+          const recurringInfo = isRecurring && bookingDates.length > 1 ? {
+            count: bookingDates.length,
+            endDate: formatInTimeZone(bookingDates[bookingDates.length - 1].start, TIMEZONE, "d. MMMM yyyy", { locale: nb })
+          } : undefined
+
           // Send emails in parallel
           await Promise.all(allRecipients.map(async (email) => {
             const emailContent = await getNewBookingRequestEmail(
-              orgId, title, resourceName, date, time, userName, userEmail, description
+              orgId, title, resourceName, date, time, userName, userEmail, description, recurringInfo
             )
             await sendEmail(orgId, { to: email, ...emailContent })
           }))

@@ -119,8 +119,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
   const [minPriceFilter, setMinPriceFilter] = useState<string>("")
   const [maxPriceFilter, setMaxPriceFilter] = useState<string>("")
   
-  // Expanded recurring groups state
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  // Expanded recurring groups state - removed for cleaner UI
   
   // Recurring group modal state
   const [selectedRecurringGroup, setSelectedRecurringGroup] = useState<{ groupId: string; bookings: Booking[] } | null>(null)
@@ -684,18 +683,6 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
   // Filter standalone bookings
   const filteredStandalone = groupedBookings.standalone.filter(applyAllFilters)
 
-  // Toggle group expansion
-  const toggleGroupExpansion = (groupId: string) => {
-    setExpandedGroups(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(groupId)) {
-        newSet.delete(groupId)
-      } else {
-        newSet.add(groupId)
-      }
-      return newSet
-    })
-  }
 
   // For counting and other purposes, create a flat filtered list
   const filteredBookings = [
@@ -1112,7 +1099,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                     {getSortIcon("user")}
                   </div>
                 </th>
-                {pricingEnabled && (
+                {pricingEnabled ? (
                   <>
                     <th 
                       className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
@@ -1126,220 +1113,122 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Betalingsmetode</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Betalingsstatus</th>
                   </>
+                ) : (
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                 )}
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {/* Render recurring groups as folders */}
+              {/* Render recurring groups as single rows - click opens modal */}
               {filteredGroups.map(({ groupId, bookings: groupBookings }) => {
-                const isExpanded = expandedGroups.has(groupId)
                 const firstBooking = groupBookings[0]
                 const lastBooking = groupBookings[groupBookings.length - 1]
                 const pendingCount = groupBookings.filter(b => b.status === "pending").length
                 const approvedCount = groupBookings.filter(b => b.status === "approved").length
+                const rejectedCount = groupBookings.filter(b => b.status === "rejected" || b.status === "cancelled").length
                 
                 return (
-                  <React.Fragment key={`group-${groupId}`}>
-                    {/* Folder Header Row - hele raden er klikkbar */}
-                    <tr 
-                      className="bg-blue-50/50 hover:bg-blue-100/50 transition-colors cursor-pointer"
-                      onClick={(e) => {
-                        // Ikke åpne modal hvis man klikker på action-knapper
-                        const target = e.target as HTMLElement
-                        if (target.closest('button')) return
-                        // Åpne recurring group modal
-                        setSelectedRecurringGroup({ groupId, bookings: groupBookings })
-                      }}
-                    >
-                      {canDelete && <td className="px-4 py-3"></td>}
-                      <td className="px-4 py-3" colSpan={2}>
-                        <div className="flex items-center gap-3">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              toggleGroupExpansion(groupId)
-                            }}
-                            className="p-1 rounded hover:bg-blue-200 transition-colors"
-                            title={isExpanded ? "Skjul detaljer" : "Vis alle bookinger"}
-                          >
-                            {isExpanded ? (
-                              <ChevronUp className="w-5 h-5 text-blue-600" />
-                            ) : (
-                              <ChevronDown className="w-5 h-5 text-blue-600" />
+                  <tr 
+                    key={`group-${groupId}`}
+                    className="bg-blue-50/30 hover:bg-blue-100/50 transition-colors cursor-pointer"
+                    onClick={(e) => {
+                      const target = e.target as HTMLElement
+                      if (target.closest('button')) return
+                      setSelectedRecurringGroup({ groupId, bookings: groupBookings })
+                    }}
+                  >
+                    {canDelete && <td className="px-4 py-3"></td>}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: firstBooking.resource.color || "#3b82f6" }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-gray-900">{firstBooking.title}</span>
+                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+                              📅 {groupBookings.length}x
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm text-gray-600">
+                        {firstBooking.resource.name}
+                        {firstBooking.resourcePart && ` → ${firstBooking.resourcePart.name}`}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {format(new Date(firstBooking.startTime), "d. MMM", { locale: nb })} - {format(new Date(lastBooking.startTime), "d. MMM yyyy", { locale: nb })}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {groupBookings.length} datoer
+                        </p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="text-sm text-gray-900">{firstBooking.user.name || "—"}</p>
+                        <p className="text-xs text-gray-500">{firstBooking.user.email}</p>
+                      </div>
+                    </td>
+                    {pricingEnabled && (
+                      <>
+                        <td className="px-4 py-3">
+                          <p className="text-xs text-gray-400">—</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-xs text-gray-400">—</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {pendingCount > 0 && (
+                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">{pendingCount} venter</span>
                             )}
-                          </button>
-                    <div 
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: firstBooking.resource.color || "#3b82f6" }}
-                          />
-                          <div className="flex-1 min-w-0 overflow-hidden">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-blue-900 truncate max-w-[150px]">{firstBooking.title}</span>
-                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-200 text-blue-800 whitespace-nowrap">
-                                📅 {groupBookings.length}x
-                    </span>
-                              {pendingCount > 0 && (
-                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700 whitespace-nowrap">
-                                  {pendingCount} venter
-                    </span>
-                              )}
-                              {approvedCount > 0 && (
-                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700 whitespace-nowrap">
-                                  {approvedCount} godkjent
-                    </span>
-                              )}
-                  </div>
-                            <p className="text-xs text-blue-600 mt-1 truncate">
-                              {firstBooking.resource.name}
-                              {firstBooking.resourcePart && ` → ${firstBooking.resourcePart.name}`}
-                            </p>
-                </div>
-                        </div>
-                      </td>
+                            {approvedCount > 0 && (
+                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700">{approvedCount} godkj.</span>
+                            )}
+                            {rejectedCount > 0 && (
+                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700">{rejectedCount} avsl.</span>
+                            )}
+                          </div>
+                        </td>
+                      </>
+                    )}
+                    {!pricingEnabled && (
                       <td className="px-4 py-3">
-                        <div>
-                          <p className="text-sm font-medium text-blue-900">
-                            {format(new Date(firstBooking.startTime), "d. MMM", { locale: nb })} - {format(new Date(lastBooking.startTime), "d. MMM yyyy", { locale: nb })}
-                          </p>
-                          <p className="text-xs text-blue-600">
-                            {groupBookings.length} datoer
-                          </p>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {pendingCount > 0 && (
+                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">{pendingCount} venter</span>
+                          )}
+                          {approvedCount > 0 && (
+                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700">{approvedCount} godkj.</span>
+                          )}
+                          {rejectedCount > 0 && (
+                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700">{rejectedCount} avsl.</span>
+                          )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div>
-                          <p className="text-sm text-blue-900">{firstBooking.user.name || "—"}</p>
-                          <p className="text-xs text-blue-600">{firstBooking.user.email}</p>
-                        </div>
-                      </td>
-                      {pricingEnabled && (
-                        <>
-                          <td className="px-4 py-3">
-                            <p className="text-xs text-blue-600">—</p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <p className="text-xs text-blue-600">—</p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <p className="text-xs text-blue-600">—</p>
-                          </td>
-                        </>
-                      )}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDelete(firstBooking.id, true)
-                            }}
-                            disabled={processingId !== null}
-                        className="p-2 rounded-lg text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
-                            title="Slett alle i serien"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    
-                    {/* Child Booking Rows (when expanded) */}
-                    {isExpanded && groupBookings.map((booking) => (
-                      <tr 
-                        key={booking.id}
-                        className={`bg-gray-50/50 hover:bg-gray-100 transition-colors cursor-pointer ${
-                          selectedIds.has(booking.id) ? "bg-blue-50/50" : ""
-                        }`}
+                    )}
+                    <td className="px-4 py-3">
+                      <button
                         onClick={(e) => {
-                          const target = e.target as HTMLElement
-                          if (target.closest('button') || target.closest('input[type="checkbox"]')) return
-                          setSelectedBooking(booking)
+                          e.stopPropagation()
+                          handleDelete(firstBooking.id, true)
                         }}
+                        disabled={processingId !== null}
+                        className="p-2 rounded-lg text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                        title="Slett alle i serien"
                       >
-                        {canDelete && (
-                          <td className="px-4 py-3 pl-8">
-                            <button onClick={() => toggleSelection(booking.id)} className="p-1">
-                              {selectedIds.has(booking.id) ? (
-                                <CheckSquare className="w-4 h-4 text-blue-600" />
-                              ) : (
-                                <Square className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                        )}
+                        <Trash2 className="w-4 h-4" />
                       </button>
-                          </td>
-                        )}
-                        <td className="px-4 py-3 pl-12">
-                          <div className="flex items-center gap-2">
-                            <div className="w-1 h-8 bg-blue-300 rounded-full" />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-medium text-gray-700">{booking.title}</span>
-                                {booking.status === "pending" && (
-                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>
-                                )}
-                                {booking.status === "approved" && (
-                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Godkjent</span>
-                                )}
-                                {booking.status === "rejected" && (
-                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Avslått</span>
-                                )}
-                                {booking.status === "cancelled" && (
-                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Kansellert</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-gray-600">{booking.resource.name}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {format(new Date(booking.startTime), "d. MMM yyyy", { locale: nb })}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {format(new Date(booking.startTime), "HH:mm")} - {format(new Date(booking.endTime), "HH:mm")}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-gray-600">{booking.user.name || booking.user.email}</p>
-                        </td>
-                        {pricingEnabled && (
-                          <>
-                            <td className="px-4 py-3">
-                              {booking.totalAmount && booking.totalAmount > 0 ? (
-                                <p className="text-sm font-semibold text-gray-900">{Math.round(Number(booking.totalAmount))} kr</p>
-                              ) : (
-                                <p className="text-xs text-gray-400">Gratis</p>
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              <p className="text-xs text-gray-400">—</p>
-                            </td>
-                            <td className="px-4 py-3">
-                              <p className="text-xs text-gray-400">—</p>
-                            </td>
-                          </>
-                        )}
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleDelete(booking.id)
-                              }}
-                              disabled={processingId === booking.id}
-                              className="p-1.5 rounded-lg text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
-                              title="Slett denne"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </React.Fragment>
+                    </td>
+                  </tr>
                 )
               })}
               
@@ -1374,21 +1263,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         style={{ backgroundColor: booking.resource.color || "#3b82f6" }}
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-gray-900">{booking.title}</span>
-                          {booking.status === "pending" && (
-                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>
-                          )}
-                          {booking.status === "approved" && (
-                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Godkjent</span>
-                          )}
-                          {booking.status === "rejected" && (
-                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Avslått</span>
-                          )}
-                          {booking.status === "cancelled" && (
-                            <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Kansellert</span>
-                          )}
-                        </div>
+                        <span className="font-medium text-gray-900">{booking.title}</span>
                         {booking.description && (
                           <p className="text-xs text-gray-500 mt-1 line-clamp-2">{booking.description}</p>
                         )}
@@ -1396,12 +1271,10 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                     </div>
                   </td>
                   <td className="px-4 py-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{booking.resource.name}</p>
-                      {booking.resourcePart && (
-                        <p className="text-xs text-gray-500 mt-0.5">{booking.resourcePart.name}</p>
-                      )}
-                    </div>
+                    <p className="text-sm text-gray-600">
+                      {booking.resource.name}
+                      {booking.resourcePart && ` → ${booking.resourcePart.name}`}
+                    </p>
                   </td>
                   <td className="px-4 py-4">
                     <div>
@@ -1419,7 +1292,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       <p className="text-xs text-gray-500">{booking.user.email}</p>
                     </div>
                   </td>
-                  {pricingEnabled && (
+                  {pricingEnabled ? (
                     <>
                       <td className="px-4 py-4">
                         {booking.totalAmount && booking.totalAmount > 0 ? (
@@ -1440,19 +1313,42 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         )}
                       </td>
                       <td className="px-4 py-4">
-                        {booking.payments && booking.payments.length > 0 ? (
-                          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
-                            Betalt
-                          </span>
-                        ) : booking.totalAmount && booking.totalAmount > 0 ? (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
-                            Ikke betalt
-                          </span>
-                        ) : (
-                          <p className="text-xs text-gray-400">—</p>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          {booking.status === "pending" && (
+                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700 w-fit">Venter</span>
+                          )}
+                          {booking.status === "approved" && (
+                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700 w-fit">Godkjent</span>
+                          )}
+                          {booking.status === "rejected" && (
+                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700 w-fit">Avslått</span>
+                          )}
+                          {booking.status === "cancelled" && (
+                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-600 w-fit">Kansellert</span>
+                          )}
+                          {booking.payments && booking.payments.length > 0 ? (
+                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-emerald-100 text-emerald-700 w-fit">Betalt</span>
+                          ) : booking.totalAmount && Number(booking.totalAmount) > 0 ? (
+                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-500 w-fit">Ubetalt</span>
+                          ) : null}
+                        </div>
                       </td>
                     </>
+                  ) : (
+                    <td className="px-4 py-4">
+                      {booking.status === "pending" && (
+                        <span className="px-2 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">Venter</span>
+                      )}
+                      {booking.status === "approved" && (
+                        <span className="px-2 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700">Godkjent</span>
+                      )}
+                      {booking.status === "rejected" && (
+                        <span className="px-2 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700">Avslått</span>
+                      )}
+                      {booking.status === "cancelled" && (
+                        <span className="px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-600">Kansellert</span>
+                      )}
+                    </td>
                   )}
                   <td className="px-4 py-4">
                     <div className="flex items-center justify-end">
