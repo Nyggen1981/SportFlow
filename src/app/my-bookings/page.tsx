@@ -91,6 +91,9 @@ export default function MyBookingsPage() {
   const [availableResources, setAvailableResources] = useState<Array<{ id: string; name: string; parts: Array<{ id: string; name: string }> }>>([])
   const [isLoadingResources, setIsLoadingResources] = useState(false)
   const [isBulkUpdating, setIsBulkUpdating] = useState(false)
+  const [showCancelAllModal, setShowCancelAllModal] = useState(false)
+  const [cancelAllReason, setCancelAllReason] = useState("")
+  const [isCancellingAll, setIsCancellingAll] = useState(false)
 
   // Get unique categories from bookings
   const categories = useMemo(() => {
@@ -214,6 +217,41 @@ export default function MyBookingsPage() {
       setCancellingId(null)
     }
   }, [cancelReason])
+
+  const handleCancelAll = useCallback(async () => {
+    if (!selectedRecurringGroup) return
+    
+    setIsCancellingAll(true)
+    try {
+      // Get all non-cancelled bookings in the group
+      const bookingsToCancel = selectedRecurringGroup.bookings.filter(
+        b => b.status !== "cancelled" && b.status !== "rejected"
+      )
+      
+      // Cancel all bookings
+      await Promise.all(bookingsToCancel.map(async (booking) => {
+        await fetch(`/api/bookings/${booking.id}/cancel`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: cancelAllReason || undefined })
+        })
+      }))
+      
+      // Update local state
+      const cancelledIds = new Set(bookingsToCancel.map(b => b.id))
+      setBookings(prev => prev.map(b => 
+        cancelledIds.has(b.id) ? { ...b, status: "cancelled" } : b
+      ))
+      
+      setCancelAllReason("")
+      setShowCancelAllModal(false)
+      setSelectedRecurringGroup(null)
+    } catch (error) {
+      console.error("Failed to cancel all bookings:", error)
+    } finally {
+      setIsCancellingAll(false)
+    }
+  }, [selectedRecurringGroup, cancelAllReason])
 
   const handleDelete = useCallback(async (bookingId: string) => {
     setIsProcessing(true)
@@ -1161,6 +1199,60 @@ export default function MyBookingsPage() {
         </div>
       )}
 
+      {/* Cancel All Recurring Bookings Modal */}
+      {showCancelAllModal && selectedRecurringGroup && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl p-6 animate-fadeIn">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
+              Kanseller alle bookinger?
+            </h3>
+            <p className="text-gray-600 text-center mb-4">
+              Er du sikker på at du vil kansellere alle {selectedRecurringGroup.bookings.filter(b => b.status !== "cancelled" && b.status !== "rejected").length} bookinger i denne serien? Administrator vil bli varslet.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Grunn for kansellering (valgfritt)
+              </label>
+              <textarea
+                value={cancelAllReason}
+                onChange={(e) => setCancelAllReason(e.target.value)}
+                placeholder="Forklar hvorfor du kansellerer bookingene..."
+                rows={3}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowCancelAllModal(false)
+                  setCancelAllReason("")
+                }}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={handleCancelAll}
+                disabled={isCancellingAll}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                {isCancellingAll ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Ja, kanseller alle
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit Booking Modal */}
       {editingBooking && (
         <EditBookingModal
@@ -1356,23 +1448,6 @@ export default function MyBookingsPage() {
                       </div>
                     </div>
 
-                    {/* Edit all button */}
-                    <button
-                      onClick={() => {
-                        fetchResourcesForBulkEdit()
-                        setBulkEditMode(true)
-                        setBulkEditData({
-                          title: "",
-                          resourceId: "",
-                          resourcePartId: null
-                        })
-                      }}
-                      className="w-full px-4 py-2.5 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg font-medium hover:bg-blue-50 hover:border-blue-400 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Pencil className="w-4 h-4" />
-                      Rediger alle bookinger
-                    </button>
-
                     {/* Booking list */}
                     <div>
                       <h4 className="text-sm font-semibold text-gray-700 mb-3">Alle bookinger i serien</h4>
@@ -1414,6 +1489,32 @@ export default function MyBookingsPage() {
                           </div>
                         ))}
                       </div>
+                    </div>
+                    
+                    {/* Action buttons - at bottom like single booking modal */}
+                    <div className="border-t pt-4 mt-4 space-y-2">
+                      <button
+                        onClick={() => {
+                          fetchResourcesForBulkEdit()
+                          setBulkEditMode(true)
+                          setBulkEditData({
+                            title: "",
+                            resourceId: "",
+                            resourcePartId: null
+                          })
+                        }}
+                        className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        Rediger alle bookinger
+                      </button>
+                      <button
+                        onClick={() => setShowCancelAllModal(true)}
+                        className="w-full px-4 py-2.5 border border-red-300 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Kanseller alle bookinger
+                      </button>
                     </div>
                   </>
                 )}

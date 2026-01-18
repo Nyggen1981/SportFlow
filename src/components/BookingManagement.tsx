@@ -2248,23 +2248,6 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       </div>
                     </div>
 
-                    {/* Edit all button */}
-                    <button
-                      onClick={() => {
-                        fetchResources()
-                        setBulkEditMode(true)
-                        setBulkEditData({
-                          title: "",
-                          resourceId: "",
-                          resourcePartId: null
-                        })
-                      }}
-                      className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Pencil className="w-4 h-4" />
-                      Rediger alle bookinger
-                    </button>
-
                     {/* Booking list */}
                     <div>
                       <h4 className="text-sm font-semibold text-gray-700 mb-3">Alle bookinger i serien</h4>
@@ -2350,6 +2333,25 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         </div>
                       </div>
                     )}
+                    
+                    {/* Edit all button - at bottom like single booking modal */}
+                    <div className="border-t pt-4 mt-4">
+                      <button
+                        onClick={() => {
+                          fetchResources()
+                          setBulkEditMode(true)
+                          setBulkEditData({
+                            title: "",
+                            resourceId: "",
+                            resourcePartId: null
+                          })
+                        }}
+                        className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        Rediger alle bookinger
+                      </button>
+                    </div>
                   </>
                 )}
               </div>
