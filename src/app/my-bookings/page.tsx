@@ -1492,29 +1492,31 @@ export default function MyBookingsPage() {
                     </div>
                     
                     {/* Action buttons - at bottom like single booking modal */}
-                    <div className="border-t pt-4 mt-4 space-y-2">
-                      <button
-                        onClick={() => {
-                          fetchResourcesForBulkEdit()
-                          setBulkEditMode(true)
-                          setBulkEditData({
-                            title: "",
-                            resourceId: "",
-                            resourcePartId: null
-                          })
-                        }}
-                        className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Pencil className="w-4 h-4" />
-                        Rediger alle bookinger
-                      </button>
-                      <button
-                        onClick={() => setShowCancelAllModal(true)}
-                        className="w-full px-4 py-2.5 border border-red-300 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Kanseller alle bookinger
-                      </button>
+                    <div className="border-t pt-4 mt-4">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            fetchResourcesForBulkEdit()
+                            setBulkEditMode(true)
+                            setBulkEditData({
+                              title: "",
+                              resourceId: "",
+                              resourcePartId: null
+                            })
+                          }}
+                          className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          Rediger
+                        </button>
+                        <button
+                          onClick={() => setShowCancelAllModal(true)}
+                          className="flex-1 px-4 py-2.5 border border-red-300 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Kanseller
+                        </button>
+                      </div>
                     </div>
                   </>
                 )}

@@ -2334,7 +2334,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       </div>
                     )}
                     
-                    {/* Edit all button - at bottom like single booking modal */}
+                    {/* Edit button - at bottom like single booking modal */}
                     <div className="border-t pt-4 mt-4">
                       <button
                         onClick={() => {
@@ -2349,7 +2349,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                       >
                         <Pencil className="w-4 h-4" />
-                        Rediger alle bookinger
+                        Rediger
                       </button>
                     </div>
                   </>
