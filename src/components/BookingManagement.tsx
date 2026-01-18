@@ -2259,7 +2259,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                           resourcePartId: null
                         })
                       }}
-                      className="w-full px-4 py-2.5 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg font-medium hover:bg-blue-50 hover:border-blue-400 transition-colors flex items-center justify-center gap-2"
+                      className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                     >
                       <Pencil className="w-4 h-4" />
                       Rediger alle bookinger
