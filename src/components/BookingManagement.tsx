@@ -1170,10 +1170,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <div>
-                        <p className="text-sm text-gray-900">{firstBooking.user.name || "—"}</p>
-                        <p className="text-xs text-gray-500">{firstBooking.user.email}</p>
-                      </div>
+                      <p className="text-sm text-gray-900">{firstBooking.user.name || firstBooking.user.email}</p>
                     </td>
                     {pricingEnabled ? (
                       <>
@@ -1286,10 +1283,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                     </div>
                   </td>
                   <td className="px-4 py-4">
-                    <div>
-                      <p className="text-sm text-gray-900">{booking.user.name || "—"}</p>
-                      <p className="text-xs text-gray-500">{booking.user.email}</p>
-                    </div>
+                    <p className="text-sm text-gray-900">{booking.user.name || booking.user.email}</p>
                   </td>
                   {pricingEnabled ? (
                     <>
