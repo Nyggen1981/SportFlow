@@ -598,7 +598,7 @@ export default function CalendarPage() {
   }, [])
 
   // Calculate overlap columns for bookings in a day (for calendar view)
-  // Improved algorithm: Only make events as narrow as necessary based on actual concurrent overlap
+  // Improved algorithm: Consistent widths within each column
   const getBookingColumns = useCallback((dayBookings: Booking[]) => {
     if (dayBookings.length === 0) return new Map<string, { column: number; totalColumns: number }>()
     
@@ -663,6 +663,22 @@ export default function CalendarPage() {
           })
         }
       })
+    })
+    
+    // Third pass: Ensure consistent widths within each column
+    // All bookings in the same column should have the same totalColumns (use the max)
+    const maxTotalColumnsPerColumn = new Map<number, number>()
+    columns.forEach((value) => {
+      const current = maxTotalColumnsPerColumn.get(value.column) || 0
+      maxTotalColumnsPerColumn.set(value.column, Math.max(current, value.totalColumns))
+    })
+    
+    // Also find the global max totalColumns for the day
+    const globalMaxColumns = Math.max(...Array.from(columns.values()).map(v => v.totalColumns))
+    
+    // Update all bookings to use the global max (ensures all columns have same width)
+    columns.forEach((value, key) => {
+      columns.set(key, { ...value, totalColumns: globalMaxColumns })
     })
     
     return columns
