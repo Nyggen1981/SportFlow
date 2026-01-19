@@ -1645,14 +1645,21 @@ export default function CalendarPage() {
                               const showResource = actualHeight >= 80 && !isNarrow
                               
                               // For pending: merge borders when adjacent to another pending booking
-                              const pendingBorderTop = isPending ? (hasPendingAbove ? 'none' : `2px dashed ${resourceColor}`) : undefined
-                              const pendingBorderBottom = isPending ? (hasPendingBelow ? 'none' : `2px dashed ${resourceColor}`) : undefined
+                              const pendingBorderTop = isPending ? ((hasPendingAbove && isPending) ? 'none' : `2px dashed ${resourceColor}`) : undefined
+                              const pendingBorderBottom = isPending ? ((hasPendingBelow && isPending) ? 'none' : `2px dashed ${resourceColor}`) : undefined
+                              
+                              // Calculate border-radius: remove corners where pending boxes meet
+                              const topLeftRadius = (isPending && hasPendingAbove) ? '0' : '6px'
+                              const topRightRadius = (isPending && hasPendingAbove) ? '0' : '6px'
+                              const bottomLeftRadius = (isPending && hasPendingBelow) ? '0' : '6px'
+                              const bottomRightRadius = (isPending && hasPendingBelow) ? '0' : '6px'
+                              const borderRadiusStyle = `${topLeftRadius} ${topRightRadius} ${bottomRightRadius} ${bottomLeftRadius}`
                               
                               return (
                                 <div
                                   key={booking.id}
                                   onClick={() => !isCompetition && setSelectedBooking(booking)}
-                                  className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
+                                  className={`absolute px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
                                     isPending ? 'cursor-pointer hover:opacity-90' : 
                                     isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
                                   }`}
@@ -1662,6 +1669,7 @@ export default function CalendarPage() {
                                     width: boxWidth,
                                     height: `${actualHeight}px`,
                                     minHeight: '20px',
+                                    borderRadius: isPending ? borderRadiusStyle : '6px',
                                     backgroundColor: isCompetition 
                                       ? '#fdba74' 
                                       : isPending 
@@ -2193,14 +2201,21 @@ export default function CalendarPage() {
                           const showResource = actualHeight >= 80 && !isNarrow
                           
                           // For pending: merge borders when adjacent to another pending booking
-                          const pendingBorderTopDay = isPending ? (hasPendingAbove ? 'none' : `2px dashed ${resourceColor}`) : undefined
-                          const pendingBorderBottomDay = isPending ? (hasPendingBelow ? 'none' : `2px dashed ${resourceColor}`) : undefined
+                          const pendingBorderTopDay = isPending ? ((hasPendingAbove && isPending) ? 'none' : `2px dashed ${resourceColor}`) : undefined
+                          const pendingBorderBottomDay = isPending ? ((hasPendingBelow && isPending) ? 'none' : `2px dashed ${resourceColor}`) : undefined
+                          
+                          // Calculate border-radius: remove corners where pending boxes meet
+                          const topLeftRadiusDay = (isPending && hasPendingAbove) ? '0' : '6px'
+                          const topRightRadiusDay = (isPending && hasPendingAbove) ? '0' : '6px'
+                          const bottomLeftRadiusDay = (isPending && hasPendingBelow) ? '0' : '6px'
+                          const bottomRightRadiusDay = (isPending && hasPendingBelow) ? '0' : '6px'
+                          const borderRadiusStyleDay = `${topLeftRadiusDay} ${topRightRadiusDay} ${bottomRightRadiusDay} ${bottomLeftRadiusDay}`
                           
                           return (
                             <div
                               key={booking.id}
                               onClick={() => !isCompetition && setSelectedBooking(booking)}
-                              className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
+                              className={`absolute px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
                                 isPending ? 'cursor-pointer hover:opacity-90' : 
                                 isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
                               }`}
@@ -2210,6 +2225,7 @@ export default function CalendarPage() {
                                 width: boxWidth,
                                 height: `${actualHeight}px`,
                                 minHeight: '20px',
+                                borderRadius: isPending ? borderRadiusStyleDay : '6px',
                                 backgroundColor: isCompetition 
                                   ? '#fdba74' 
                                   : isPending 
