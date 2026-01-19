@@ -84,6 +84,8 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
   const [rejectingBookingId, setRejectingBookingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
   const [rejectAllInGroup, setRejectAllInGroup] = useState(false)
+  const [selectedModalBookingIds, setSelectedModalBookingIds] = useState<Set<string>>(new Set())
+  const [rejectSelectedIds, setRejectSelectedIds] = useState<string[]>([]) // IDs to reject when using selection
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
@@ -425,21 +427,36 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
     setRejectModalOpen(false)
     
     try {
-      const response = await fetch(`/api/admin/bookings/${rejectingBookingId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          action: "reject",
-          statusNote: rejectReason.trim() || undefined,
-          applyToAll: rejectAllInGroup
+      // If we have selected IDs and not applying to all, reject each selected one
+      if (rejectSelectedIds.length > 1 && !rejectAllInGroup) {
+        // Reject multiple selected bookings
+        for (const bookingId of rejectSelectedIds) {
+          await fetch(`/api/admin/bookings/${bookingId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              action: "reject",
+              statusNote: rejectReason.trim() || undefined,
+              applyToAll: false
+            })
+          })
+        }
+      } else {
+        // Single booking or apply to all in group
+        await fetch(`/api/admin/bookings/${rejectingBookingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            action: "reject",
+            statusNote: rejectReason.trim() || undefined,
+            applyToAll: rejectAllInGroup
+          })
         })
-      })
-
-      if (response.ok) {
-        await fetchBookings()
-        // Close booking details modal
-        setSelectedBooking(null)
       }
+
+      await fetchBookings()
+      // Close booking details modal
+      setSelectedBooking(null)
     } catch (error) {
       console.error("Failed to reject booking:", error)
     } finally {
@@ -447,6 +464,8 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
       setRejectingBookingId(null)
       setRejectReason("")
       setRejectAllInGroup(false)
+      setRejectSelectedIds([])
+      setSelectedModalBookingIds(new Set())
     }
   }
 
@@ -690,42 +709,32 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
     ...filteredGroups.flatMap(g => g.bookings)
   ]
 
+  // Helper to get sort value for a booking
+  const getSortValue = (booking: Booking): any => {
+    switch (sortColumn) {
+      case "title":
+        return booking.title.toLowerCase()
+      case "resource":
+        return booking.resource.name.toLowerCase()
+      case "date":
+        return new Date(booking.startTime).getTime()
+      case "user":
+        return (booking.user.name || booking.user.email || "").toLowerCase()
+      case "price":
+        return booking.totalAmount || 0
+      case "status":
+        return booking.status
+      default:
+        return new Date(booking.startTime).getTime()
+    }
+  }
+
   // Sort function for bookings
-  const sortBookings = (bookingsToSort: Booking[]) => bookingsToSort.sort((a, b) => {
+  const sortBookings = (bookingsToSort: Booking[]) => [...bookingsToSort].sort((a, b) => {
     // If a sort column is selected, use it
     if (sortColumn) {
-      let aValue: any
-      let bValue: any
-      
-      switch (sortColumn) {
-        case "title":
-          aValue = a.title.toLowerCase()
-          bValue = b.title.toLowerCase()
-          break
-        case "resource":
-          aValue = a.resource.name.toLowerCase()
-          bValue = b.resource.name.toLowerCase()
-          break
-        case "date":
-          aValue = new Date(a.startTime).getTime()
-          bValue = new Date(b.startTime).getTime()
-          break
-        case "user":
-          aValue = (a.user.name || a.user.email || "").toLowerCase()
-          bValue = (b.user.name || b.user.email || "").toLowerCase()
-          break
-        case "price":
-          aValue = a.totalAmount || 0
-          bValue = b.totalAmount || 0
-          break
-        case "status":
-          aValue = a.status
-          bValue = b.status
-          break
-        default:
-          aValue = new Date(a.startTime).getTime()
-          bValue = new Date(b.startTime).getTime()
-      }
+      const aValue = getSortValue(a)
+      const bValue = getSortValue(b)
       
       if (aValue < bValue) return sortDirection === "asc" ? -1 : 1
       if (aValue > bValue) return sortDirection === "asc" ? 1 : -1
@@ -737,6 +746,27 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
       return new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
     }
     return new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+  })
+
+  // Sort function for groups (based on first booking in each group)
+  const sortGroups = (groupsToSort: typeof filteredGroups) => [...groupsToSort].sort((a, b) => {
+    const aFirst = a.bookings[0]
+    const bFirst = b.bookings[0]
+    
+    if (sortColumn) {
+      const aValue = getSortValue(aFirst)
+      const bValue = getSortValue(bFirst)
+      
+      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1
+      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1
+      return 0
+    }
+    
+    // Default sort by date
+    if (activeTab === "history") {
+      return new Date(bFirst.startTime).getTime() - new Date(aFirst.startTime).getTime()
+    }
+    return new Date(aFirst.startTime).getTime() - new Date(bFirst.startTime).getTime()
   })
 
   const allCount = bookings.length
@@ -1121,7 +1151,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
             </thead>
             <tbody className="divide-y divide-gray-100">
               {/* Render recurring groups as single rows - click opens modal */}
-              {filteredGroups.map(({ groupId, bookings: groupBookings }) => {
+              {sortGroups(filteredGroups).map(({ groupId, bookings: groupBookings }) => {
                 const firstBooking = groupBookings[0]
                 const lastBooking = groupBookings[groupBookings.length - 1]
                 const pendingCount = groupBookings.filter(b => b.status === "pending").length
@@ -1136,6 +1166,9 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       const target = e.target as HTMLElement
                       if (target.closest('button')) return
                       setSelectedRecurringGroup({ groupId, bookings: groupBookings })
+                      // Initialize with all pending bookings selected
+                      const pendingIds = groupBookings.filter(b => b.status === "pending").map(b => b.id)
+                      setSelectedModalBookingIds(new Set(pendingIds))
                     }}
                   >
                     {canDelete && <td className="px-4 py-4"></td>}
@@ -1389,12 +1422,19 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
               <XCircle className="w-6 h-6 text-red-600" />
             </div>
             <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
-              {rejectAllInGroup ? "Avslå alle bookinger i serien?" : "Avslå booking?"}
+              {rejectAllInGroup 
+                ? "Avslå alle bookinger i serien?" 
+                : rejectSelectedIds.length > 1 
+                  ? `Avslå ${rejectSelectedIds.length} valgte bookinger?`
+                  : "Avslå booking?"
+              }
             </h3>
             <p className="text-gray-600 text-center mb-4">
               {rejectAllInGroup 
                 ? "Alle ventende bookinger i serien vil bli avslått. Brukeren vil bli varslet på e-post."
-                : "Brukeren vil bli varslet på e-post."
+                : rejectSelectedIds.length > 1
+                  ? `${rejectSelectedIds.length} bookinger vil bli avslått. Brukeren vil bli varslet på e-post.`
+                  : "Brukeren vil bli varslet på e-post."
               }
             </p>
             <div className="mb-4">
@@ -2248,91 +2288,168 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       </div>
                     </div>
 
-                    {/* Booking list */}
+                    {/* Booking list with checkboxes */}
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Alle bookinger i serien</h4>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-semibold text-gray-700">Alle bookinger i serien</h4>
+                        {pendingBookings.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                const pendingIds = pendingBookings.map(b => b.id)
+                                setSelectedModalBookingIds(new Set(pendingIds))
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              Velg alle
+                            </button>
+                            <span className="text-gray-300">|</span>
+                            <button
+                              onClick={() => setSelectedModalBookingIds(new Set())}
+                              className="text-xs text-gray-500 hover:text-gray-700 font-medium"
+                            >
+                              Fjern valg
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {selectedRecurringGroup.bookings.map((booking) => (
-                          <div 
-                            key={booking.id}
-                            className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
-                            onClick={() => {
-                              setSelectedRecurringGroup(null)
-                              setSelectedBooking(booking)
-                            }}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="text-sm">
-                                <p className="font-medium text-gray-900">
-                                  {format(new Date(booking.startTime), "EEEE d. MMM", { locale: nb })}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {format(new Date(booking.startTime), "HH:mm")} - {format(new Date(booking.endTime), "HH:mm")}
-                                </p>
+                        {selectedRecurringGroup.bookings.map((booking) => {
+                          const isSelected = selectedModalBookingIds.has(booking.id)
+                          const isPending = booking.status === "pending"
+                          
+                          return (
+                            <div 
+                              key={booking.id}
+                              className={`flex items-center justify-between p-2 rounded-lg transition-colors ${
+                                isSelected ? "bg-blue-100 border border-blue-300" : "bg-gray-50 hover:bg-gray-100"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                {/* Checkbox for pending bookings */}
+                                {isPending ? (
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      const newSet = new Set(selectedModalBookingIds)
+                                      if (e.target.checked) {
+                                        newSet.add(booking.id)
+                                      } else {
+                                        newSet.delete(booking.id)
+                                      }
+                                      setSelectedModalBookingIds(newSet)
+                                    }}
+                                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                  />
+                                ) : (
+                                  <div className="w-4 h-4" /> /* Spacer for non-pending */
+                                )}
+                                <div 
+                                  className="text-sm cursor-pointer"
+                                  onClick={() => {
+                                    setSelectedRecurringGroup(null)
+                                    setSelectedBooking(booking)
+                                  }}
+                                >
+                                  <p className="font-medium text-gray-900">
+                                    {format(new Date(booking.startTime), "EEEE d. MMM", { locale: nb })}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {format(new Date(booking.startTime), "HH:mm")} - {format(new Date(booking.endTime), "HH:mm")}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {booking.status === "pending" && (
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>
+                                )}
+                                {booking.status === "approved" && (
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Godkjent</span>
+                                )}
+                                {booking.status === "rejected" && (
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Avslått</span>
+                                )}
+                                {booking.status === "cancelled" && (
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Kansellert</span>
+                                )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              {booking.status === "pending" && (
-                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>
-                              )}
-                              {booking.status === "approved" && (
-                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Godkjent</span>
-                              )}
-                              {booking.status === "rejected" && (
-                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Avslått</span>
-                              )}
-                              {booking.status === "cancelled" && (
-                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Kansellert</span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
-                    {/* Action buttons for pending bookings */}
-                    {pendingBookings.length > 0 && (
-                      <div className="border-t pt-4">
-                        <p className="text-sm text-gray-600 mb-3">
-                          Behandle alle {pendingBookings.length} ventende bookinger samtidig:
-                        </p>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={async () => {
-                              await executeAction(pendingBookings[0].id, "approve", true)
-                              setSelectedRecurringGroup(null)
-                            }}
-                            disabled={processingId !== null}
-                            className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                          >
-                            {processingId !== null ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                Behandler...
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle2 className="w-4 h-4" />
-                                Godkjenn alle
-                              </>
-                            )}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedRecurringGroup(null)
-                              setRejectingBookingId(pendingBookings[0].id)
-                              setRejectReason("")
-                              setRejectAllInGroup(true)
-                              setRejectModalOpen(true)
-                            }}
-                            disabled={processingId !== null}
-                            className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                          >
-                            <XCircle className="w-4 h-4" />
-                            Avslå alle
-                          </button>
+                    {/* Action buttons for selected bookings */}
+                    {(() => {
+                      const selectedCount = selectedModalBookingIds.size
+                      const allPendingSelected = selectedCount === pendingBookings.length && selectedCount > 0
+                      
+                      if (selectedCount === 0 && pendingBookings.length === 0) return null
+                      
+                      return (
+                        <div className="border-t pt-4">
+                          <p className="text-sm text-gray-600 mb-3">
+                            {selectedCount === 0 
+                              ? "Velg bookinger du vil behandle"
+                              : allPendingSelected
+                                ? `Behandle alle ${selectedCount} ventende bookinger:`
+                                : `Behandle ${selectedCount} av ${pendingBookings.length} valgte bookinger:`
+                            }
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={async () => {
+                                if (selectedCount === 0) return
+                                setProcessingId("batch")
+                                try {
+                                  // Approve all selected bookings
+                                  for (const bookingId of selectedModalBookingIds) {
+                                    await executeAction(bookingId, "approve", false)
+                                  }
+                                  await fetchBookings()
+                                  setSelectedRecurringGroup(null)
+                                  setSelectedModalBookingIds(new Set())
+                                } finally {
+                                  setProcessingId(null)
+                                }
+                              }}
+                              disabled={processingId !== null || selectedCount === 0}
+                              className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                            >
+                              {processingId !== null ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  Behandler...
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="w-4 h-4" />
+                                  {allPendingSelected ? "Godkjenn alle" : `Godkjenn (${selectedCount})`}
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (selectedCount === 0) return
+                                // Store selected IDs for rejection
+                                const selectedArray = Array.from(selectedModalBookingIds)
+                                setRejectSelectedIds(selectedArray)
+                                setSelectedRecurringGroup(null)
+                                setRejectingBookingId(selectedArray[0])
+                                setRejectReason("")
+                                setRejectAllInGroup(allPendingSelected)
+                                setRejectModalOpen(true)
+                              }}
+                              disabled={processingId !== null || selectedCount === 0}
+                              className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                            >
+                              <XCircle className="w-4 h-4" />
+                              {allPendingSelected ? "Avslå alle" : `Avslå (${selectedCount})`}
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )
+                    })()}
                     
                     {/* Edit button - at bottom like single booking modal */}
                     <div className="border-t pt-4 mt-4">
