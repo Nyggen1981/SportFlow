@@ -2,12 +2,48 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { addWeeks, addMonths } from "date-fns"
+import { addWeeks, addMonths, getHours, getMinutes, setHours, setMinutes } from "date-fns"
 import { nb } from "date-fns/locale"
-import { formatInTimeZone } from "date-fns-tz"
+import { formatInTimeZone, toZonedTime, fromZonedTime } from "date-fns-tz"
 import { sendEmail, getNewBookingRequestEmail } from "@/lib/email"
 
 const TIMEZONE = "Europe/Oslo"
+
+// Helper function to add weeks while preserving local time across DST changes
+function addWeeksPreserveLocalTime(date: Date, weeks: number, timezone: string): Date {
+  // Get the local time components in the target timezone
+  const zonedDate = toZonedTime(date, timezone)
+  const hours = getHours(zonedDate)
+  const minutes = getMinutes(zonedDate)
+  
+  // Add weeks to the date
+  const newDate = addWeeks(date, weeks)
+  
+  // Convert to zoned time and set the original hours/minutes
+  const newZonedDate = toZonedTime(newDate, timezone)
+  const correctedZonedDate = setMinutes(setHours(newZonedDate, hours), minutes)
+  
+  // Convert back to UTC
+  return fromZonedTime(correctedZonedDate, timezone)
+}
+
+// Helper function to add months while preserving local time across DST changes
+function addMonthsPreserveLocalTime(date: Date, months: number, timezone: string): Date {
+  // Get the local time components in the target timezone
+  const zonedDate = toZonedTime(date, timezone)
+  const hours = getHours(zonedDate)
+  const minutes = getMinutes(zonedDate)
+  
+  // Add months to the date
+  const newDate = addMonths(date, months)
+  
+  // Convert to zoned time and set the original hours/minutes
+  const newZonedDate = toZonedTime(newDate, timezone)
+  const correctedZonedDate = setMinutes(setHours(newZonedDate, hours), minutes)
+  
+  // Convert back to UTC
+  return fromZonedTime(correctedZonedDate, timezone)
+}
 import { validateLicense } from "@/lib/license"
 import { calculateBookingPrice } from "@/lib/pricing"
 
@@ -106,6 +142,7 @@ export async function POST(request: Request) {
     }
 
     // Generate all booking dates
+    // Use timezone-aware functions to preserve local time across DST changes
     const bookingDates: { start: Date; end: Date }[] = [{ start, end }]
     
     if (isRecurring && recurringEndDate) {
@@ -116,16 +153,16 @@ export async function POST(request: Request) {
       let currentEnd = end
       
       while (true) {
-        // Calculate next occurrence
+        // Calculate next occurrence using DST-safe functions
         if (recurringType === "weekly") {
-          currentStart = addWeeks(currentStart, 1)
-          currentEnd = addWeeks(currentEnd, 1)
+          currentStart = addWeeksPreserveLocalTime(currentStart, 1, TIMEZONE)
+          currentEnd = addWeeksPreserveLocalTime(currentEnd, 1, TIMEZONE)
         } else if (recurringType === "biweekly") {
-          currentStart = addWeeks(currentStart, 2)
-          currentEnd = addWeeks(currentEnd, 2)
+          currentStart = addWeeksPreserveLocalTime(currentStart, 2, TIMEZONE)
+          currentEnd = addWeeksPreserveLocalTime(currentEnd, 2, TIMEZONE)
         } else if (recurringType === "monthly") {
-          currentStart = addMonths(currentStart, 1)
-          currentEnd = addMonths(currentEnd, 1)
+          currentStart = addMonthsPreserveLocalTime(currentStart, 1, TIMEZONE)
+          currentEnd = addMonthsPreserveLocalTime(currentEnd, 1, TIMEZONE)
         }
         
         if (currentStart > endDateLimit) break
