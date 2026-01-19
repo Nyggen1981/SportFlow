@@ -207,8 +207,15 @@ function ResourceCard({ resource }: { resource: Resource }) {
               fill
               className="object-cover"
             />
-            {/* Subtle gradient overlay for better text contrast */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+            {/* Category color gradient overlay */}
+            <div 
+              className="absolute inset-0 opacity-30"
+              style={{ 
+                background: resource.category?.color 
+                  ? `linear-gradient(to top, ${resource.category.color}, transparent)`
+                  : 'linear-gradient(to top, rgba(0,0,0,0.3), transparent)'
+              }}
+            />
           </>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
