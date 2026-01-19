@@ -103,7 +103,7 @@ export default function CalendarPage() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [applyToAll, setApplyToAll] = useState(true)
+  const [applyToAll, setApplyToAll] = useState(false)
   const [rejectingBookingId, setRejectingBookingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null)

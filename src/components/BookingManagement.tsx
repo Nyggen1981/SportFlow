@@ -2312,9 +2312,16 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                           return (
                             <div 
                               key={booking.id}
-                              className={`flex items-center justify-between p-2 rounded-lg transition-colors ${
+                              className={`flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer ${
                                 isSelected ? "bg-blue-100 border border-blue-300" : "bg-gray-50 hover:bg-gray-100"
                               }`}
+                              onClick={(e) => {
+                                // Don't open booking if clicking on checkbox
+                                const target = e.target as HTMLElement
+                                if (target.tagName === 'INPUT' || target.closest('input')) return
+                                setSelectedRecurringGroup(null)
+                                setSelectedBooking(booking)
+                              }}
                             >
                               <div className="flex items-center gap-3">
                                 {/* Checkbox for pending bookings */}
@@ -2323,6 +2330,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                     type="checkbox"
                                     checked={isSelected}
                                     onChange={(e) => {
+                                      e.stopPropagation()
                                       const newSet = new Set(selectedModalBookingIds)
                                       if (e.target.checked) {
                                         newSet.add(booking.id)
@@ -2336,13 +2344,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                 ) : (
                                   <div className="w-4 h-4" /> /* Spacer for non-pending */
                                 )}
-                                <div 
-                                  className="text-sm cursor-pointer"
-                                  onClick={() => {
-                                    setSelectedRecurringGroup(null)
-                                    setSelectedBooking(booking)
-                                  }}
-                                >
+                                <div className="text-sm">
                                   <p className="font-medium text-gray-900">
                                     {format(new Date(booking.startTime), "EEEE d. MMM", { locale: nb })}
                                   </p>
