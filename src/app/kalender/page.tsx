@@ -1596,34 +1596,26 @@ export default function CalendarPage() {
                                 ? '1px' 
                                 : `calc(${leftPercent}% + ${gapPx}px)`
 
-                              // Check if there's a booking directly above or below this one
-                              const hasBookingAbove = allDayBookings.some(b => {
+                              // Check if there's a booking directly above or below this one (for border merging)
+                              const bookingAbove = allDayBookings.find(b => {
                                 if (b.id === booking.id) return false
-                                const bStart = parseISO(b.startTime)
                                 const bEnd = parseISO(b.endTime)
-                                const bDayStart = startOfDay(day)
-                                const bDayEnd = new Date(bDayStart)
-                                bDayEnd.setHours(23, 59, 59, 999)
-                                const bCappedStart = bStart < bDayStart ? bDayStart : bStart
-                                const bCappedEnd = bEnd > bDayEnd ? bDayEnd : bEnd
+                                const bColumnInfo = bookingColumns.get(b.id) || { column: 0, totalColumns: 1 }
                                 // Check if booking ends exactly where this one starts (within same column)
-                                const bColumnInfo = bookingColumns.get(b.id) || { column: 0, totalColumns: 1 }
-                                return Math.abs(bCappedEnd.getTime() - cappedStart.getTime()) < 1000 && bColumnInfo.column === column
+                                return Math.abs(bEnd.getTime() - cappedStart.getTime()) < 60000 && bColumnInfo.column === column
                               })
+                              const hasBookingAbove = !!bookingAbove
+                              const hasPendingAbove = bookingAbove?.status === "pending"
                               
-                              const hasBookingBelow = allDayBookings.some(b => {
+                              const bookingBelow = allDayBookings.find(b => {
                                 if (b.id === booking.id) return false
                                 const bStart = parseISO(b.startTime)
-                                const bEnd = parseISO(b.endTime)
-                                const bDayStart = startOfDay(day)
-                                const bDayEnd = new Date(bDayStart)
-                                bDayEnd.setHours(23, 59, 59, 999)
-                                const bCappedStart = bStart < bDayStart ? bDayStart : bStart
-                                const bCappedEnd = bEnd > bDayEnd ? bDayEnd : bEnd
-                                // Check if booking starts exactly where this one ends (within same column)
                                 const bColumnInfo = bookingColumns.get(b.id) || { column: 0, totalColumns: 1 }
-                                return Math.abs(bCappedStart.getTime() - cappedEnd.getTime()) < 1000 && bColumnInfo.column === column
+                                // Check if booking starts exactly where this one ends (within same column)
+                                return Math.abs(bStart.getTime() - cappedEnd.getTime()) < 60000 && bColumnInfo.column === column
                               })
+                              const hasBookingBelow = !!bookingBelow
+                              const hasPendingBelow = bookingBelow?.status === "pending"
 
                               {/* Dynamic text based on box height:
                                   - Tiny (<30px): Nothing visible (rely on tooltip)
@@ -1636,12 +1628,16 @@ export default function CalendarPage() {
                               const showTime = actualHeight >= 50 && !isNarrow
                               const showResource = actualHeight >= 80 && !isNarrow
                               
+                              // For pending: merge borders when adjacent to another pending booking
+                              const pendingBorderTop = isPending ? (hasPendingAbove ? 'none' : `2px dashed ${resourceColor}`) : undefined
+                              const pendingBorderBottom = isPending ? (hasPendingBelow ? 'none' : `2px dashed ${resourceColor}`) : undefined
+                              
                               return (
                                 <div
                                   key={booking.id}
                                   onClick={() => !isCompetition && setSelectedBooking(booking)}
                                   className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
-                                    isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
+                                    isPending ? 'cursor-pointer hover:opacity-90' : 
                                     isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
                                   }`}
                                   style={{
@@ -1655,14 +1651,13 @@ export default function CalendarPage() {
                                       : isPending 
                                         ? `${resourceColor}20`
                                         : resourceColor,
-                                    borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
                                     color: isCompetition ? '#9a3412' : 'black',
-                                    borderTop: isPending ? undefined : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                    borderBottom: isPending ? undefined : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                    borderLeft: isPending ? undefined : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                    borderRight: isPending ? undefined : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                    boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                                    zIndex: 10 + column,
+                                    borderTop: isPending ? pendingBorderTop : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                    borderBottom: isPending ? pendingBorderBottom : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                    borderLeft: isPending ? `2px dashed ${resourceColor}` : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                    borderRight: isPending ? `2px dashed ${resourceColor}` : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                    boxShadow: isPending ? 'none' : '0 1px 2px rgba(0,0,0,0.15)',
+                                    zIndex: 10 + (totalColumns - column),
                                     display: 'flex',
                                     flexDirection: 'column',
                                     justifyContent: 'flex-start',
@@ -2156,34 +2151,24 @@ export default function CalendarPage() {
                             ? '1px' 
                             : `calc(${leftPercent}% + ${gapPx}px)`
 
-                          // Check if there's a booking directly above or below this one
-                          const hasBookingAbove = dayBookings.some(b => {
+                          // Check if there's a booking directly above or below this one (for border merging)
+                          const bookingAboveDay = dayBookings.find(b => {
                             if (b.id === booking.id) return false
-                            const bStart = parseISO(b.startTime)
                             const bEnd = parseISO(b.endTime)
-                            const bDayStart = startOfDay(selectedDate)
-                            const bDayEnd = new Date(bDayStart)
-                            bDayEnd.setHours(23, 59, 59, 999)
-                            const bCappedStart = bStart < bDayStart ? bDayStart : bStart
-                            const bCappedEnd = bEnd > bDayEnd ? bDayEnd : bEnd
-                            // Check if booking ends exactly where this one starts (within same column)
                             const bColumnInfo = bookingColumns.get(b.id) || { column: 0, totalColumns: 1 }
-                            return Math.abs(bCappedEnd.getTime() - cappedStart.getTime()) < 1000 && bColumnInfo.column === column
+                            return Math.abs(bEnd.getTime() - cappedStart.getTime()) < 60000 && bColumnInfo.column === column
                           })
+                          const hasBookingAbove = !!bookingAboveDay
+                          const hasPendingAbove = bookingAboveDay?.status === "pending"
                           
-                          const hasBookingBelow = dayBookings.some(b => {
+                          const bookingBelowDay = dayBookings.find(b => {
                             if (b.id === booking.id) return false
                             const bStart = parseISO(b.startTime)
-                            const bEnd = parseISO(b.endTime)
-                            const bDayStart = startOfDay(selectedDate)
-                            const bDayEnd = new Date(bDayStart)
-                            bDayEnd.setHours(23, 59, 59, 999)
-                            const bCappedStart = bStart < bDayStart ? bDayStart : bStart
-                            const bCappedEnd = bEnd > bDayEnd ? bDayEnd : bEnd
-                            // Check if booking starts exactly where this one ends (within same column)
                             const bColumnInfo = bookingColumns.get(b.id) || { column: 0, totalColumns: 1 }
-                            return Math.abs(bCappedStart.getTime() - cappedEnd.getTime()) < 1000 && bColumnInfo.column === column
+                            return Math.abs(bStart.getTime() - cappedEnd.getTime()) < 60000 && bColumnInfo.column === column
                           })
+                          const hasBookingBelow = !!bookingBelowDay
+                          const hasPendingBelow = bookingBelowDay?.status === "pending"
 
                           {/* Dynamic text based on box height - Day view */}
                           const actualHeight = Math.max(heightPx, 20)
@@ -2191,12 +2176,16 @@ export default function CalendarPage() {
                           const showTime = actualHeight >= 50 && !isNarrow
                           const showResource = actualHeight >= 80 && !isNarrow
                           
+                          // For pending: merge borders when adjacent to another pending booking
+                          const pendingBorderTopDay = isPending ? (hasPendingAbove ? 'none' : `2px dashed ${resourceColor}`) : undefined
+                          const pendingBorderBottomDay = isPending ? (hasPendingBelow ? 'none' : `2px dashed ${resourceColor}`) : undefined
+                          
                           return (
                             <div
                               key={booking.id}
                               onClick={() => !isCompetition && setSelectedBooking(booking)}
                               className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
-                                isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
+                                isPending ? 'cursor-pointer hover:opacity-90' : 
                                 isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
                               }`}
                               style={{
@@ -2210,14 +2199,13 @@ export default function CalendarPage() {
                                   : isPending 
                                     ? `${resourceColor}20`
                                     : resourceColor,
-                                borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
                                 color: isCompetition ? '#9a3412' : 'black',
-                                borderTop: isPending ? undefined : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                borderBottom: isPending ? undefined : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                borderLeft: isPending ? undefined : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                borderRight: isPending ? undefined : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                                zIndex: 10 + column,
+                                borderTop: isPending ? pendingBorderTopDay : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                borderBottom: isPending ? pendingBorderBottomDay : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                borderLeft: isPending ? `2px dashed ${resourceColor}` : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                borderRight: isPending ? `2px dashed ${resourceColor}` : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                boxShadow: isPending ? 'none' : '0 1px 2px rgba(0,0,0,0.15)',
+                                zIndex: 10 + (totalColumns - column),
                                 display: 'flex',
                                 flexDirection: 'column',
                                 justifyContent: 'flex-start',
