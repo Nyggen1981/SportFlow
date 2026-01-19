@@ -1768,18 +1768,14 @@ export default function CalendarPage() {
                               onClick={() => !isCompetition && setSelectedBooking(booking)}
                               className={`px-0.5 sm:px-1.5 py-0.5 rounded text-[8px] sm:text-xs transition-opacity flex-shrink-0 flex flex-col ${
                                 isPending 
-                                  ? "bg-green-50 text-green-700 border border-dashed border-green-400 cursor-pointer hover:opacity-90" 
+                                  ? "text-black border border-dashed cursor-pointer hover:opacity-90" 
                                   : isCompetition
                                     ? "bg-orange-100 text-orange-800 border-2 border-orange-500 cursor-default"
                                     : "text-black border border-black cursor-pointer hover:opacity-90"
                               }`}
-                              style={!isPending && !isCompetition ? { 
-                                backgroundColor: bookingColor,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                justifyContent: 'flex-start',
-                                alignItems: 'flex-start'
-                              } : {
+                              style={{
+                                backgroundColor: isPending ? `${bookingColor}20` : isCompetition ? undefined : bookingColor,
+                                borderColor: isPending ? bookingColor : undefined,
                                 display: 'flex',
                                 flexDirection: 'column',
                                 justifyContent: 'flex-start',
@@ -2045,11 +2041,6 @@ export default function CalendarPage() {
                                         <div className="text-[6px] sm:text-[10px] leading-tight opacity-90 overflow-hidden">
                                           {timeStr}
                                         </div>
-                                        {!isCompetition && booking.user?.name && (
-                                          <div className="text-[6px] sm:text-[10px] leading-tight opacity-75 overflow-hidden">
-                                            {booking.user.name}
-                                          </div>
-                                        )}
                                       </button>
                                     )
                                   })}

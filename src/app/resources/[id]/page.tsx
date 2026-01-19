@@ -236,6 +236,7 @@ export default async function ResourcePage({ params }: Props) {
               <ResourceCalendar 
                 resourceId={resource.id}
                 resourceName={resource.name}
+                resourceColor={resource.color || resource.category?.color || "#3b82f6"}
                 parts={resource.parts.map(p => ({ 
                   id: p.id, 
                   name: p.name,

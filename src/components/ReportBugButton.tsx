@@ -4,7 +4,11 @@ import { useState, useRef } from "react"
 import { Bug, X, Send, Upload, Loader2, CheckCircle2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 
-export function ReportBugButton() {
+interface ReportBugButtonProps {
+  className?: string
+}
+
+export function ReportBugButton({ className }: ReportBugButtonProps) {
   const { data: session } = useSession()
   
   // All hooks must be called before any conditional returns
@@ -101,14 +105,13 @@ export function ReportBugButton() {
 
   return (
     <>
-      {/* Floating Button - positioned above version number */}
+      {/* Bug Report Button - icon only */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-12 right-4 z-40 hidden md:flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded-full shadow-lg transition-all hover:scale-105"
+        className={className || "p-2 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors"}
         title="Rapporter en feil"
       >
-        <Bug className="w-4 h-4" />
-        <span className="hidden sm:inline">Rapporter feil</span>
+        <Bug className="w-5 h-5" />
       </button>
 
       {/* Modal */}

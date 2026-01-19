@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Trophy
 } from "lucide-react"
+import { ReportBugButton } from "./ReportBugButton"
 
 interface Organization {
   id: string
@@ -154,22 +155,23 @@ export function Navbar() {
           </div>
 
           {/* Mobile Profile/Login + Logout buttons */}
-          <div className="flex md:hidden items-center gap-1">
+          <div className="flex md:hidden items-center gap-0.5">
             {isLoggedIn ? (
               <>
                 <Link
                   href="/innstillinger"
-                  className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="flex items-center gap-1 px-1.5 py-1.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <User className="w-3.5 h-3.5" />
                   <span>Profil</span>
                 </Link>
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
-                  className="flex items-center gap-1 px-2 py-1.5 text-xs text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
+                <ReportBugButton className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" />
               </>
             ) : (
               <Link
@@ -247,8 +249,8 @@ export function Navbar() {
                   </Link>
                 )}
 
-                <div className="ml-4 flex items-center gap-3 pl-4 border-l border-gray-200">
-                  <Link href="/innstillinger" className="text-right hover:opacity-80 transition-opacity cursor-pointer">
+                <div className="ml-4 flex items-center gap-1 pl-4 border-l border-gray-200">
+                  <Link href="/innstillinger" className="text-right hover:opacity-80 transition-opacity cursor-pointer mr-2">
                     <p className="text-sm font-medium text-gray-900">{session.user?.name}</p>
                     <p className="text-xs text-gray-500">{session.user?.organizationName}</p>
                   </Link>
@@ -259,6 +261,7 @@ export function Navbar() {
                   >
                     <LogOut className="w-5 h-5" />
                   </button>
+                  <ReportBugButton className="p-2 rounded-lg text-gray-400 hover:text-orange-500 hover:bg-orange-50 transition-colors" />
                 </div>
               </>
             ) : (

@@ -200,12 +200,16 @@ function ResourceCard({ resource }: { resource: Resource }) {
       {/* Image */}
       <div className="relative h-32 sm:h-48 bg-gray-100">
         {resource.image ? (
-          <Image
-            src={resource.image}
-            alt={resource.name}
-            fill
-            className="object-cover"
-          />
+          <>
+            <Image
+              src={resource.image}
+              alt={resource.name}
+              fill
+              className="object-cover"
+            />
+            {/* Subtle gradient overlay for better text contrast */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+          </>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <Building2 className="w-12 h-12 text-gray-300" />

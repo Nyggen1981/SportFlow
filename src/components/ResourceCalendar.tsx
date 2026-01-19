@@ -59,11 +59,12 @@ interface BlockedSlot {
 interface Props {
   resourceId: string
   resourceName: string
+  resourceColor?: string // Facility color for consistent styling
   bookings?: Booking[] // Now optional - will fetch client-side if not provided
   parts: Part[]
 }
 
-export function ResourceCalendar({ resourceId, resourceName, bookings: initialBookings, parts }: Props) {
+export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3b82f6", bookings: initialBookings, parts }: Props) {
   const { data: session } = useSession()
   const isAdmin = session?.user?.role === "admin"
   const isModerator = session?.user?.role === "moderator"
@@ -586,7 +587,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
                             ? 'calc(100% - 4px)' 
                             : `calc(${widthPercent}% - ${gapPxHorizontal}px)`
 
-                          // Determine colors based on status
+                          // Determine colors based on status - use resource color for consistency
                           const getColors = () => {
                             if (isCompetition) {
                               return {
@@ -597,36 +598,40 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
                             }
                             if (isPending) {
                               return {
-                                bg: '#dcfce7',
-                                border: '#22c55e',
-                                text: '#15803d'
+                                bg: `${resourceColor}20`,
+                                border: resourceColor,
+                                text: 'black'
                               }
                             }
                             return {
-                              bg: '#22c55e',
+                              bg: resourceColor,
                               border: undefined,
                               text: 'white'
                             }
                           }
                           const colors = getColors()
 
+                          // Dynamic height (like main calendar) - only show title, no extra info
+                          const actualHeight = Math.max(heightPx, 20)
+                          
                           return (
                             <div
                               key={booking.id}
                               onClick={() => !isCompetition && setSelectedBooking(booking)}
-                              className={`absolute rounded-md px-2 py-1 text-xs overflow-hidden pointer-events-auto ${
-                                isPending ? 'border-2 border-dashed' : ''
-                              } ${isCompetition ? 'cursor-default' : 'cursor-pointer'}`}
+                              className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 overflow-hidden pointer-events-auto ${
+                                isPending ? 'border-2 border-dashed' : 'border border-black'
+                              } ${isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'}`}
                               style={{
                                 top: `${topPx}px`,
                                 left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${gapPxHorizontal / 2}px)`,
                                 width: boxWidth,
-                                height: `${Math.max(heightPx, 36)}px`,
+                                height: `${actualHeight}px`,
+                                minHeight: '20px',
                                 backgroundColor: colors.bg,
-                                borderColor: colors.border,
+                                borderColor: isPending ? colors.border : (isCompetition ? '#f97316' : 'black'),
                                 color: colors.text,
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                                zIndex: 10,
+                                boxShadow: isPending ? 'none' : '0 1px 2px rgba(0,0,0,0.15)',
+                                zIndex: 10 + (totalColumns - column),
                                 display: 'flex',
                                 flexDirection: 'column',
                                 justifyContent: 'flex-start',
@@ -634,10 +639,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
                               }}
                               title={`${booking.title}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter på godkjenning)' : ''}${isCompetition ? ' (Turneringskamp)' : ''}`}
                             >
-                              <p className="font-medium truncate">{booking.title}</p>
-                              {booking.resourcePartName && (
-                                <p className="text-[10px] opacity-80 truncate">{booking.resourcePartName}</p>
-                              )}
+                              <p className="font-medium text-[7px] sm:text-[10px] leading-tight w-full truncate">{booking.title}</p>
                             </div>
                           )
                         })}
@@ -697,9 +699,20 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
                           return "bg-orange-500 text-white"
                         }
                         if (isPending) {
-                          return "bg-green-50 text-green-700 border border-dashed border-green-400"
+                          return "border border-dashed text-black"
                         }
-                        return "bg-green-500 text-white"
+                        return "text-white"
+                      }
+                      
+                      const getInlineStyles = () => {
+                        if (isCompetition) return {}
+                        if (isPending) {
+                          return {
+                            backgroundColor: `${resourceColor}20`,
+                            borderColor: resourceColor
+                          }
+                        }
+                        return { backgroundColor: resourceColor }
                       }
                       
                       return (
@@ -707,6 +720,7 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
                           key={booking.id}
                           onClick={() => !isCompetition && setSelectedBooking(booking)}
                           className={`px-1.5 py-0.5 rounded text-xs truncate ${isCompetition ? 'cursor-default' : 'cursor-pointer'} ${getClassNames()}`}
+                          style={getInlineStyles()}
                           title={`${booking.title} - ${format(parseISO(booking.startTime), "HH:mm")}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter)' : ''}${isCompetition ? ' (Turneringskamp)' : ''}`}
                         >
                           {format(parseISO(booking.startTime), "HH:mm")} {booking.title}
@@ -729,15 +743,18 @@ export function ResourceCalendar({ resourceId, resourceName, bookings: initialBo
       {/* Legend */}
       <div className="flex items-center gap-6 mt-4 text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded booking-approved" />
+          <div 
+            className="w-4 h-4 rounded"
+            style={{ backgroundColor: resourceColor }}
+          />
           <span className="text-gray-600">Godkjent</span>
         </div>
         <div className="flex items-center gap-2">
           <div 
-            className="w-4 h-3 rounded border-2 border-dashed" 
+            className="w-4 h-3 rounded border-2 border-dashed"
             style={{ 
-              backgroundColor: '#dcfce7', 
-              borderColor: '#22c55e' 
+              backgroundColor: `${resourceColor}20`, 
+              borderColor: resourceColor 
             }} 
           />
           <span className="text-gray-600">Venter på godkjenning</span>
