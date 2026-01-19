@@ -598,23 +598,33 @@ export default function CalendarPage() {
   }, [])
 
   // Calculate overlap columns for bookings in a day (for calendar view)
+  // Improved algorithm: Only make events as narrow as necessary based on actual concurrent overlap
   const getBookingColumns = useCallback((dayBookings: Booking[]) => {
     if (dayBookings.length === 0) return new Map<string, { column: number; totalColumns: number }>()
     
-    // Sort by start time, then by id for stable ordering when times are equal
+    // Sort by start time, then by duration (longer first), then by id for stable ordering
     const sorted = [...dayBookings].sort((a, b) => {
-      const timeDiff = parseISO(a.startTime).getTime() - parseISO(b.startTime).getTime()
-      if (timeDiff !== 0) return timeDiff
-      return a.id.localeCompare(b.id) // Stable secondary sort by id
+      const aStart = parseISO(a.startTime).getTime()
+      const bStart = parseISO(b.startTime).getTime()
+      if (aStart !== bStart) return aStart - bStart
+      
+      // Longer events first (they're more important to see)
+      const aDuration = parseISO(a.endTime).getTime() - aStart
+      const bDuration = parseISO(b.endTime).getTime() - bStart
+      if (aDuration !== bDuration) return bDuration - aDuration
+      
+      return a.id.localeCompare(b.id)
     })
     
     const columns = new Map<string, { column: number; totalColumns: number }>()
     const columnEndTimes: Date[] = []
     
+    // First pass: Assign columns greedily (reuse columns when possible)
     sorted.forEach(booking => {
       const start = parseISO(booking.startTime)
       const end = parseISO(booking.endTime)
       
+      // Find first available column (where previous event has ended)
       let column = 0
       while (column < columnEndTimes.length && columnEndTimes[column] > start) {
         column++
@@ -624,23 +634,33 @@ export default function CalendarPage() {
       columns.set(booking.id, { column, totalColumns: 1 })
     })
     
+    // Second pass: Calculate max concurrent bookings at each time point
+    // This determines the actual width needed
     sorted.forEach(booking => {
       const start = parseISO(booking.startTime)
       const end = parseISO(booking.endTime)
       
-      const overlapping = sorted.filter(b => {
+      // Find bookings that overlap with this one AT THE SAME TIME
+      const concurrent = sorted.filter(b => {
         const bStart = parseISO(b.startTime)
         const bEnd = parseISO(b.endTime)
+        // Check if they overlap (not just touch)
         return start < bEnd && end > bStart
       })
       
-      const maxColumn = Math.max(...overlapping.map(b => columns.get(b.id)?.column || 0))
-      const totalColumns = maxColumn + 1
+      // The number of columns needed is the max column index + 1 among concurrent bookings
+      const maxColumnUsed = Math.max(...concurrent.map(b => columns.get(b.id)?.column || 0))
+      const totalColumnsNeeded = maxColumnUsed + 1
       
-      overlapping.forEach(b => {
+      // Update all concurrent bookings to know how many columns their group uses
+      concurrent.forEach(b => {
         const current = columns.get(b.id)
         if (current) {
-          columns.set(b.id, { ...current, totalColumns: Math.max(current.totalColumns, totalColumns) })
+          // Only increase totalColumns, never decrease
+          columns.set(b.id, { 
+            ...current, 
+            totalColumns: Math.max(current.totalColumns, totalColumnsNeeded) 
+          })
         }
       })
     })
@@ -1601,32 +1621,44 @@ export default function CalendarPage() {
                                 return Math.abs(bCappedStart.getTime() - cappedEnd.getTime()) < 1000 && bColumnInfo.column === column
                               })
 
+                              {/* Dynamic text based on box height:
+                                  - Tiny (<30px): Nothing visible (rely on tooltip)
+                                  - Small (<50px): Only title, truncated
+                                  - Medium (<80px): Title + time
+                                  - Large (>=80px): Full info
+                              */}
+                              const actualHeight = Math.max(heightPx, 40)
+                              const isNarrow = totalColumns > 2
+                              const showTime = actualHeight >= 50 && !isNarrow
+                              const showResource = actualHeight >= 80 && !isNarrow
+                              
                               return (
                                 <div
                                   key={booking.id}
                                   onClick={() => !isCompetition && setSelectedBooking(booking)}
-                                  className={`absolute rounded-md px-2 py-1 text-xs pointer-events-auto transition-opacity ${
-                                    isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
+                                  className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
+                                    isPending ? 'cursor-pointer hover:opacity-90' : 
                                     isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
                                   }`}
                                   style={{
                                     top: `${topPx}px`,
                                     left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${gapPxHorizontal / 2}px)`,
                                     width: boxWidth,
-                                    height: `${Math.max(heightPx, 40)}px`,
-                                    minHeight: '40px',
+                                    height: `${actualHeight}px`,
+                                    minHeight: '20px',
                                     backgroundColor: isCompetition 
                                       ? '#fdba74' 
                                       : isPending 
-                                        ? `${resourceColor}20`
+                                        ? `${resourceColor}40`
                                         : resourceColor,
                                     borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
                                     color: isCompetition ? '#9a3412' : 'black',
-                                    borderTop: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                    borderBottom: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                    borderLeft: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                    borderRight: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                    borderTop: isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                    borderBottom: isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                    borderLeft: isPending ? '3px solid' : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                    borderRight: isCompetition ? '2px solid #f97316' : '1px solid black',
+                                    borderLeftColor: isPending ? resourceColor : undefined,
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
                                     zIndex: 10,
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -1635,10 +1667,17 @@ export default function CalendarPage() {
                                   }}
                                   title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
                                 >
-                                  <p className="font-medium text-[7px] sm:text-xs leading-tight w-full overflow-hidden">{booking.title}</p>
-                                  <p className={`text-[6px] sm:text-[10px] leading-tight w-full overflow-hidden ${isPending ? 'opacity-70' : 'opacity-80'}`}>
-                                    {format(start, "HH:mm")}-{format(end, "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
-                                  </p>
+                                  <p className="font-medium text-[7px] sm:text-[10px] leading-tight w-full truncate">{booking.title}</p>
+                                  {showTime && (
+                                    <p className={`text-[6px] sm:text-[9px] leading-tight w-full truncate ${isPending ? 'opacity-70' : 'opacity-80'}`}>
+                                      {format(start, "HH:mm")}-{format(end, "HH:mm")}
+                                    </p>
+                                  )}
+                                  {showResource && (
+                                    <p className={`text-[5px] sm:text-[8px] leading-tight w-full truncate ${isPending ? 'opacity-60' : 'opacity-70'}`}>
+                                      {booking.resourcePart?.name || booking.resource.name}
+                                    </p>
+                                  )}
                                 </div>
                               )
                             })}
@@ -2139,32 +2178,39 @@ export default function CalendarPage() {
                             return Math.abs(bCappedStart.getTime() - cappedEnd.getTime()) < 1000 && bColumnInfo.column === column
                           })
 
+                          {/* Dynamic text based on box height - Day view */}
+                          const actualHeight = Math.max(heightPx, 40)
+                          const isNarrow = totalColumns > 2
+                          const showTime = actualHeight >= 50 && !isNarrow
+                          const showResource = actualHeight >= 80 && !isNarrow
+                          
                           return (
                             <div
                               key={booking.id}
                               onClick={() => !isCompetition && setSelectedBooking(booking)}
-                              className={`absolute rounded-md px-2 py-1 text-xs pointer-events-auto transition-opacity ${
-                                isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
+                              className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
+                                isPending ? 'cursor-pointer hover:opacity-90' : 
                                 isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
                               }`}
                               style={{
                                 top: `${topPx}px`,
                                 left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${gapPxHorizontal / 2}px)`,
                                 width: boxWidth,
-                                height: `${Math.max(heightPx, 40)}px`,
-                                minHeight: '40px',
+                                height: `${actualHeight}px`,
+                                minHeight: '20px',
                                 backgroundColor: isCompetition 
                                   ? '#fdba74' 
                                   : isPending 
-                                    ? `${resourceColor}20`
+                                    ? `${resourceColor}40`
                                     : resourceColor,
                                 borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
                                 color: isCompetition ? '#9a3412' : 'black',
-                                borderTop: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                borderBottom: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                borderLeft: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                borderRight: isPending ? '2px dashed' : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                borderTop: isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                borderBottom: isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                borderLeft: isPending ? '3px solid' : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                borderRight: isCompetition ? '2px solid #f97316' : '1px solid black',
+                                borderLeftColor: isPending ? resourceColor : undefined,
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
                                 zIndex: 10,
                                 display: 'flex',
                                 flexDirection: 'column',
@@ -2173,10 +2219,17 @@ export default function CalendarPage() {
                               }}
                               title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
                             >
-                              <p className="font-medium text-[7px] sm:text-xs leading-tight w-full overflow-hidden">{booking.title}</p>
-                              <p className={`text-[6px] sm:text-[10px] leading-tight w-full overflow-hidden ${isPending ? 'opacity-70' : 'opacity-80'}`}>
-                                {format(start, "HH:mm")}-{format(end, "HH:mm")} {booking.resourcePart?.name || booking.resource.name}
-                              </p>
+                              <p className="font-medium text-[7px] sm:text-[10px] leading-tight w-full truncate">{booking.title}</p>
+                              {showTime && (
+                                <p className={`text-[6px] sm:text-[9px] leading-tight w-full truncate ${isPending ? 'opacity-70' : 'opacity-80'}`}>
+                                  {format(start, "HH:mm")}-{format(end, "HH:mm")}
+                                </p>
+                              )}
+                              {showResource && (
+                                <p className={`text-[5px] sm:text-[8px] leading-tight w-full truncate ${isPending ? 'opacity-60' : 'opacity-70'}`}>
+                                  {booking.resourcePart?.name || booking.resource.name}
+                                </p>
+                              )}
                             </div>
                           )
                         })
