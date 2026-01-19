@@ -1644,16 +1644,16 @@ export default function CalendarPage() {
                               const showTime = actualHeight >= 50 && !isNarrow
                               const showResource = actualHeight >= 80 && !isNarrow
                               
-                              // For pending: merge borders when adjacent to another pending booking
-                              const pendingBorderTop = isPending ? ((hasPendingAbove && isPending) ? 'none' : `2px dashed ${resourceColor}`) : undefined
-                              const pendingBorderBottom = isPending ? ((hasPendingBelow && isPending) ? 'none' : `2px dashed ${resourceColor}`) : undefined
+                              // For pending: show single line between adjacent pending bookings
+                              // Keep bottom border on this box, remove top border on box below (so we get one line, not two or zero)
+                              const pendingBorderTop = isPending ? (hasPendingAbove ? 'none' : `2px dashed ${resourceColor}`) : undefined
+                              const pendingBorderBottom = isPending ? `2px dashed ${resourceColor}` : undefined
                               
-                              // Calculate border-radius: remove corners where pending boxes meet
+                              // Calculate border-radius: remove top corners where this box meets one above
+                              // Bottom corners stay rounded since bottom border is always shown
                               const topLeftRadius = (isPending && hasPendingAbove) ? '0' : '6px'
                               const topRightRadius = (isPending && hasPendingAbove) ? '0' : '6px'
-                              const bottomLeftRadius = (isPending && hasPendingBelow) ? '0' : '6px'
-                              const bottomRightRadius = (isPending && hasPendingBelow) ? '0' : '6px'
-                              const borderRadiusStyle = `${topLeftRadius} ${topRightRadius} ${bottomRightRadius} ${bottomLeftRadius}`
+                              const borderRadiusStyle = `${topLeftRadius} ${topRightRadius} 6px 6px`
                               
                               return (
                                 <div
@@ -2200,16 +2200,16 @@ export default function CalendarPage() {
                           const showTime = actualHeight >= 50 && !isNarrow
                           const showResource = actualHeight >= 80 && !isNarrow
                           
-                          // For pending: merge borders when adjacent to another pending booking
-                          const pendingBorderTopDay = isPending ? ((hasPendingAbove && isPending) ? 'none' : `2px dashed ${resourceColor}`) : undefined
-                          const pendingBorderBottomDay = isPending ? ((hasPendingBelow && isPending) ? 'none' : `2px dashed ${resourceColor}`) : undefined
+                          // For pending: show single line between adjacent pending bookings
+                          // Keep bottom border on this box, remove top border on box below (so we get one line, not two or zero)
+                          const pendingBorderTopDay = isPending ? (hasPendingAbove ? 'none' : `2px dashed ${resourceColor}`) : undefined
+                          const pendingBorderBottomDay = isPending ? `2px dashed ${resourceColor}` : undefined
                           
-                          // Calculate border-radius: remove corners where pending boxes meet
+                          // Calculate border-radius: remove top corners where this box meets one above
+                          // Bottom corners stay rounded since bottom border is always shown
                           const topLeftRadiusDay = (isPending && hasPendingAbove) ? '0' : '6px'
                           const topRightRadiusDay = (isPending && hasPendingAbove) ? '0' : '6px'
-                          const bottomLeftRadiusDay = (isPending && hasPendingBelow) ? '0' : '6px'
-                          const bottomRightRadiusDay = (isPending && hasPendingBelow) ? '0' : '6px'
-                          const borderRadiusStyleDay = `${topLeftRadiusDay} ${topRightRadiusDay} ${bottomRightRadiusDay} ${bottomLeftRadiusDay}`
+                          const borderRadiusStyleDay = `${topLeftRadiusDay} ${topRightRadiusDay} 6px 6px`
                           
                           return (
                             <div
