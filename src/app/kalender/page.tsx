@@ -1583,14 +1583,18 @@ export default function CalendarPage() {
                               const isSingleBox = totalColumns === 1
                               
                               // Side by side layout for multiple bookings
-                              const gapPxHorizontal = 2
+                              const gapPx = 1
                               const widthPercent = 100 / totalColumns
                               const leftPercent = column * widthPercent
                               
-                              // For single box: full width with margin. For multiple: side by side
+                              // For single box: full width with margin. For multiple: side by side with gap
                               const boxWidth = isSingleBox 
-                                ? 'calc(100% - 4px)' 
-                                : `calc(${widthPercent}% - ${gapPxHorizontal}px)`
+                                ? 'calc(100% - 2px)' 
+                                : `calc(${widthPercent}% - ${gapPx * 2}px)`
+                              
+                              const boxLeft = isSingleBox 
+                                ? '1px' 
+                                : `calc(${leftPercent}% + ${gapPx}px)`
 
                               // Check if there's a booking directly above or below this one
                               const hasBookingAbove = allDayBookings.some(b => {
@@ -1637,29 +1641,28 @@ export default function CalendarPage() {
                                   key={booking.id}
                                   onClick={() => !isCompetition && setSelectedBooking(booking)}
                                   className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
-                                    isPending ? 'cursor-pointer hover:opacity-90' : 
+                                    isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
                                     isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
                                   }`}
                                   style={{
                                     top: `${topPx}px`,
-                                    left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${gapPxHorizontal / 2}px)`,
+                                    left: boxLeft,
                                     width: boxWidth,
                                     height: `${actualHeight}px`,
                                     minHeight: '20px',
                                     backgroundColor: isCompetition 
                                       ? '#fdba74' 
                                       : isPending 
-                                        ? `${resourceColor}40`
+                                        ? `${resourceColor}20`
                                         : resourceColor,
                                     borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
                                     color: isCompetition ? '#9a3412' : 'black',
-                                    borderTop: isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                    borderBottom: isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                    borderLeft: isPending ? '3px solid' : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                    borderRight: isCompetition ? '2px solid #f97316' : '1px solid black',
-                                    borderLeftColor: isPending ? resourceColor : undefined,
+                                    borderTop: isPending ? undefined : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                    borderBottom: isPending ? undefined : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                    borderLeft: isPending ? undefined : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                    borderRight: isPending ? undefined : isCompetition ? '2px solid #f97316' : '1px solid black',
                                     boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                                    zIndex: 10,
+                                    zIndex: 10 + column,
                                     display: 'flex',
                                     flexDirection: 'column',
                                     justifyContent: 'flex-start',
@@ -2140,14 +2143,18 @@ export default function CalendarPage() {
                           const isSingleBox = totalColumns === 1
                           
                           // Side by side layout for multiple bookings
-                          const gapPxHorizontal = 2
+                          const gapPx = 1
                           const widthPercent = 100 / totalColumns
                           const leftPercent = column * widthPercent
                           
-                          // For single box: full width with margin. For multiple: side by side
+                          // For single box: full width with margin. For multiple: side by side with gap
                           const boxWidth = isSingleBox 
-                            ? 'calc(100% - 4px)' 
-                            : `calc(${widthPercent}% - ${gapPxHorizontal}px)`
+                            ? 'calc(100% - 2px)' 
+                            : `calc(${widthPercent}% - ${gapPx * 2}px)`
+                          
+                          const boxLeft = isSingleBox 
+                            ? '1px' 
+                            : `calc(${leftPercent}% + ${gapPx}px)`
 
                           // Check if there's a booking directly above or below this one
                           const hasBookingAbove = dayBookings.some(b => {
@@ -2189,29 +2196,28 @@ export default function CalendarPage() {
                               key={booking.id}
                               onClick={() => !isCompetition && setSelectedBooking(booking)}
                               className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
-                                isPending ? 'cursor-pointer hover:opacity-90' : 
+                                isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
                                 isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
                               }`}
                               style={{
                                 top: `${topPx}px`,
-                                left: isSingleBox ? '2px' : `calc(${leftPercent}% + ${gapPxHorizontal / 2}px)`,
+                                left: boxLeft,
                                 width: boxWidth,
                                 height: `${actualHeight}px`,
                                 minHeight: '20px',
                                 backgroundColor: isCompetition 
                                   ? '#fdba74' 
                                   : isPending 
-                                    ? `${resourceColor}40`
+                                    ? `${resourceColor}20`
                                     : resourceColor,
                                 borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
                                 color: isCompetition ? '#9a3412' : 'black',
-                                borderTop: isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                borderBottom: isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
-                                borderLeft: isPending ? '3px solid' : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                borderRight: isCompetition ? '2px solid #f97316' : '1px solid black',
-                                borderLeftColor: isPending ? resourceColor : undefined,
+                                borderTop: isPending ? undefined : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                borderBottom: isPending ? undefined : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                borderLeft: isPending ? undefined : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                borderRight: isPending ? undefined : isCompetition ? '2px solid #f97316' : '1px solid black',
                                 boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                                zIndex: 10,
+                                zIndex: 10 + column,
                                 display: 'flex',
                                 flexDirection: 'column',
                                 justifyContent: 'flex-start',
