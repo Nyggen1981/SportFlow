@@ -1037,19 +1037,20 @@ export default function BookResourcePage({ params }: Props) {
                             </div>
                           </label>
                           
-                          <label className="flex items-start gap-3 p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                          <label className="flex items-start gap-3 p-4 border-2 border-gray-200 rounded-lg cursor-not-allowed opacity-50">
                             <input
                               type="radio"
                               name="paymentMethod"
                               value="VIPPS"
                               checked={preferredPaymentMethod === "VIPPS"}
                               onChange={() => setPreferredPaymentMethod("VIPPS")}
-                              className="mt-1 w-4 h-4 text-blue-600"
+                              disabled
+                              className="mt-1 w-4 h-4 text-gray-400 cursor-not-allowed"
                             />
                             <div className="flex-1">
-                              <div className="font-medium text-gray-900">Vipps</div>
-                              <div className="text-sm text-gray-500">
-                                Vipps-betalingsforespørsel sendes etter godkjenning
+                              <div className="font-medium text-gray-500">Vipps</div>
+                              <div className="text-sm text-gray-400">
+                                Vipps-betaling (kommer snart)
                               </div>
                             </div>
                           </label>

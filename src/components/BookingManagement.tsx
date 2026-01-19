@@ -1180,9 +1180,20 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-900">{firstBooking.title}</p>
-                          <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700 mt-0.5">
-                            📅 {groupBookings.length}x
-                          </span>
+                          <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                            <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+                              📅 {groupBookings.length}x
+                            </span>
+                            {pendingCount > 0 && (
+                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">{pendingCount} venter</span>
+                            )}
+                            {approvedCount > 0 && (
+                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700">{approvedCount} godkj.</span>
+                            )}
+                            {rejectedCount > 0 && (
+                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700">{rejectedCount} avsl.</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -1214,32 +1225,12 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                           <p className="text-xs text-gray-400">—</p>
                         </td>
                         <td className="px-4 py-4">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {pendingCount > 0 && (
-                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">{pendingCount} venter</span>
-                            )}
-                            {approvedCount > 0 && (
-                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700">{approvedCount} godkj.</span>
-                            )}
-                            {rejectedCount > 0 && (
-                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700">{rejectedCount} avsl.</span>
-                            )}
-                          </div>
+                          <p className="text-xs text-gray-400">—</p>
                         </td>
                       </>
                     ) : (
                       <td className="px-4 py-4">
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {pendingCount > 0 && (
-                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">{pendingCount} venter</span>
-                          )}
-                          {approvedCount > 0 && (
-                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700">{approvedCount} godkj.</span>
-                          )}
-                          {rejectedCount > 0 && (
-                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700">{rejectedCount} avsl.</span>
-                          )}
-                        </div>
+                        {/* Status already shown in Booking column for recurring groups */}
                       </td>
                     )}
                     <td className="px-4 py-4">

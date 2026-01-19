@@ -892,14 +892,14 @@ export default function MyBookingsPage() {
                           >
                             {activeTab === "history" && <td className="px-4 py-3"></td>}
                             <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-start gap-2">
                                 <div 
-                                  className="w-3 h-3 rounded-full flex-shrink-0"
+                                  className="w-3 h-3 rounded-full flex-shrink-0 mt-1"
                                   style={{ backgroundColor: firstBooking.resource.color || "#3b82f6" }}
                                 />
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-medium text-gray-900">{firstBooking.title}</span>
+                                  <span className="font-medium text-gray-900">{firstBooking.title}</span>
+                                  <div className="mt-0.5">
                                     <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
                                       📅 {groupBookings.length}x
                                     </span>
