@@ -668,117 +668,6 @@ export default function CalendarPage() {
     return columns
   }, [])
 
-  // NEW: Get booking segments with dynamic width based on actual concurrent overlap at each time slice
-  // This allows bookings to expand when neighboring bookings end
-  interface BookingSegment {
-    startTime: Date
-    endTime: Date
-    column: number
-    totalColumns: number
-    isFirst: boolean
-    isLast: boolean
-  }
-
-  const getBookingSegments = useCallback((dayBookings: Booking[]): Map<string, BookingSegment[]> => {
-    if (dayBookings.length === 0) return new Map()
-
-    // Collect all time points where something changes (starts or ends)
-    const timePoints = new Set<number>()
-    dayBookings.forEach(b => {
-      timePoints.add(parseISO(b.startTime).getTime())
-      timePoints.add(parseISO(b.endTime).getTime())
-    })
-    const sortedTimePoints = [...timePoints].sort((a, b) => a - b)
-
-    // Initialize segments map
-    const segments = new Map<string, BookingSegment[]>()
-    dayBookings.forEach(b => segments.set(b.id, []))
-
-    // For each time slice, determine active bookings and assign columns
-    for (let i = 0; i < sortedTimePoints.length - 1; i++) {
-      const sliceStart = new Date(sortedTimePoints[i])
-      const sliceEnd = new Date(sortedTimePoints[i + 1])
-
-      // Find all bookings active during this slice
-      const activeBookings = dayBookings.filter(b => {
-        const bStart = parseISO(b.startTime)
-        const bEnd = parseISO(b.endTime)
-        return bStart < sliceEnd && bEnd > sliceStart
-      })
-
-      if (activeBookings.length === 0) continue
-
-      // Sort active bookings by original start time, then duration (longer first) for stable column assignment
-      const sorted = [...activeBookings].sort((a, b) => {
-        const aStart = parseISO(a.startTime).getTime()
-        const bStart = parseISO(b.startTime).getTime()
-        if (aStart !== bStart) return aStart - bStart
-        const aDuration = parseISO(a.endTime).getTime() - aStart
-        const bDuration = parseISO(b.endTime).getTime() - bStart
-        if (aDuration !== bDuration) return bDuration - aDuration
-        return a.id.localeCompare(b.id)
-      })
-
-      // Assign columns for this time slice
-      const columnEndTimes: Date[] = []
-      const sliceColumnAssignment = new Map<string, number>()
-      
-      sorted.forEach(booking => {
-        const bStart = parseISO(booking.startTime)
-        
-        // Find first available column
-        let column = 0
-        while (column < columnEndTimes.length && columnEndTimes[column] > bStart) {
-          column++
-        }
-        
-        columnEndTimes[column] = parseISO(booking.endTime)
-        sliceColumnAssignment.set(booking.id, column)
-      })
-
-      const totalColumns = activeBookings.length
-
-      // Add segment to each active booking
-      activeBookings.forEach(b => {
-        const column = sliceColumnAssignment.get(b.id) || 0
-        const bookingSegments = segments.get(b.id) || []
-        const bStart = parseISO(b.startTime)
-        const bEnd = parseISO(b.endTime)
-        
-        // Check if this segment can be merged with the previous one (same column and totalColumns)
-        const lastSegment = bookingSegments[bookingSegments.length - 1]
-        if (lastSegment && 
-            lastSegment.column === column && 
-            lastSegment.totalColumns === totalColumns &&
-            lastSegment.endTime.getTime() === sliceStart.getTime()) {
-          // Merge with previous segment
-          lastSegment.endTime = sliceEnd
-        } else {
-          // Create new segment
-          bookingSegments.push({
-            startTime: sliceStart,
-            endTime: sliceEnd,
-            column,
-            totalColumns,
-            isFirst: sliceStart.getTime() === bStart.getTime(),
-            isLast: sliceEnd.getTime() === bEnd.getTime()
-          })
-        }
-        segments.set(b.id, bookingSegments)
-      })
-    }
-
-    // Update isFirst/isLast after merging
-    segments.forEach((bookingSegments, bookingId) => {
-      if (bookingSegments.length > 0) {
-        bookingSegments[0].isFirst = true
-        bookingSegments[bookingSegments.length - 1].isLast = true
-      }
-    })
-
-    return segments
-  }, [])
-
   // Get filtered bookings for calendar view
   // Show all when no filter, filter by category when category selected, then resource, then part
   const filteredBookingsForCalendar = useMemo(() => {
@@ -1632,17 +1521,16 @@ export default function CalendarPage() {
                       ))}
                     </div>
 
-                    {/* Week Columns - All bookings with absolute positioning using dynamic segments */}
+                    {/* Week Columns - All bookings with absolute positioning */}
                     <div className="flex flex-1" style={{ height: "1440px" }}>
                       {viewDays.map((day, dayIndex) => {
-                        // Get all bookings for this day and calculate segments
+                        // Get all bookings for this day and calculate columns
                         const allDayBookings = filteredBookingsForCalendar.filter(booking => {
                           const bookingStart = parseISO(booking.startTime)
                           return isSameDay(bookingStart, day)
                         })
                         
-                        // Use the new segment-based approach for dynamic widths
-                        const bookingSegments = getBookingSegments(allDayBookings)
+                        const bookingColumns = getBookingColumns(allDayBookings)
 
                         return (
                           <div
@@ -1667,115 +1555,134 @@ export default function CalendarPage() {
                               />
                             ))}
                             
-                            {/* All bookings for this day - rendered as segments */}
+                            {/* All bookings for this day */}
                             {allDayBookings.map((booking) => {
                               const start = parseISO(booking.startTime)
                               const end = parseISO(booking.endTime)
-                              const isPending = booking.status === "pending"
-                              const isCompetition = booking.status === "competition"
-                              const resourceColor = isCompetition ? "#f97316" : (booking.resource.color || booking.resource.category?.color || "#3b82f6")
                               
-                              // Get segments for this booking
-                              const segments = bookingSegments.get(booking.id) || []
-                              if (segments.length === 0) return null
-                              
-                              // Calculate full booking height for text decisions
+                              // Cap the end time to end of day to prevent overflow
                               const dayStart = startOfDay(day)
                               const dayEnd = new Date(dayStart)
                               dayEnd.setHours(23, 59, 59, 999)
                               const cappedStart = start < dayStart ? dayStart : start
                               const cappedEnd = end > dayEnd ? dayEnd : end
-                              const fullStartMinutes = cappedStart.getHours() * 60 + cappedStart.getMinutes()
-                              const fullEndMinutes = cappedEnd.getHours() * 60 + cappedEnd.getMinutes()
-                              const fullHeightPx = ((fullEndMinutes - fullStartMinutes) / 60) * 60
-                              const actualFullHeight = Math.max(fullHeightPx, 20)
                               
-                              // Find the widest segment for text display decisions
-                              const widestSegment = segments.reduce((widest, seg) => 
-                                (100 / seg.totalColumns) > (100 / widest.totalColumns) ? seg : widest
-                              , segments[0])
-                              const isNarrow = widestSegment.totalColumns > 2
-                              const showTime = actualFullHeight >= 50 && !isNarrow
-                              const showResource = actualFullHeight >= 80 && !isNarrow
+                              // Calculate position in pixels (each hour is 60px, total 1440px for 24 hours)
+                              const startMinutes = cappedStart.getHours() * 60 + cappedStart.getMinutes()
+                              const endMinutes = cappedEnd.getHours() * 60 + cappedEnd.getMinutes()
+                              const topPx = (startMinutes / 60) * 60
+                              const heightPx = ((endMinutes - startMinutes) / 60) * 60
                               
-                              return segments.map((segment, segIndex) => {
-                                const segStartMinutes = segment.startTime.getHours() * 60 + segment.startTime.getMinutes()
-                                const segEndMinutes = segment.endTime.getHours() * 60 + segment.endTime.getMinutes()
-                                const topPx = (segStartMinutes / 60) * 60
-                                const heightPx = Math.max(((segEndMinutes - segStartMinutes) / 60) * 60, 1)
-                                
-                                const { column, totalColumns } = segment
-                                const isSingleBox = totalColumns === 1
-                                const gapPx = 1
-                                const widthPercent = 100 / totalColumns
-                                const leftPercent = column * widthPercent
-                                
-                                const boxWidth = isSingleBox 
-                                  ? 'calc(100% - 2px)' 
-                                  : `calc(${widthPercent}% - ${gapPx * 2}px)`
-                                
-                                const boxLeft = isSingleBox 
-                                  ? '1px' 
-                                  : `calc(${leftPercent}% + ${gapPx}px)`
+                              const isPending = booking.status === "pending"
+                              const isCompetition = booking.status === "competition"
+                              const resourceColor = isCompetition ? "#f97316" : (booking.resource.color || booking.resource.category?.color || "#3b82f6")
+                              
+                              // Get column info for this booking
+                              const columnInfo = bookingColumns.get(booking.id) || { column: 0, totalColumns: 1 }
+                              const { column, totalColumns } = columnInfo
+                              const isSingleBox = totalColumns === 1
+                              
+                              // Side by side layout for multiple bookings
+                              const gapPx = 1
+                              const widthPercent = 100 / totalColumns
+                              const leftPercent = column * widthPercent
+                              
+                              // For single box: full width with margin. For multiple: side by side with gap
+                              const boxWidth = isSingleBox 
+                                ? 'calc(100% - 2px)' 
+                                : `calc(${widthPercent}% - ${gapPx * 2}px)`
+                              
+                              const boxLeft = isSingleBox 
+                                ? '1px' 
+                                : `calc(${leftPercent}% + ${gapPx}px)`
 
-                                // Only show text in the first segment
-                                const showText = segIndex === 0
-                                
-                                // Border logic: only show borders on outer edges of the entire booking
-                                const isFirstSegment = segment.isFirst
-                                const isLastSegment = segment.isLast
-                                
-                                return (
-                                  <div
-                                    key={`${booking.id}-seg-${segIndex}`}
-                                    onClick={() => !isCompetition && setSelectedBooking(booking)}
-                                    className={`absolute px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
-                                      isPending ? 'cursor-pointer hover:opacity-90' : 
-                                      isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
-                                    }`}
-                                    style={{
-                                      top: `${topPx}px`,
-                                      left: boxLeft,
-                                      width: boxWidth,
-                                      height: `${heightPx}px`,
-                                      backgroundColor: isCompetition 
-                                        ? '#fdba74' 
-                                        : isPending 
-                                          ? `${resourceColor}20`
-                                          : resourceColor,
-                                      borderLeft: isPending ? `2px dashed ${resourceColor}` : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                      borderRight: isPending ? `2px dashed ${resourceColor}` : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                      borderTop: isFirstSegment ? (isPending ? `2px dashed ${resourceColor}` : isCompetition ? '2px solid #f97316' : '1px solid black') : 'none',
-                                      borderBottom: isLastSegment ? (isPending ? `2px dashed ${resourceColor}` : isCompetition ? '2px solid #f97316' : '1px solid black') : 'none',
-                                      borderRadius: isFirstSegment && isLastSegment ? '6px' : isFirstSegment ? '6px 6px 0 0' : isLastSegment ? '0 0 6px 6px' : '0',
-                                      boxShadow: isPending ? 'none' : '0 1px 2px rgba(0,0,0,0.15)',
-                                      zIndex: isPending ? 20 + (totalColumns - column) : 10 + (totalColumns - column),
-                                      color: isCompetition ? '#9a3412' : 'black',
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      justifyContent: 'flex-start',
-                                      alignItems: 'flex-start'
-                                    }}
-                                    title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
-                                  >
-                                    {showText && (
-                                      <>
-                                        <p className="font-medium text-[7px] sm:text-[10px] leading-tight w-full truncate">{booking.title}</p>
-                                        {showTime && (
-                                          <p className={`text-[6px] sm:text-[9px] leading-tight w-full truncate ${isPending ? 'opacity-70' : 'opacity-80'}`}>
-                                            {format(start, "HH:mm")}-{format(end, "HH:mm")}
-                                          </p>
-                                        )}
-                                        {showResource && (
-                                          <p className={`text-[5px] sm:text-[8px] leading-tight w-full truncate ${isPending ? 'opacity-60' : 'opacity-70'}`}>
-                                            {booking.resourcePart?.name || booking.resource.name}
-                                          </p>
-                                        )}
-                                      </>
-                                    )}
-                                  </div>
-                                )
+                              // Check if there's a booking directly above or below this one
+                              const hasBookingAbove = allDayBookings.some(b => {
+                                if (b.id === booking.id) return false
+                                const bStart = parseISO(b.startTime)
+                                const bEnd = parseISO(b.endTime)
+                                const bDayStart = startOfDay(day)
+                                const bDayEnd = new Date(bDayStart)
+                                bDayEnd.setHours(23, 59, 59, 999)
+                                const bCappedStart = bStart < bDayStart ? bDayStart : bStart
+                                const bCappedEnd = bEnd > bDayEnd ? bDayEnd : bEnd
+                                // Check if booking ends exactly where this one starts (within same column)
+                                const bColumnInfo = bookingColumns.get(b.id) || { column: 0, totalColumns: 1 }
+                                return Math.abs(bCappedEnd.getTime() - cappedStart.getTime()) < 1000 && bColumnInfo.column === column
                               })
+                              
+                              const hasBookingBelow = allDayBookings.some(b => {
+                                if (b.id === booking.id) return false
+                                const bStart = parseISO(b.startTime)
+                                const bEnd = parseISO(b.endTime)
+                                const bDayStart = startOfDay(day)
+                                const bDayEnd = new Date(bDayStart)
+                                bDayEnd.setHours(23, 59, 59, 999)
+                                const bCappedStart = bStart < bDayStart ? bDayStart : bStart
+                                const bCappedEnd = bEnd > bDayEnd ? bDayEnd : bEnd
+                                // Check if booking starts exactly where this one ends (within same column)
+                                const bColumnInfo = bookingColumns.get(b.id) || { column: 0, totalColumns: 1 }
+                                return Math.abs(bCappedStart.getTime() - cappedEnd.getTime()) < 1000 && bColumnInfo.column === column
+                              })
+
+                              {/* Dynamic text based on box height:
+                                  - Tiny (<30px): Nothing visible (rely on tooltip)
+                                  - Small (<50px): Only title, truncated
+                                  - Medium (<80px): Title + time
+                                  - Large (>=80px): Full info
+                              */}
+                              const actualHeight = Math.max(heightPx, 20)
+                              const isNarrow = totalColumns > 2
+                              const showTime = actualHeight >= 50 && !isNarrow
+                              const showResource = actualHeight >= 80 && !isNarrow
+                              
+                              return (
+                                <div
+                                  key={booking.id}
+                                  onClick={() => !isCompetition && setSelectedBooking(booking)}
+                                  className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
+                                    isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
+                                    isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
+                                  }`}
+                                  style={{
+                                    top: `${topPx}px`,
+                                    left: boxLeft,
+                                    width: boxWidth,
+                                    height: `${actualHeight}px`,
+                                    minHeight: '20px',
+                                    backgroundColor: isCompetition 
+                                      ? '#fdba74' 
+                                      : isPending 
+                                        ? `${resourceColor}20`
+                                        : resourceColor,
+                                    borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
+                                    color: isCompetition ? '#9a3412' : 'black',
+                                    borderTop: isPending ? undefined : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                    borderBottom: isPending ? undefined : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                    borderLeft: isPending ? undefined : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                    borderRight: isPending ? undefined : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                    boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                                    zIndex: 10 + column,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'flex-start',
+                                    alignItems: 'flex-start'
+                                  }}
+                                  title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
+                                >
+                                  <p className="font-medium text-[7px] sm:text-[10px] leading-tight w-full truncate">{booking.title}</p>
+                                  {showTime && (
+                                    <p className={`text-[6px] sm:text-[9px] leading-tight w-full truncate ${isPending ? 'opacity-70' : 'opacity-80'}`}>
+                                      {format(start, "HH:mm")}-{format(end, "HH:mm")}
+                                    </p>
+                                  )}
+                                  {showResource && (
+                                    <p className={`text-[5px] sm:text-[8px] leading-tight w-full truncate ${isPending ? 'opacity-60' : 'opacity-70'}`}>
+                                      {booking.resourcePart?.name || booking.resource.name}
+                                    </p>
+                                  )}
+                                </div>
+                              )
                             })}
                           </div>
                         )
@@ -2200,124 +2107,137 @@ export default function CalendarPage() {
                         />
                       ))}
                       
-                      {/* Get all bookings for the selected day filtered by selected resources - using dynamic segments */}
+                      {/* Get all bookings for the selected day filtered by selected resources */}
                       {(() => {
                         const dayBookings = filteredBookingsForCalendar.filter(booking => {
                           const bookingStart = parseISO(booking.startTime)
                           return isSameDay(bookingStart, selectedDate)
                         })
                         
-                        // Use segment-based approach for dynamic widths
-                        const bookingSegmentsMap = getBookingSegments(dayBookings)
+                        const bookingColumns = getBookingColumns(dayBookings)
                         
-                        return dayBookings.flatMap((booking) => {
+                        return dayBookings.map((booking) => {
                           const start = parseISO(booking.startTime)
                           const end = parseISO(booking.endTime)
-                          const isPending = booking.status === "pending"
-                          const isCompetition = booking.status === "competition"
-                          const resourceColor = isCompetition ? "#f97316" : (booking.resource.color || booking.resource.category?.color || "#3b82f6")
                           
-                          // Get segments for this booking
-                          const segments = bookingSegmentsMap.get(booking.id) || []
-                          if (segments.length === 0) return []
-                          
-                          // Calculate full booking height for text decisions
+                          // Cap the end time to end of day to prevent overflow
                           const dayStart = startOfDay(selectedDate)
                           const dayEnd = new Date(dayStart)
                           dayEnd.setHours(23, 59, 59, 999)
                           const cappedStart = start < dayStart ? dayStart : start
                           const cappedEnd = end > dayEnd ? dayEnd : end
-                          const fullStartMinutes = cappedStart.getHours() * 60 + cappedStart.getMinutes()
-                          const fullEndMinutes = cappedEnd.getHours() * 60 + cappedEnd.getMinutes()
-                          const fullHeightPx = ((fullEndMinutes - fullStartMinutes) / 60) * 60
-                          const actualFullHeight = Math.max(fullHeightPx, 20)
                           
-                          // Find the widest segment for text display decisions
-                          const widestSegment = segments.reduce((widest, seg) => 
-                            (100 / seg.totalColumns) > (100 / widest.totalColumns) ? seg : widest
-                          , segments[0])
-                          const isNarrow = widestSegment.totalColumns > 2
-                          const showTime = actualFullHeight >= 50 && !isNarrow
-                          const showResource = actualFullHeight >= 80 && !isNarrow
+                          // Calculate position in pixels (each hour is 60px, total 1440px for 24 hours)
+                          const startMinutes = cappedStart.getHours() * 60 + cappedStart.getMinutes()
+                          const endMinutes = cappedEnd.getHours() * 60 + cappedEnd.getMinutes()
+                          const topPx = (startMinutes / 60) * 60
+                          const heightPx = ((endMinutes - startMinutes) / 60) * 60
                           
-                          return segments.map((segment, segIndex) => {
-                            const segStartMinutes = segment.startTime.getHours() * 60 + segment.startTime.getMinutes()
-                            const segEndMinutes = segment.endTime.getHours() * 60 + segment.endTime.getMinutes()
-                            const topPx = (segStartMinutes / 60) * 60
-                            const heightPx = Math.max(((segEndMinutes - segStartMinutes) / 60) * 60, 1)
-                            
-                            const { column, totalColumns } = segment
-                            const isSingleBox = totalColumns === 1
-                            const gapPx = 1
-                            const widthPercent = 100 / totalColumns
-                            const leftPercent = column * widthPercent
-                            
-                            const boxWidth = isSingleBox 
-                              ? 'calc(100% - 2px)' 
-                              : `calc(${widthPercent}% - ${gapPx * 2}px)`
-                            
-                            const boxLeft = isSingleBox 
-                              ? '1px' 
-                              : `calc(${leftPercent}% + ${gapPx}px)`
+                          const isPending = booking.status === "pending"
+                          const isCompetition = booking.status === "competition"
+                          const resourceColor = isCompetition ? "#f97316" : (booking.resource.color || booking.resource.category?.color || "#3b82f6")
+                          
+                          // Get column info for this booking
+                          const columnInfo = bookingColumns.get(booking.id) || { column: 0, totalColumns: 1 }
+                          const { column, totalColumns } = columnInfo
+                          const isSingleBox = totalColumns === 1
+                          
+                          // Side by side layout for multiple bookings
+                          const gapPx = 1
+                          const widthPercent = 100 / totalColumns
+                          const leftPercent = column * widthPercent
+                          
+                          // For single box: full width with margin. For multiple: side by side with gap
+                          const boxWidth = isSingleBox 
+                            ? 'calc(100% - 2px)' 
+                            : `calc(${widthPercent}% - ${gapPx * 2}px)`
+                          
+                          const boxLeft = isSingleBox 
+                            ? '1px' 
+                            : `calc(${leftPercent}% + ${gapPx}px)`
 
-                            // Only show text in the first segment
-                            const showText = segIndex === 0
-                            
-                            // Border logic: only show borders on outer edges of the entire booking
-                            const isFirstSegment = segment.isFirst
-                            const isLastSegment = segment.isLast
-                            
-                            return (
-                              <div
-                                key={`${booking.id}-seg-${segIndex}`}
-                                onClick={() => !isCompetition && setSelectedBooking(booking)}
-                                className={`absolute px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
-                                  isPending ? 'cursor-pointer hover:opacity-90' : 
-                                  isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
-                                }`}
-                                style={{
-                                  top: `${topPx}px`,
-                                  left: boxLeft,
-                                  width: boxWidth,
-                                  height: `${heightPx}px`,
-                                  backgroundColor: isCompetition 
-                                    ? '#fdba74' 
-                                    : isPending 
-                                      ? `${resourceColor}20`
-                                      : resourceColor,
-                                  borderLeft: isPending ? `2px dashed ${resourceColor}` : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                  borderRight: isPending ? `2px dashed ${resourceColor}` : isCompetition ? '2px solid #f97316' : '1px solid black',
-                                  borderTop: isFirstSegment ? (isPending ? `2px dashed ${resourceColor}` : isCompetition ? '2px solid #f97316' : '1px solid black') : 'none',
-                                  borderBottom: isLastSegment ? (isPending ? `2px dashed ${resourceColor}` : isCompetition ? '2px solid #f97316' : '1px solid black') : 'none',
-                                  borderRadius: isFirstSegment && isLastSegment ? '6px' : isFirstSegment ? '6px 6px 0 0' : isLastSegment ? '0 0 6px 6px' : '0',
-                                  boxShadow: isPending ? 'none' : '0 1px 2px rgba(0,0,0,0.15)',
-                                  zIndex: isPending ? 20 + (totalColumns - column) : 10 + (totalColumns - column),
-                                  color: isCompetition ? '#9a3412' : 'black',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  justifyContent: 'flex-start',
-                                  alignItems: 'flex-start'
-                                }}
-                                title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
-                              >
-                                {showText && (
-                                  <>
-                                    <p className="font-medium text-[7px] sm:text-[10px] leading-tight w-full truncate">{booking.title}</p>
-                                    {showTime && (
-                                      <p className={`text-[6px] sm:text-[9px] leading-tight w-full truncate ${isPending ? 'opacity-70' : 'opacity-80'}`}>
-                                        {format(start, "HH:mm")}-{format(end, "HH:mm")}
-                                      </p>
-                                    )}
-                                    {showResource && (
-                                      <p className={`text-[5px] sm:text-[8px] leading-tight w-full truncate ${isPending ? 'opacity-60' : 'opacity-70'}`}>
-                                        {booking.resourcePart?.name || booking.resource.name}
-                                      </p>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            )
+                          // Check if there's a booking directly above or below this one
+                          const hasBookingAbove = dayBookings.some(b => {
+                            if (b.id === booking.id) return false
+                            const bStart = parseISO(b.startTime)
+                            const bEnd = parseISO(b.endTime)
+                            const bDayStart = startOfDay(selectedDate)
+                            const bDayEnd = new Date(bDayStart)
+                            bDayEnd.setHours(23, 59, 59, 999)
+                            const bCappedStart = bStart < bDayStart ? bDayStart : bStart
+                            const bCappedEnd = bEnd > bDayEnd ? bDayEnd : bEnd
+                            // Check if booking ends exactly where this one starts (within same column)
+                            const bColumnInfo = bookingColumns.get(b.id) || { column: 0, totalColumns: 1 }
+                            return Math.abs(bCappedEnd.getTime() - cappedStart.getTime()) < 1000 && bColumnInfo.column === column
                           })
+                          
+                          const hasBookingBelow = dayBookings.some(b => {
+                            if (b.id === booking.id) return false
+                            const bStart = parseISO(b.startTime)
+                            const bEnd = parseISO(b.endTime)
+                            const bDayStart = startOfDay(selectedDate)
+                            const bDayEnd = new Date(bDayStart)
+                            bDayEnd.setHours(23, 59, 59, 999)
+                            const bCappedStart = bStart < bDayStart ? bDayStart : bStart
+                            const bCappedEnd = bEnd > bDayEnd ? bDayEnd : bEnd
+                            // Check if booking starts exactly where this one ends (within same column)
+                            const bColumnInfo = bookingColumns.get(b.id) || { column: 0, totalColumns: 1 }
+                            return Math.abs(bCappedStart.getTime() - cappedEnd.getTime()) < 1000 && bColumnInfo.column === column
+                          })
+
+                          {/* Dynamic text based on box height - Day view */}
+                          const actualHeight = Math.max(heightPx, 20)
+                          const isNarrow = totalColumns > 2
+                          const showTime = actualHeight >= 50 && !isNarrow
+                          const showResource = actualHeight >= 80 && !isNarrow
+                          
+                          return (
+                            <div
+                              key={booking.id}
+                              onClick={() => !isCompetition && setSelectedBooking(booking)}
+                              className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
+                                isPending ? 'border-2 border-dashed cursor-pointer hover:opacity-90' : 
+                                isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
+                              }`}
+                              style={{
+                                top: `${topPx}px`,
+                                left: boxLeft,
+                                width: boxWidth,
+                                height: `${actualHeight}px`,
+                                minHeight: '20px',
+                                backgroundColor: isCompetition 
+                                  ? '#fdba74' 
+                                  : isPending 
+                                    ? `${resourceColor}20`
+                                    : resourceColor,
+                                borderColor: isCompetition ? '#f97316' : (isPending ? resourceColor : 'black'),
+                                color: isCompetition ? '#9a3412' : 'black',
+                                borderTop: isPending ? undefined : isCompetition ? '2px solid #f97316' : hasBookingAbove ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                borderBottom: isPending ? undefined : isCompetition ? '2px solid #f97316' : hasBookingBelow ? '1px solid rgba(0,0,0,0.3)' : '1px solid black',
+                                borderLeft: isPending ? undefined : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                borderRight: isPending ? undefined : isCompetition ? '2px solid #f97316' : '1px solid black',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                                zIndex: 10 + column,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'flex-start',
+                                alignItems: 'flex-start'
+                              }}
+                              title={`${format(start, "HH:mm")}-${format(end, "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
+                            >
+                              <p className="font-medium text-[7px] sm:text-[10px] leading-tight w-full truncate">{booking.title}</p>
+                              {showTime && (
+                                <p className={`text-[6px] sm:text-[9px] leading-tight w-full truncate ${isPending ? 'opacity-70' : 'opacity-80'}`}>
+                                  {format(start, "HH:mm")}-{format(end, "HH:mm")}
+                                </p>
+                              )}
+                              {showResource && (
+                                <p className={`text-[5px] sm:text-[8px] leading-tight w-full truncate ${isPending ? 'opacity-60' : 'opacity-70'}`}>
+                                  {booking.resourcePart?.name || booking.resource.name}
+                                </p>
+                              )}
+                            </div>
+                          )
                         })
                       })()}
                     </div>
