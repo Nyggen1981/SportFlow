@@ -207,13 +207,12 @@ function ResourceCard({ resource }: { resource: Resource }) {
               fill
               className="object-cover"
             />
-            {/* Category color gradient overlay */}
+            {/* Category color overlay - uniform fade, image visible in background */}
             <div 
-              className="absolute inset-0 opacity-30"
+              className="absolute inset-0"
               style={{ 
-                background: resource.category?.color 
-                  ? `linear-gradient(to top, ${resource.category.color}, transparent)`
-                  : 'linear-gradient(to top, rgba(0,0,0,0.3), transparent)'
+                backgroundColor: resource.category?.color || 'rgba(0,0,0,0.5)',
+                opacity: 0.6
               }}
             />
           </>
