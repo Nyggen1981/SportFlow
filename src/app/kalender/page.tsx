@@ -1631,7 +1631,7 @@ export default function CalendarPage() {
                                   - Medium (<80px): Title + time
                                   - Large (>=80px): Full info
                               */}
-                              const actualHeight = Math.max(heightPx, 40)
+                              const actualHeight = Math.max(heightPx, 20)
                               const isNarrow = totalColumns > 2
                               const showTime = actualHeight >= 50 && !isNarrow
                               const showResource = actualHeight >= 80 && !isNarrow
@@ -2186,7 +2186,7 @@ export default function CalendarPage() {
                           })
 
                           {/* Dynamic text based on box height - Day view */}
-                          const actualHeight = Math.max(heightPx, 40)
+                          const actualHeight = Math.max(heightPx, 20)
                           const isNarrow = totalColumns > 2
                           const showTime = actualHeight >= 50 && !isNarrow
                           const showResource = actualHeight >= 80 && !isNarrow
