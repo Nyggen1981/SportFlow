@@ -205,7 +205,7 @@ function ResourceCard({ resource }: { resource: Resource }) {
               src={resource.image}
               alt={resource.name}
               fill
-              className="object-cover opacity-40 group-hover:opacity-50 transition-opacity"
+              className="object-cover opacity-30 group-hover:opacity-40 transition-opacity"
             />
             {/* Category color diagonal gradient overlay */}
             <div 
