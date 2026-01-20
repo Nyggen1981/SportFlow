@@ -61,6 +61,11 @@ export async function GET(
             { round: "asc" },
             { matchNumber: "asc" }
           ]
+        },
+        _count: {
+          select: {
+            registrations: true
+          }
         }
       }
     })

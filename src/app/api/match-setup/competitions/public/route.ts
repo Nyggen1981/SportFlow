@@ -49,7 +49,8 @@ export async function GET() {
         _count: {
           select: {
             teams: true,
-            matches: true
+            matches: true,
+            registrations: true
           }
         }
       },

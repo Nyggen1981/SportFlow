@@ -17,10 +17,13 @@ import {
   Loader2,
   CheckCircle,
   Info,
-  Building2
+  Building2,
+  UserPlus,
+  CreditCard
 } from "lucide-react"
 
 type CompetitionType = "LEAGUE" | "TOURNAMENT"
+type RegistrationType = "TEAM" | "PLAYER"
 
 interface Resource {
   id: string
@@ -53,6 +56,16 @@ interface FormData {
   teamsPerGroup: number
   advancePerGroup: number
   thirdPlaceMatch: boolean
+  // Påmeldingsinnstillinger
+  registrationType: RegistrationType
+  teamFee: number | null
+  playerFee: number | null
+  minTeams: number | null
+  maxTeams: number | null
+  minPlayersPerTeam: number | null
+  maxPlayersPerTeam: number | null
+  registrationOpenDate: string
+  registrationCloseDate: string
 }
 
 export default function NewCompetitionPage() {
@@ -123,7 +136,17 @@ export default function NewCompetitionPage() {
     groupCount: 4,
     teamsPerGroup: 4,
     advancePerGroup: 2,
-    thirdPlaceMatch: false
+    thirdPlaceMatch: false,
+    // Påmeldingsinnstillinger
+    registrationType: "TEAM",
+    teamFee: null,
+    playerFee: null,
+    minTeams: 2,
+    maxTeams: null,
+    minPlayersPerTeam: 1,
+    maxPlayersPerTeam: null,
+    registrationOpenDate: "",
+    registrationCloseDate: ""
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -188,10 +211,10 @@ export default function NewCompetitionPage() {
           </div>
 
           {/* Progress Steps */}
-          <div className="flex items-center gap-4 mb-8">
+          <div className="flex items-center gap-2 sm:gap-4 mb-8 overflow-x-auto">
             <button
               onClick={() => setStep(1)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-sm ${
                 step === 1 
                   ? "bg-orange-100 text-orange-700" 
                   : step > 1 
@@ -202,11 +225,11 @@ export default function NewCompetitionPage() {
               {step > 1 ? <CheckCircle className="w-4 h-4" /> : <span className="w-5 h-5 rounded-full bg-current/20 flex items-center justify-center text-xs">1</span>}
               Grunninfo
             </button>
-            <div className="h-px flex-1 bg-gray-200" />
+            <div className="h-px flex-1 bg-gray-200 min-w-4" />
             <button
               onClick={() => step > 1 && setStep(2)}
               disabled={step < 2}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-sm ${
                 step === 2 
                   ? "bg-orange-100 text-orange-700" 
                   : step > 2 
@@ -216,6 +239,21 @@ export default function NewCompetitionPage() {
             >
               {step > 2 ? <CheckCircle className="w-4 h-4" /> : <span className="w-5 h-5 rounded-full bg-current/20 flex items-center justify-center text-xs">2</span>}
               Innstillinger
+            </button>
+            <div className="h-px flex-1 bg-gray-200 min-w-4" />
+            <button
+              onClick={() => step > 2 && setStep(3)}
+              disabled={step < 3}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap text-sm ${
+                step === 3 
+                  ? "bg-orange-100 text-orange-700" 
+                  : step > 3 
+                    ? "bg-green-100 text-green-700"
+                    : "bg-gray-100 text-gray-500"
+              }`}
+            >
+              {step > 3 ? <CheckCircle className="w-4 h-4" /> : <span className="w-5 h-5 rounded-full bg-current/20 flex items-center justify-center text-xs">3</span>}
+              Påmelding
             </button>
           </div>
 
@@ -699,6 +737,222 @@ export default function NewCompetitionPage() {
                   </div>
                 </div>
 
+                <div className="flex justify-between pt-4 border-t">
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className="px-6 py-2.5 text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                  >
+                    Tilbake
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors"
+                  >
+                    Neste: Påmelding
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Registration Settings */}
+            {step === 3 && (
+              <div className="card p-6 space-y-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <UserPlus className="w-5 h-5 text-gray-400" />
+                    Påmeldingsinnstillinger
+                  </h2>
+
+                  {/* Registration Type */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Type påmelding
+                    </label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, registrationType: "TEAM" }))}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          formData.registrationType === "TEAM"
+                            ? "border-orange-500 bg-orange-50"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <Users className={`w-8 h-8 mx-auto mb-2 ${formData.registrationType === "TEAM" ? "text-orange-500" : "text-gray-400"}`} />
+                        <p className="font-medium text-gray-900">Lagpåmelding</p>
+                        <p className="text-xs text-gray-500 mt-1">Meld på hele lag med spillere</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, registrationType: "PLAYER" }))}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          formData.registrationType === "PLAYER"
+                            ? "border-orange-500 bg-orange-50"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <UserPlus className={`w-8 h-8 mx-auto mb-2 ${formData.registrationType === "PLAYER" ? "text-orange-500" : "text-gray-400"}`} />
+                        <p className="font-medium text-gray-900">Individuel påmelding</p>
+                        <p className="text-xs text-gray-500 mt-1">Enkeltpersoner melder seg på</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Team Settings */}
+                  {formData.registrationType === "TEAM" && (
+                    <>
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label htmlFor="minTeams" className="block text-sm font-medium text-gray-700 mb-1">
+                            Min antall lag
+                          </label>
+                          <input
+                            type="number"
+                            id="minTeams"
+                            name="minTeams"
+                            value={formData.minTeams ?? ""}
+                            onChange={handleChange}
+                            min={2}
+                            placeholder="2"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="maxTeams" className="block text-sm font-medium text-gray-700 mb-1">
+                            Maks antall lag
+                          </label>
+                          <input
+                            type="number"
+                            id="maxTeams"
+                            name="maxTeams"
+                            value={formData.maxTeams ?? ""}
+                            onChange={handleChange}
+                            min={2}
+                            placeholder="Ingen grense"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label htmlFor="minPlayersPerTeam" className="block text-sm font-medium text-gray-700 mb-1">
+                            Min spillere per lag
+                          </label>
+                          <input
+                            type="number"
+                            id="minPlayersPerTeam"
+                            name="minPlayersPerTeam"
+                            value={formData.minPlayersPerTeam ?? ""}
+                            onChange={handleChange}
+                            min={1}
+                            placeholder="1"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="maxPlayersPerTeam" className="block text-sm font-medium text-gray-700 mb-1">
+                            Maks spillere per lag
+                          </label>
+                          <input
+                            type="number"
+                            id="maxPlayersPerTeam"
+                            name="maxPlayersPerTeam"
+                            value={formData.maxPlayersPerTeam ?? ""}
+                            onChange={handleChange}
+                            min={1}
+                            placeholder="Ingen grense"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Registration Dates */}
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                      <label htmlFor="registrationOpenDate" className="block text-sm font-medium text-gray-700 mb-1">
+                        <Calendar className="w-4 h-4 inline mr-1" />
+                        Påmelding åpner
+                      </label>
+                      <input
+                        type="date"
+                        id="registrationOpenDate"
+                        name="registrationOpenDate"
+                        value={formData.registrationOpenDate}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="registrationCloseDate" className="block text-sm font-medium text-gray-700 mb-1">
+                        Påmelding stenger
+                      </label>
+                      <input
+                        type="date"
+                        id="registrationCloseDate"
+                        name="registrationCloseDate"
+                        value={formData.registrationCloseDate}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Fees Section */}
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-gray-400" />
+                    Avgifter (valgfritt)
+                  </h2>
+                  
+                  <div className="p-4 bg-gray-50 rounded-lg mb-4">
+                    <p className="text-sm text-gray-600">
+                      Sett avgifter for påmelding. Betaling håndteres via faktura etter godkjenning.
+                    </p>
+                  </div>
+
+                  {formData.registrationType === "TEAM" ? (
+                    <div>
+                      <label htmlFor="teamFee" className="block text-sm font-medium text-gray-700 mb-1">
+                        Avgift per lag (NOK)
+                      </label>
+                      <input
+                        type="number"
+                        id="teamFee"
+                        name="teamFee"
+                        value={formData.teamFee ?? ""}
+                        onChange={handleChange}
+                        min={0}
+                        step="50"
+                        placeholder="0 = Gratis"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label htmlFor="playerFee" className="block text-sm font-medium text-gray-700 mb-1">
+                        Avgift per spiller (NOK)
+                      </label>
+                      <input
+                        type="number"
+                        id="playerFee"
+                        name="playerFee"
+                        value={formData.playerFee ?? ""}
+                        onChange={handleChange}
+                        min={0}
+                        step="50"
+                        placeholder="0 = Gratis"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                  )}
+                </div>
+
                 {error && (
                   <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600">
                     {error}
@@ -708,7 +962,7 @@ export default function NewCompetitionPage() {
                 <div className="flex justify-between pt-4 border-t">
                   <button
                     type="button"
-                    onClick={() => setStep(1)}
+                    onClick={() => setStep(2)}
                     className="px-6 py-2.5 text-gray-600 hover:text-gray-900 font-medium transition-colors"
                   >
                     Tilbake

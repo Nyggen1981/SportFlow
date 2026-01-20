@@ -2,30 +2,31 @@
 
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Navbar } from "@/components/Navbar"
 import { Footer } from "@/components/Footer"
 import Link from "next/link"
-import { TournamentBracket } from "@/components/TournamentBracket"
 import { 
-  Trophy,
-  Loader2,
-  Calendar,
-  Users,
-  ArrowLeft,
-  Swords,
-  Medal,
-  MapPin,
-  Clock,
-  CheckCircle,
-  Info
+  Trophy, 
+  Loader2, 
+  Calendar, 
+  Users, 
+  ArrowLeft, 
+  Swords, 
+  Medal, 
+  MapPin, 
+  Clock, 
+  CheckCircle, 
+  UserPlus,
+  CreditCard,
+  AlertCircle
 } from "lucide-react"
 
 interface Team {
   id: string
   name: string
-  shortName?: string
-  color?: string
-  played: number
+  group?: string
+  matchesPlayed: number
   wins: number
   draws: number
   losses: number
@@ -37,20 +38,15 @@ interface Team {
 
 interface Match {
   id: string
+  round: number
   matchNumber: number
-  round?: number
-  roundName?: string
-  scheduledTime: string
-  venue?: string
-  court?: string
+  scheduledTime?: string
   status: string
-  homeTeam?: Team
-  awayTeam?: Team
-  homeTeamPlaceholder?: string
-  awayTeamPlaceholder?: string
   homeScore?: number
   awayScore?: number
-  winner?: Team
+  homeTeam?: { id: string; name: string }
+  awayTeam?: { id: string; name: string }
+  winner?: { id: string; name: string }
 }
 
 interface Competition {
@@ -62,27 +58,29 @@ interface Competition {
   startDate: string
   endDate?: string
   venue?: string
-  matchDuration: number
-  breakDuration: number
-  pointsForWin: number
-  pointsForDraw: number
-  pointsForLoss: number
-  hasOvertime: boolean
-  overtimeMinutes?: number
-  hasPenalties: boolean
-  thirdPlaceMatch: boolean
+  registrationType: "TEAM" | "PLAYER"
+  registrationOpenDate?: string
+  registrationCloseDate?: string
+  teamFee?: number
+  playerFee?: number
+  minTeams?: number
+  maxTeams?: number
+  minPlayersPerTeam?: number
+  maxPlayersPerTeam?: number
   teams: Team[]
   matches: Match[]
+  _count: {
+    registrations: number
+  }
 }
 
 export default function CompetitionViewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: competitionId } = use(params)
   const router = useRouter()
+  const { data: session } = useSession()
   const [competition, setCompetition] = useState<Competition | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<"overview" | "teams" | "matches" | "standings" | "bracket">("overview")
-
-  // Ingen innlogging kreves - offentlig side
+  const [activeTab, setActiveTab] = useState<"overview" | "teams" | "matches" | "standings" | "register">("overview")
 
   useEffect(() => {
     if (competitionId) {
@@ -109,26 +107,47 @@ export default function CompetitionViewPage({ params }: { params: Promise<{ id: 
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "DRAFT":
-        return <span className="px-3 py-1.5 text-sm font-medium bg-gray-100 text-gray-600 rounded-full">Kommende</span>
-      case "SCHEDULED":
-        return <span className="px-3 py-1.5 text-sm font-medium bg-blue-100 text-blue-600 rounded-full">Planlagt</span>
       case "ACTIVE":
-        return <span className="px-3 py-1.5 text-sm font-medium bg-green-100 text-green-600 rounded-full flex items-center gap-1"><Clock className="w-4 h-4" /> Pågår</span>
+        return <span className="px-3 py-1 text-sm font-medium bg-green-100 text-green-700 rounded-full">Pågår</span>
+      case "SCHEDULED":
+        return <span className="px-3 py-1 text-sm font-medium bg-blue-100 text-blue-700 rounded-full">Planlagt</span>
+      case "DRAFT":
+        return <span className="px-3 py-1 text-sm font-medium bg-gray-100 text-gray-600 rounded-full">Utkast</span>
       case "COMPLETED":
-        return <span className="px-3 py-1.5 text-sm font-medium bg-purple-100 text-purple-600 rounded-full flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Fullført</span>
+        return <span className="px-3 py-1 text-sm font-medium bg-purple-100 text-purple-700 rounded-full">Avsluttet</span>
       default:
         return null
     }
   }
 
   const getTypeBadge = (type: string) => {
-    return type === "LEAGUE" 
-      ? <span className="px-3 py-1.5 text-sm font-medium bg-amber-100 text-amber-700 rounded-full flex items-center gap-1"><Swords className="w-4 h-4" /> Serie</span>
-      : <span className="px-3 py-1.5 text-sm font-medium bg-orange-100 text-orange-700 rounded-full flex items-center gap-1"><Medal className="w-4 h-4" /> Cup</span>
+    if (type === "LEAGUE") {
+      return (
+        <span className="inline-flex items-center gap-1 px-3 py-1 text-sm font-medium bg-orange-100 text-orange-700 rounded-full">
+          <Swords className="w-4 h-4" />
+          Seriespill
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-3 py-1 text-sm font-medium bg-amber-100 text-amber-700 rounded-full">
+        <Medal className="w-4 h-4" />
+        Turnering
+      </span>
+    )
   }
 
-  // Sorter lag etter poeng, målforskjell og scorede mål
+  const isRegistrationOpen = () => {
+    if (!competition) return false
+    const now = new Date()
+    const openDate = competition.registrationOpenDate ? new Date(competition.registrationOpenDate) : null
+    const closeDate = competition.registrationCloseDate ? new Date(competition.registrationCloseDate) : null
+    
+    if (openDate && now < openDate) return false
+    if (closeDate && now > closeDate) return false
+    return competition.status === "SCHEDULED" || competition.status === "DRAFT"
+  }
+
   const sortedTeams = competition?.teams 
     ? [...competition.teams].sort((a, b) => {
         if (b.points !== a.points) return b.points - a.points
@@ -137,20 +156,20 @@ export default function CompetitionViewPage({ params }: { params: Promise<{ id: 
       })
     : []
 
-  // Sorter kamper etter tid
-  const sortedMatches = competition?.matches
-    ? [...competition.matches].sort((a, b) => 
-        new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime()
-      )
+  const sortedMatches = competition?.matches 
+    ? [...competition.matches].sort((a, b) => {
+        if (a.round !== b.round) return a.round - b.round
+        return a.matchNumber - b.matchNumber
+      })
     : []
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <Navbar />
-        <main className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-orange-600" />
-        </main>
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+        </div>
         <Footer />
       </div>
     )
@@ -160,13 +179,17 @@ export default function CompetitionViewPage({ params }: { params: Promise<{ id: 
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col">
         <Navbar />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h1 className="text-xl font-bold text-gray-900 mb-2">Konkurranse ikke funnet</h1>
-            <Link href="/competitions" className="text-orange-600 hover:text-orange-700">
-              Tilbake til konkurranser
-            </Link>
+        <main className="flex-1">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <div className="card p-12 text-center">
+              <Trophy className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                Konkurranse ikke funnet
+              </h1>
+              <Link href="/competitions" className="text-orange-600 hover:text-orange-700 font-medium">
+                Tilbake til konkurranser
+              </Link>
+            </div>
           </div>
         </main>
         <Footer />
@@ -174,17 +197,16 @@ export default function CompetitionViewPage({ params }: { params: Promise<{ id: 
     )
   }
 
+  const registrationOpen = isRegistrationOpen()
+  const fee = competition.registrationType === "TEAM" ? competition.teamFee : competition.playerFee
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Navbar />
-
       <main className="flex-1">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Back link */}
-          <Link
-            href="/competitions"
-            className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6"
-          >
+          <Link href="/competitions" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6">
             <ArrowLeft className="w-4 h-4" />
             Tilbake til konkurranser
           </Link>
@@ -193,7 +215,7 @@ export default function CompetitionViewPage({ params }: { params: Promise<{ id: 
           <div className="card p-6 mb-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex flex-wrap items-center gap-3 mb-2">
                   <h1 className="text-2xl font-bold text-gray-900">
                     {competition.name}
                   </h1>
@@ -232,26 +254,39 @@ export default function CompetitionViewPage({ params }: { params: Promise<{ id: 
                   )}
                 </div>
               </div>
+
+              {/* Registration CTA */}
+              {registrationOpen && session?.user && (
+                <button
+                  onClick={() => setActiveTab("register")}
+                  className="px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-medium hover:from-orange-600 hover:to-amber-600 transition-all flex items-center gap-2 shadow-lg"
+                >
+                  <UserPlus className="w-5 h-5" />
+                  Meld på
+                </button>
+              )}
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 mb-6 bg-white rounded-xl p-1 shadow-sm border border-gray-100">
-            {["overview", "teams", "matches", "standings", ...(competition.type === "TOURNAMENT" ? ["bracket"] : [])].map((tab) => (
+          <div className="flex gap-1 mb-6 bg-white rounded-xl p-1 shadow-sm border border-gray-100 overflow-x-auto">
+            {[
+              { key: "overview", label: "Oversikt" },
+              { key: "teams", label: "Lag" },
+              { key: "matches", label: "Kamper" },
+              { key: "standings", label: "Tabell" },
+              ...(registrationOpen && session?.user ? [{ key: "register", label: "Påmelding" }] : [])
+            ].map((tab) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab as typeof activeTab)}
-                className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === tab
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                  activeTab === tab.key
                     ? "bg-orange-500 text-white shadow-sm"
                     : "text-gray-600 hover:bg-gray-50"
                 }`}
               >
-                {tab === "overview" && "Oversikt"}
-                {tab === "teams" && "Lag"}
-                {tab === "matches" && "Kamper"}
-                {tab === "standings" && "Tabell"}
-                {tab === "bracket" && "Kamptre"}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -259,121 +294,122 @@ export default function CompetitionViewPage({ params }: { params: Promise<{ id: 
           {/* Tab Content */}
           {activeTab === "overview" && (
             <div className="grid md:grid-cols-2 gap-6">
-              {/* Info */}
+              {/* Competition Info */}
               <div className="card p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Info className="w-5 h-5 text-orange-500" />
-                  Informasjon
+                  <Trophy className="w-5 h-5 text-orange-500" />
+                  Konkurranseinfo
                 </h2>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Type</span>
-                    <span className="font-medium">{competition.type === "LEAGUE" ? "Seriespill" : "Turnering"}</span>
+                <dl className="space-y-3">
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <dt className="text-gray-500">Type</dt>
+                    <dd className="font-medium">{competition.type === "LEAGUE" ? "Seriespill" : "Turnering"}</dd>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Kampvarighet</span>
-                    <span className="font-medium">{competition.matchDuration} min</span>
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <dt className="text-gray-500">Startdato</dt>
+                    <dd className="font-medium">
+                      {new Date(competition.startDate).toLocaleDateString("nb-NO")}
+                    </dd>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Pause mellom kamper</span>
-                    <span className="font-medium">{competition.breakDuration} min</span>
-                  </div>
-                  {competition.type === "LEAGUE" && (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Poeng for seier</span>
-                        <span className="font-medium">{competition.pointsForWin}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Poeng for uavgjort</span>
-                        <span className="font-medium">{competition.pointsForDraw}</span>
-                      </div>
-                    </>
-                  )}
-                  {competition.hasOvertime && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Ekstraomgang</span>
-                      <span className="font-medium">{competition.overtimeMinutes} min</span>
+                  {competition.endDate && (
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <dt className="text-gray-500">Sluttdato</dt>
+                      <dd className="font-medium">
+                        {new Date(competition.endDate).toLocaleDateString("nb-NO")}
+                      </dd>
                     </div>
                   )}
-                </div>
+                  {competition.venue && (
+                    <div className="flex justify-between py-2 border-b border-gray-100">
+                      <dt className="text-gray-500">Sted</dt>
+                      <dd className="font-medium">{competition.venue}</dd>
+                    </div>
+                  )}
+                  <div className="flex justify-between py-2 border-b border-gray-100">
+                    <dt className="text-gray-500">Påmeldingstype</dt>
+                    <dd className="font-medium">
+                      {competition.registrationType === "TEAM" ? "Lagpåmelding" : "Individuell"}
+                    </dd>
+                  </div>
+                  {fee && fee > 0 && (
+                    <div className="flex justify-between py-2">
+                      <dt className="text-gray-500">Avgift</dt>
+                      <dd className="font-medium text-orange-600">
+                        {fee} kr / {competition.registrationType === "TEAM" ? "lag" : "spiller"}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
               </div>
 
               {/* Quick Stats */}
               <div className="card p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-orange-500" />
+                  <Swords className="w-5 h-5 text-orange-500" />
                   Status
                 </h2>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center p-4 bg-gray-50 rounded-xl">
-                    <p className="text-3xl font-bold text-gray-900">{competition.teams.length}</p>
-                    <p className="text-sm text-gray-500">Lag</p>
+                    <div className="text-3xl font-bold text-gray-900">{competition.teams.length}</div>
+                    <div className="text-sm text-gray-500">Lag påmeldt</div>
                   </div>
                   <div className="text-center p-4 bg-gray-50 rounded-xl">
-                    <p className="text-3xl font-bold text-gray-900">{competition.matches.length}</p>
-                    <p className="text-sm text-gray-500">Kamper</p>
+                    <div className="text-3xl font-bold text-gray-900">{competition.matches.length}</div>
+                    <div className="text-sm text-gray-500">Kamper totalt</div>
                   </div>
                   <div className="text-center p-4 bg-gray-50 rounded-xl">
-                    <p className="text-3xl font-bold text-green-600">
+                    <div className="text-3xl font-bold text-green-600">
                       {competition.matches.filter(m => m.status === "COMPLETED").length}
-                    </p>
-                    <p className="text-sm text-gray-500">Spilt</p>
+                    </div>
+                    <div className="text-sm text-gray-500">Kamper spilt</div>
                   </div>
                   <div className="text-center p-4 bg-gray-50 rounded-xl">
-                    <p className="text-3xl font-bold text-blue-600">
+                    <div className="text-3xl font-bold text-blue-600">
                       {competition.matches.filter(m => m.status === "SCHEDULED").length}
-                    </p>
-                    <p className="text-sm text-gray-500">Gjenstående</p>
+                    </div>
+                    <div className="text-sm text-gray-500">Gjenstående</div>
                   </div>
                 </div>
-              </div>
 
-              {/* Top of table */}
-              {sortedTeams.length > 0 && (
-                <div className="card p-6 md:col-span-2">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                    {competition.type === "LEAGUE" ? "Tabelltopp" : "Deltakere"}
-                  </h2>
-                  <div className="space-y-2">
-                    {sortedTeams.slice(0, 5).map((team, index) => (
-                      <div key={team.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <span className={`w-6 h-6 flex items-center justify-center rounded-full text-sm font-bold ${
-                          index === 0 ? "bg-amber-400 text-white" :
-                          index === 1 ? "bg-gray-300 text-gray-700" :
-                          index === 2 ? "bg-amber-600 text-white" :
-                          "bg-gray-100 text-gray-600"
-                        }`}>
-                          {index + 1}
-                        </span>
-                        <span className="font-medium flex-1">{team.name}</span>
-                        {competition.type === "LEAGUE" && (
-                          <span className="text-sm text-gray-500">{team.points} poeng</span>
-                        )}
-                      </div>
-                    ))}
+                {/* Registration Info */}
+                {registrationOpen && (
+                  <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
+                    <div className="flex items-center gap-2 text-green-700 font-medium">
+                      <UserPlus className="w-5 h-5" />
+                      Påmelding er åpen!
+                    </div>
+                    {competition.registrationCloseDate && (
+                      <p className="text-sm text-green-600 mt-1">
+                        Stenger: {new Date(competition.registrationCloseDate).toLocaleDateString("nb-NO")}
+                      </p>
+                    )}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
 
           {activeTab === "teams" && (
             <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Deltakende lag</h2>
-              {competition.teams.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">Ingen lag påmeldt ennå</p>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Påmeldte lag</h2>
+              {sortedTeams.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>Ingen lag påmeldt ennå</p>
+                </div>
               ) : (
-                <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {competition.teams.map((team) => (
-                    <div key={team.id} className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-                      <div 
-                        className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold"
-                        style={{ backgroundColor: team.color || "#6b7280" }}
-                      >
-                        {team.shortName?.substring(0, 2) || team.name.substring(0, 2)}
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {sortedTeams.map((team, index) => (
+                    <div key={team.id} className="p-4 bg-gray-50 rounded-xl flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold">
+                        {index + 1}
                       </div>
-                      <span className="font-medium">{team.name}</span>
+                      <div>
+                        <p className="font-medium text-gray-900">{team.name}</p>
+                        {team.group && (
+                          <p className="text-xs text-gray-500">Gruppe {team.group}</p>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -384,61 +420,49 @@ export default function CompetitionViewPage({ params }: { params: Promise<{ id: 
           {activeTab === "matches" && (
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Kamper</h2>
-              {competition.status !== "ACTIVE" && competition.status !== "COMPLETED" ? (
-                <div className="text-center py-12">
-                  <Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">Kampene er ikke klare ennå</p>
+              {sortedMatches.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Swords className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>Ingen kamper planlagt ennå</p>
                 </div>
-              ) : sortedMatches.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">Ingen kamper</p>
               ) : (
                 <div className="space-y-3">
                   {sortedMatches.map((match) => (
-                    <div 
-                      key={match.id} 
-                      className={`p-4 rounded-xl border ${
-                        match.status === "COMPLETED" ? "bg-gray-50 border-gray-200" : "bg-white border-gray-100"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-gray-400">Kamp {match.matchNumber}</span>
-                        {match.roundName && (
-                          <span className="text-xs font-medium text-orange-600">{match.roundName}</span>
-                        )}
-                      </div>
+                    <div key={match.id} className={`p-4 rounded-xl border ${
+                      match.status === "COMPLETED" ? "bg-gray-50 border-gray-200" : "bg-white border-gray-100"
+                    }`}>
                       <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <p className={`font-medium ${match.winner?.id === match.homeTeam?.id ? "text-green-600" : ""}`}>
-                            {match.homeTeam?.name || match.homeTeamPlaceholder || "TBD"}
-                          </p>
+                        <div className="flex items-center gap-4">
+                          <span className="text-xs font-medium text-gray-400 w-16">
+                            Runde {match.round}
+                          </span>
+                          <span className="font-medium text-gray-900 w-32 text-right">
+                            {match.homeTeam?.name || "TBD"}
+                          </span>
+                          <span className={`px-3 py-1 rounded font-bold ${
+                            match.status === "COMPLETED" 
+                              ? "bg-gray-900 text-white" 
+                              : "bg-gray-100 text-gray-400"
+                          }`}>
+                            {match.status === "COMPLETED" 
+                              ? `${match.homeScore} - ${match.awayScore}` 
+                              : "vs"
+                            }
+                          </span>
+                          <span className="font-medium text-gray-900 w-32">
+                            {match.awayTeam?.name || "TBD"}
+                          </span>
                         </div>
-                        <div className="px-4 text-center">
-                          {match.status === "COMPLETED" ? (
-                            <span className="text-lg font-bold">
-                              {match.homeScore} - {match.awayScore}
-                            </span>
-                          ) : (
-                            <span className="text-sm text-gray-400">vs</span>
-                          )}
-                        </div>
-                        <div className="flex-1 text-right">
-                          <p className={`font-medium ${match.winner?.id === match.awayTeam?.id ? "text-green-600" : ""}`}>
-                            {match.awayTeam?.name || match.awayTeamPlaceholder || "TBD"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-center gap-4 mt-2 text-xs text-gray-400">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {new Date(match.scheduledTime).toLocaleString("nb-NO", {
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit"
-                          })}
-                        </span>
-                        {match.court && (
-                          <span>{match.court}</span>
+                        {match.scheduledTime && (
+                          <span className="text-sm text-gray-500 flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            {new Date(match.scheduledTime).toLocaleString("nb-NO", {
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -452,60 +476,38 @@ export default function CompetitionViewPage({ params }: { params: Promise<{ id: 
             <div className="card p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Tabell</h2>
               {sortedTeams.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">Ingen lag</p>
+                <div className="text-center py-12 text-gray-500">
+                  <Trophy className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                  <p>Tabellen er ikke tilgjengelig ennå</p>
+                </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="text-left text-sm text-gray-500 border-b">
-                        <th className="pb-3 w-8">#</th>
+                        <th className="pb-3 w-12">#</th>
                         <th className="pb-3">Lag</th>
-                        <th className="pb-3 text-center">K</th>
-                        <th className="pb-3 text-center">S</th>
-                        <th className="pb-3 text-center">U</th>
-                        <th className="pb-3 text-center">T</th>
-                        <th className="pb-3 text-center">+</th>
-                        <th className="pb-3 text-center">-</th>
-                        <th className="pb-3 text-center">+/-</th>
-                        <th className="pb-3 text-center font-semibold">P</th>
+                        <th className="pb-3 text-center w-12">K</th>
+                        <th className="pb-3 text-center w-12">S</th>
+                        <th className="pb-3 text-center w-12">U</th>
+                        <th className="pb-3 text-center w-12">T</th>
+                        <th className="pb-3 text-center w-20">+/-</th>
+                        <th className="pb-3 text-center w-12 font-bold">P</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedTeams.map((team, index) => (
-                        <tr key={team.id} className="border-b last:border-0">
-                          <td className="py-3">
-                            <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold ${
-                              index === 0 ? "bg-amber-400 text-white" :
-                              index === 1 ? "bg-gray-300 text-gray-700" :
-                              index === 2 ? "bg-amber-600 text-white" :
-                              "bg-gray-100 text-gray-600"
-                            }`}>
-                              {index + 1}
-                            </span>
-                          </td>
-                          <td className="py-3">
-                            <div className="flex items-center gap-2">
-                              {team.color && (
-                                <div 
-                                  className="w-3 h-3 rounded-full"
-                                  style={{ backgroundColor: team.color }}
-                                />
-                              )}
-                              <span className="font-medium">{team.name}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 text-center text-gray-600">{team.played}</td>
+                        <tr key={team.id} className={`border-b border-gray-50 ${index < 3 ? "bg-orange-50/50" : ""}`}>
+                          <td className="py-3 font-medium">{index + 1}</td>
+                          <td className="py-3 font-medium text-gray-900">{team.name}</td>
+                          <td className="py-3 text-center text-gray-500">{team.matchesPlayed}</td>
                           <td className="py-3 text-center text-green-600">{team.wins}</td>
-                          <td className="py-3 text-center text-gray-600">{team.draws}</td>
-                          <td className="py-3 text-center text-red-600">{team.losses}</td>
-                          <td className="py-3 text-center text-gray-600">{team.goalsFor}</td>
-                          <td className="py-3 text-center text-gray-600">{team.goalsAgainst}</td>
-                          <td className="py-3 text-center">
-                            <span className={team.goalDifference > 0 ? "text-green-600" : team.goalDifference < 0 ? "text-red-600" : "text-gray-600"}>
-                              {team.goalDifference > 0 ? "+" : ""}{team.goalDifference}
-                            </span>
+                          <td className="py-3 text-center text-gray-500">{team.draws}</td>
+                          <td className="py-3 text-center text-red-500">{team.losses}</td>
+                          <td className="py-3 text-center text-gray-500">
+                            {team.goalsFor}-{team.goalsAgainst}
                           </td>
-                          <td className="py-3 text-center font-bold text-orange-600">{team.points}</td>
+                          <td className="py-3 text-center font-bold text-gray-900">{team.points}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -515,29 +517,301 @@ export default function CompetitionViewPage({ params }: { params: Promise<{ id: 
             </div>
           )}
 
-          {activeTab === "bracket" && competition.type === "TOURNAMENT" && (
-            <div className="card p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Kamptre</h2>
-              {competition.status !== "ACTIVE" && competition.status !== "COMPLETED" ? (
-                <div className="text-center py-12">
-                  <Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500">Kamptreet er ikke klart ennå</p>
-                </div>
-              ) : (
-                <TournamentBracket 
-                  matches={competition.matches}
-                  competitionStatus={competition.status}
-                  onResultRegistered={() => {}} // Read-only, no callback needed
-                  readOnly={true}
-                />
-              )}
-            </div>
+          {activeTab === "register" && registrationOpen && session?.user && (
+            <RegistrationForm 
+              competition={competition}
+              onSuccess={() => {
+                fetchCompetition()
+                setActiveTab("overview")
+              }}
+            />
           )}
         </div>
       </main>
-
       <Footer />
     </div>
   )
 }
 
+// Registration Form Component
+function RegistrationForm({ 
+  competition, 
+  onSuccess 
+}: { 
+  competition: Competition
+  onSuccess: () => void 
+}) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+  
+  const [teamName, setTeamName] = useState("")
+  const [contactName, setContactName] = useState("")
+  const [contactEmail, setContactEmail] = useState("")
+  const [contactPhone, setContactPhone] = useState("")
+  const [players, setPlayers] = useState<{ name: string }[]>([{ name: "" }])
+  const [notes, setNotes] = useState("")
+
+  const fee = competition.registrationType === "TEAM" ? competition.teamFee : competition.playerFee
+
+  const addPlayer = () => {
+    if (competition.maxPlayersPerTeam && players.length >= competition.maxPlayersPerTeam) {
+      return
+    }
+    setPlayers([...players, { name: "" }])
+  }
+
+  const removePlayer = (index: number) => {
+    if (players.length > 1) {
+      setPlayers(players.filter((_, i) => i !== index))
+    }
+  }
+
+  const updatePlayer = (index: number, name: string) => {
+    const newPlayers = [...players]
+    newPlayers[index] = { name }
+    setPlayers(newPlayers)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    setError(null)
+
+    // Validate
+    if (competition.registrationType === "TEAM" && !teamName.trim()) {
+      setError("Lagnavn er påkrevd")
+      setIsSubmitting(false)
+      return
+    }
+
+    if (!contactName.trim() || !contactEmail.trim()) {
+      setError("Kontaktinformasjon er påkrevd")
+      setIsSubmitting(false)
+      return
+    }
+
+    const validPlayers = players.filter(p => p.name.trim())
+    if (competition.minPlayersPerTeam && validPlayers.length < competition.minPlayersPerTeam) {
+      setError(`Minimum ${competition.minPlayersPerTeam} spillere er påkrevd`)
+      setIsSubmitting(false)
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/match-setup/competitions/${competition.id}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teamName: competition.registrationType === "TEAM" ? teamName : null,
+          contactName,
+          contactEmail,
+          contactPhone,
+          participants: validPlayers,
+          notes
+        })
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Kunne ikke fullføre påmelding")
+      }
+
+      setSuccess(true)
+      setTimeout(() => {
+        onSuccess()
+      }, 2000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "En feil oppstod")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (success) {
+    return (
+      <div className="card p-12 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center mx-auto mb-4">
+          <CheckCircle className="w-8 h-8 text-green-600" />
+        </div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">Påmelding mottatt!</h2>
+        <p className="text-gray-500">
+          Din påmelding er registrert og vil bli behandlet av arrangøren.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="card p-6">
+      <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+        <UserPlus className="w-5 h-5 text-orange-500" />
+        Meld på {competition.registrationType === "TEAM" ? "lag" : "deg selv"}
+      </h2>
+
+      {/* Team Name (for team registration) */}
+      {competition.registrationType === "TEAM" && (
+        <div className="mb-6">
+          <label htmlFor="teamName" className="block text-sm font-medium text-gray-700 mb-1">
+            Lagnavn *
+          </label>
+          <input
+            type="text"
+            id="teamName"
+            value={teamName}
+            onChange={(e) => setTeamName(e.target.value)}
+            placeholder="Ditt lags navn"
+            required
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+          />
+        </div>
+      )}
+
+      {/* Contact Info */}
+      <div className="grid md:grid-cols-2 gap-4 mb-6">
+        <div>
+          <label htmlFor="contactName" className="block text-sm font-medium text-gray-700 mb-1">
+            Kontaktperson *
+          </label>
+          <input
+            type="text"
+            id="contactName"
+            value={contactName}
+            onChange={(e) => setContactName(e.target.value)}
+            placeholder="Fullt navn"
+            required
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+          />
+        </div>
+        <div>
+          <label htmlFor="contactEmail" className="block text-sm font-medium text-gray-700 mb-1">
+            E-post *
+          </label>
+          <input
+            type="email"
+            id="contactEmail"
+            value={contactEmail}
+            onChange={(e) => setContactEmail(e.target.value)}
+            placeholder="epost@eksempel.no"
+            required
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+          />
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <label htmlFor="contactPhone" className="block text-sm font-medium text-gray-700 mb-1">
+          Telefon
+        </label>
+        <input
+          type="tel"
+          id="contactPhone"
+          value={contactPhone}
+          onChange={(e) => setContactPhone(e.target.value)}
+          placeholder="+47 123 45 678"
+          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+        />
+      </div>
+
+      {/* Players */}
+      {competition.registrationType === "TEAM" && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Spillere
+              {competition.minPlayersPerTeam && (
+                <span className="text-gray-400 ml-1">(min. {competition.minPlayersPerTeam})</span>
+              )}
+              {competition.maxPlayersPerTeam && (
+                <span className="text-gray-400 ml-1">(maks. {competition.maxPlayersPerTeam})</span>
+              )}
+            </label>
+            <button
+              type="button"
+              onClick={addPlayer}
+              disabled={competition.maxPlayersPerTeam ? players.length >= competition.maxPlayersPerTeam : false}
+              className="text-sm text-orange-600 hover:text-orange-700 font-medium disabled:opacity-50"
+            >
+              + Legg til spiller
+            </button>
+          </div>
+          <div className="space-y-2">
+            {players.map((player, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  type="text"
+                  value={player.name}
+                  onChange={(e) => updatePlayer(index, e.target.value)}
+                  placeholder={`Spiller ${index + 1}`}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                />
+                {players.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removePlayer(index)}
+                    className="px-3 py-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Notes */}
+      <div className="mb-6">
+        <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+          Kommentarer (valgfritt)
+        </label>
+        <textarea
+          id="notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          placeholder="Andre kommentarer til arrangøren..."
+          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+        />
+      </div>
+
+      {/* Fee Info */}
+      {fee && fee > 0 && (
+        <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-xl">
+          <div className="flex items-center gap-2 text-orange-700 font-medium">
+            <CreditCard className="w-5 h-5" />
+            Påmeldingsavgift: {fee} kr
+          </div>
+          <p className="text-sm text-orange-600 mt-1">
+            Faktura sendes etter at påmeldingen er godkjent.
+          </p>
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-600">
+          <AlertCircle className="w-5 h-5" />
+          {error}
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-medium hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="w-5 h-5 animate-spin" />
+            Sender påmelding...
+          </>
+        ) : (
+          <>
+            <CheckCircle className="w-5 h-5" />
+            Send påmelding
+          </>
+        )}
+      </button>
+    </form>
+  )
+}

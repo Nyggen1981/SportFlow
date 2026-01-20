@@ -105,7 +105,17 @@ export async function POST(request: NextRequest) {
       advancePerGroup,
       playoffRounds,
       thirdPlaceMatch = false,
-      resourceId
+      resourceId,
+      // Påmeldingsfelter
+      registrationType = "TEAM",
+      teamFee,
+      playerFee,
+      minTeams,
+      maxTeams,
+      minPlayersPerTeam,
+      maxPlayersPerTeam,
+      registrationOpenDate,
+      registrationCloseDate
     } = body
     
     if (!name || !type || !startDate) {
@@ -240,7 +250,17 @@ export async function POST(request: NextRequest) {
         thirdPlaceMatch,
         resourceId,
         organizationId: session.user.organizationId,
-        status: "DRAFT"
+        status: "DRAFT",
+        // Påmeldingsinnstillinger
+        registrationType,
+        teamFee: teamFee ? parseFloat(teamFee) : null,
+        playerFee: playerFee ? parseFloat(playerFee) : null,
+        minTeams,
+        maxTeams,
+        minPlayersPerTeam,
+        maxPlayersPerTeam,
+        registrationOpenDate: registrationOpenDate ? new Date(registrationOpenDate) : null,
+        registrationCloseDate: registrationCloseDate ? new Date(registrationCloseDate) : null
       }
     })
     

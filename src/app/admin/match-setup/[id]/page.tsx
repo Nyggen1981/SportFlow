@@ -23,7 +23,11 @@ import {
   RefreshCw,
   MapPin,
   Clock,
-  RotateCcw
+  RotateCcw,
+  UserPlus,
+  Mail,
+  Phone,
+  Ban
 } from "lucide-react"
 
 interface Team {
@@ -100,7 +104,7 @@ export default function CompetitionDetailPage() {
   const [competition, setCompetition] = useState<Competition | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<"overview" | "teams" | "matches" | "bracket" | "standings">("overview")
+  const [activeTab, setActiveTab] = useState<"overview" | "teams" | "matches" | "bracket" | "standings" | "registrations">("overview")
   const [isFullAdmin, setIsFullAdmin] = useState(true) // Antar admin til vi vet mer
   
   // Team management
@@ -129,6 +133,11 @@ export default function CompetitionDetailPage() {
   const [matchScores, setMatchScores] = useState({ home: 0, away: 0 })
   const [savingScore, setSavingScore] = useState(false)
   const [resetting, setResetting] = useState(false)
+  
+  // Registrations management
+  const [registrations, setRegistrations] = useState<any[]>([])
+  const [loadingRegistrations, setLoadingRegistrations] = useState(false)
+  const [processingRegistration, setProcessingRegistration] = useState<string | null>(null)
   
   // Settings management
   const [showSettingsModal, setShowSettingsModal] = useState(false)
@@ -187,6 +196,26 @@ export default function CompetitionDetailPage() {
     }
     fetchResources()
   }, [])
+
+  // Hent påmeldinger når fanen åpnes
+  useEffect(() => {
+    const fetchRegistrations = async () => {
+      if (activeTab !== "registrations") return
+      setLoadingRegistrations(true)
+      try {
+        const res = await fetch(`/api/match-setup/competitions/${competitionId}/registrations`)
+        if (res.ok) {
+          const data = await res.json()
+          setRegistrations(data)
+        }
+      } catch (error) {
+        console.error("Error fetching registrations:", error)
+      } finally {
+        setLoadingRegistrations(false)
+      }
+    }
+    fetchRegistrations()
+  }, [activeTab, competitionId])
 
   // Sjekk om brukeren er full admin eller bare har kampoppsett-tilgang
   useEffect(() => {
@@ -486,6 +515,38 @@ export default function CompetitionDetailPage() {
     }
   }
 
+  const handleRegistration = async (registrationId: string, action: "confirm" | "cancel") => {
+    setProcessingRegistration(registrationId)
+    try {
+      const res = await fetch(`/api/match-setup/competitions/${competitionId}/registrations/${registrationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action })
+      })
+      
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Kunne ikke behandle påmelding")
+      }
+      
+      // Oppdater påmeldingsliste
+      const updatedRes = await fetch(`/api/match-setup/competitions/${competitionId}/registrations`)
+      if (updatedRes.ok) {
+        const data = await updatedRes.json()
+        setRegistrations(data)
+      }
+      
+      // Hvis godkjent, hent også konkurransen på nytt (for å se oppdatert lagliste)
+      if (action === "confirm") {
+        fetchCompetition()
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Feil ved behandling")
+    } finally {
+      setProcessingRegistration(null)
+    }
+  }
+
   const resetCompetition = async () => {
     if (!confirm("Er du sikker på at du vil nullstille konkurransen?\n\nDette vil:\n• Fjerne alle kampresultater\n• Nullstille all lagstatistikk\n• Sette alle kamper tilbake til \"Planlagt\"\n\nKampoppsettet beholdes.")) {
       return
@@ -688,8 +749,8 @@ export default function CompetitionDetailPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 mb-6 border-b">
-            {(["overview", "teams", "matches", "bracket", "standings"] as const).map((tab) => (
+          <div className="flex gap-1 mb-6 border-b overflow-x-auto">
+            {(["overview", "teams", "registrations", "matches", "bracket", "standings"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -701,6 +762,17 @@ export default function CompetitionDetailPage() {
               >
                 {tab === "overview" && "Oversikt"}
                 {tab === "teams" && `Lag (${competition.teams.length})`}
+                {tab === "registrations" && (
+                  <span className="flex items-center gap-1.5">
+                    <UserPlus className="w-4 h-4" />
+                    Påmeldinger
+                    {registrations.filter(r => r.status === "PENDING").length > 0 && (
+                      <span className="px-1.5 py-0.5 text-xs bg-orange-500 text-white rounded-full">
+                        {registrations.filter(r => r.status === "PENDING").length}
+                      </span>
+                    )}
+                  </span>
+                )}
                 {tab === "matches" && `Kamper (${competition.matches.length})`}
                 {tab === "bracket" && "Kamptre"}
                 {tab === "standings" && "Tabell"}
@@ -1140,6 +1212,174 @@ export default function CompetitionDetailPage() {
                         ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Registrations Tab */}
+          {activeTab === "registrations" && (
+            <div className="card p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-gray-400" />
+                  Påmeldinger
+                </h3>
+              </div>
+              
+              {loadingRegistrations ? (
+                <div className="text-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-orange-500 mx-auto mb-3" />
+                  <p className="text-gray-500">Laster påmeldinger...</p>
+                </div>
+              ) : registrations.length === 0 ? (
+                <div className="text-center py-12">
+                  <UserPlus className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 mb-2">Ingen påmeldinger mottatt ennå</p>
+                  <p className="text-sm text-gray-400">
+                    Del konkurranselenken så brukere kan melde seg på
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Pending Registrations */}
+                  {registrations.filter(r => r.status === "PENDING").length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-orange-600 mb-3 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                        Venter på godkjenning ({registrations.filter(r => r.status === "PENDING").length})
+                      </h4>
+                      <div className="space-y-3">
+                        {registrations.filter(r => r.status === "PENDING").map((reg) => (
+                          <div key={reg.id} className="p-4 bg-orange-50 border border-orange-200 rounded-xl">
+                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <h5 className="font-semibold text-gray-900">
+                                    {reg.teamName || reg.contactName}
+                                  </h5>
+                                  <span className="text-xs text-gray-400">
+                                    {new Date(reg.createdAt).toLocaleString("nb-NO")}
+                                  </span>
+                                </div>
+                                
+                                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                                  <span className="flex items-center gap-1.5">
+                                    <Users className="w-4 h-4" />
+                                    {reg.contactName}
+                                  </span>
+                                  <a 
+                                    href={`mailto:${reg.contactEmail}`} 
+                                    className="flex items-center gap-1.5 hover:text-orange-600"
+                                  >
+                                    <Mail className="w-4 h-4" />
+                                    {reg.contactEmail}
+                                  </a>
+                                  {reg.contactPhone && (
+                                    <a 
+                                      href={`tel:${reg.contactPhone}`}
+                                      className="flex items-center gap-1.5 hover:text-orange-600"
+                                    >
+                                      <Phone className="w-4 h-4" />
+                                      {reg.contactPhone}
+                                    </a>
+                                  )}
+                                </div>
+                                
+                                {reg.participants && reg.participants.length > 0 && (
+                                  <div className="mt-2">
+                                    <p className="text-xs text-gray-500">
+                                      Spillere ({reg.participants.length}): {reg.participants.map((p: { name: string }) => p.name).join(", ")}
+                                    </p>
+                                  </div>
+                                )}
+                                
+                                {reg.notes && (
+                                  <p className="mt-2 text-sm text-gray-500 italic">"{reg.notes}"</p>
+                                )}
+                                
+                                {reg.paymentAmount && Number(reg.paymentAmount) > 0 && (
+                                  <p className="mt-2 text-sm text-orange-600 font-medium">
+                                    Avgift: {Number(reg.paymentAmount) / 100} kr ({reg.paymentStatus === "PENDING" ? "Ikke betalt" : reg.paymentStatus === "COMPLETED" ? "Betalt" : reg.paymentStatus})
+                                  </p>
+                                )}
+                              </div>
+                              
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleRegistration(reg.id, "cancel")}
+                                  disabled={processingRegistration === reg.id}
+                                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 disabled:opacity-50 flex items-center gap-2"
+                                >
+                                  {processingRegistration === reg.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Ban className="w-4 h-4" />
+                                  )}
+                                  Avslå
+                                </button>
+                                <button
+                                  onClick={() => handleRegistration(reg.id, "confirm")}
+                                  disabled={processingRegistration === reg.id}
+                                  className="px-4 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 disabled:opacity-50 flex items-center gap-2"
+                                >
+                                  {processingRegistration === reg.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <CheckCircle className="w-4 h-4" />
+                                  )}
+                                  Godkjenn
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Confirmed Registrations */}
+                  {registrations.filter(r => r.status === "CONFIRMED").length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-green-600 mb-3 flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        Godkjente ({registrations.filter(r => r.status === "CONFIRMED").length})
+                      </h4>
+                      <div className="space-y-2">
+                        {registrations.filter(r => r.status === "CONFIRMED").map((reg) => (
+                          <div key={reg.id} className="p-3 bg-green-50 border border-green-100 rounded-lg flex items-center justify-between">
+                            <div>
+                              <span className="font-medium text-gray-900">{reg.teamName || reg.contactName}</span>
+                              <span className="text-sm text-gray-500 ml-2">({reg.contactEmail})</span>
+                            </div>
+                            <span className="text-xs text-green-600">
+                              {new Date(reg.updatedAt).toLocaleDateString("nb-NO")}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Cancelled Registrations */}
+                  {registrations.filter(r => r.status === "REJECTED" || r.status === "CANCELLED").length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+                        <Ban className="w-4 h-4" />
+                        Avslått ({registrations.filter(r => r.status === "REJECTED" || r.status === "CANCELLED").length})
+                      </h4>
+                      <div className="space-y-2">
+                        {registrations.filter(r => r.status === "REJECTED" || r.status === "CANCELLED").map((reg) => (
+                          <div key={reg.id} className="p-3 bg-gray-50 border border-gray-100 rounded-lg flex items-center justify-between opacity-60">
+                            <div>
+                              <span className="font-medium text-gray-900 line-through">{reg.teamName || reg.contactName}</span>
+                              <span className="text-sm text-gray-500 ml-2">({reg.contactEmail})</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
