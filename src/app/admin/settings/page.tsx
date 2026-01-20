@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react"
 import { useEffect, useState, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
 import { Footer } from "@/components/Footer"
 import Link from "next/link"
@@ -62,6 +62,16 @@ interface Organization {
 export default function AdminSettingsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  // Get initial tab from URL query param
+  const getInitialTab = (): "general" | "email" | "payment" | "advanced" => {
+    const tabParam = searchParams.get("tab")
+    if (tabParam === "email" || tabParam === "payment" || tabParam === "advanced") {
+      return tabParam
+    }
+    return "general"
+  }
   
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -80,8 +90,8 @@ export default function AdminSettingsPage() {
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false)
   const [expandedTemplates, setExpandedTemplates] = useState<Set<string>>(new Set())
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<"general" | "email" | "payment" | "advanced">("general")
+  // Tab state - initialize from URL param
+  const [activeTab, setActiveTab] = useState<"general" | "email" | "payment" | "advanced">(getInitialTab)
 
   // Form state
   const [name, setName] = useState("")
@@ -137,6 +147,8 @@ export default function AdminSettingsPage() {
       booking?: boolean
       pricing?: boolean
       "match-setup"?: boolean
+      "asset-register"?: boolean
+      expenses?: boolean
       [key: string]: boolean | undefined
     }
   } | null>(null)
@@ -1593,6 +1605,9 @@ export default function AdminSettingsPage() {
                         }
                         if (licenseInfo.modules["asset-register"]) {
                           activeModules.push("Anleggsregister")
+                        }
+                        if (licenseInfo.modules.expenses) {
+                          activeModules.push("Utlegg")
                         }
                         
                         if (activeModules.length > 0) {

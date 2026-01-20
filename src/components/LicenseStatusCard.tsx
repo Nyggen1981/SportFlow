@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Key, Calendar, AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
 import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation"
 
 interface LicenseInfo {
   valid: boolean
@@ -17,13 +16,13 @@ interface LicenseInfo {
     booking?: boolean
     pricing?: boolean
     "match-setup"?: boolean
+    "asset-register"?: boolean
+    expenses?: boolean
     [key: string]: boolean | undefined
   }
 }
 
 export function LicenseStatusCard() {
-  const router = useRouter()
-  const pathname = usePathname()
   const [license, setLicense] = useState<LicenseInfo | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -142,25 +141,18 @@ export function LicenseStatusCard() {
                     Anleggsregister
                   </span>
                 )}
+                {license.modules.expenses && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700">
+                    Utlegg
+                  </span>
+                )}
               </div>
             )}
           </div>
         </div>
 
         <Link 
-          href="/admin/settings#license"
-          onClick={(e) => {
-            // Hvis vi allerede er på settings-siden, scroller vi
-            if (pathname === "/admin/settings") {
-              e.preventDefault()
-              setTimeout(() => {
-                const element = document.getElementById("license")
-                if (element) {
-                  element.scrollIntoView({ behavior: "smooth", block: "start" })
-                }
-              }, 100)
-            }
-          }}
+          href="/admin/settings?tab=advanced"
           className="text-sm text-blue-600 hover:text-blue-700 font-medium"
         >
           Administrer
