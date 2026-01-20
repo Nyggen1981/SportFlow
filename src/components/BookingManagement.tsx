@@ -135,7 +135,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
     newEndTime: string   // HH:mm format
     timeShiftMinutes: number
   }>({ title: "", resourceId: "", resourcePartId: null, newStartTime: "", newEndTime: "", timeShiftMinutes: 0 })
-  const [availableResources, setAvailableResources] = useState<Array<{ id: string; name: string; parts: Array<{ id: string; name: string }> }>>([])
+  const [availableResources, setAvailableResources] = useState<Array<{ id: string; name: string; allowWholeBooking?: boolean; parts: Array<{ id: string; name: string }> }>>([])
   const [isLoadingResources, setIsLoadingResources] = useState(false)
   const [isBulkUpdating, setIsBulkUpdating] = useState(false)
   
@@ -2272,7 +2272,10 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                   }))}
                                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mt-2"
                                 >
-                                  <option value="">Hele fasiliteten</option>
+                                  {/* Only show "Hele fasiliteten" if allowWholeBooking is enabled */}
+                                  {selectedResource.allowWholeBooking && (
+                                    <option value="">Hele fasiliteten</option>
+                                  )}
                                   {selectedResource.parts.map(part => (
                                     <option key={part.id} value={part.id}>
                                       {part.name}

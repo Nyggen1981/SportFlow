@@ -27,6 +27,7 @@ export async function GET() {
         maxBookingMinutes: true,
         requiresApproval: true,
         advanceBookingDays: true,
+        allowWholeBooking: true,
         prisInfo: true,
         visPrisInfo: true,
         category: {
