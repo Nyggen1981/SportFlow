@@ -126,11 +126,15 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
   // Recurring group modal state
   const [selectedRecurringGroup, setSelectedRecurringGroup] = useState<{ groupId: string; bookings: Booking[] } | null>(null)
   const [bulkEditMode, setBulkEditMode] = useState(false)
+  const [bulkEditSelectedOnly, setBulkEditSelectedOnly] = useState(false) // Edit only selected bookings
   const [bulkEditData, setBulkEditData] = useState<{
     title: string
     resourceId: string
     resourcePartId: string | null
-  }>({ title: "", resourceId: "", resourcePartId: null })
+    newStartTime: string // HH:mm format
+    newEndTime: string   // HH:mm format
+    timeShiftMinutes: number
+  }>({ title: "", resourceId: "", resourcePartId: null, newStartTime: "", newEndTime: "", timeShiftMinutes: 0 })
   const [availableResources, setAvailableResources] = useState<Array<{ id: string; name: string; parts: Array<{ id: string; name: string }> }>>([])
   const [isLoadingResources, setIsLoadingResources] = useState(false)
   const [isBulkUpdating, setIsBulkUpdating] = useState(false)
@@ -185,31 +189,51 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
     }
   }
 
-  // Handle bulk update of all bookings in a recurring group
+  // Handle bulk update of bookings (all or selected only)
   const handleBulkUpdate = async () => {
     if (!selectedRecurringGroup) return
     
+    // Determine which bookings to update
+    const bookingsToUpdate = bulkEditSelectedOnly 
+      ? selectedRecurringGroup.bookings.filter(b => selectedModalBookingIds.has(b.id))
+      : selectedRecurringGroup.bookings
+    
+    if (bookingsToUpdate.length === 0) {
+      alert("Ingen bookinger valgt for redigering")
+      return
+    }
+    
     setIsBulkUpdating(true)
     try {
-      const updatePromises = selectedRecurringGroup.bookings.map(booking =>
-        fetch(`/api/bookings/${booking.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: bulkEditData.title || undefined,
-            resourceId: bulkEditData.resourceId || undefined,
-            resourcePartId: bulkEditData.resourcePartId
-          })
+      // Use bulk-edit endpoint for faster processing
+      const response = await fetch('/api/admin/bookings/bulk-edit', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingIds: bookingsToUpdate.map(b => b.id),
+          title: bulkEditData.title || undefined,
+          resourceId: bulkEditData.resourceId || undefined,
+          resourcePartId: bulkEditData.resourcePartId,
+          newStartTime: bulkEditData.newStartTime || undefined,
+          newEndTime: bulkEditData.newEndTime || undefined,
+          timeShiftMinutes: bulkEditData.timeShiftMinutes || undefined
         })
-      )
+      })
       
-      await Promise.all(updatePromises)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Kunne ikke oppdatere bookinger')
+      }
+      
       await fetchBookings()
       setSelectedRecurringGroup(null)
       setBulkEditMode(false)
-      setBulkEditData({ title: "", resourceId: "", resourcePartId: null })
+      setBulkEditSelectedOnly(false)
+      setBulkEditData({ title: "", resourceId: "", resourcePartId: null, newStartTime: "", newEndTime: "", timeShiftMinutes: 0 })
+      setSelectedModalBookingIds(new Set())
     } catch (error) {
       console.error("Failed to bulk update bookings:", error)
+      alert(error instanceof Error ? error.message : 'En feil oppstod')
     } finally {
       setIsBulkUpdating(false)
     }
@@ -427,29 +451,42 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
     setRejectModalOpen(false)
     
     try {
-      // If we have selected IDs and not applying to all, reject each selected one
-      if (rejectSelectedIds.length > 1 && !rejectAllInGroup) {
-        // Reject multiple selected bookings
-        for (const bookingId of rejectSelectedIds) {
-          await fetch(`/api/admin/bookings/${bookingId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-              action: "reject",
-              statusNote: rejectReason.trim() || undefined,
-              applyToAll: false
-            })
+      // If we have selected IDs, use bulk endpoint for fast processing
+      if (rejectSelectedIds.length > 1) {
+        // Use bulk endpoint for multiple bookings
+        const response = await fetch('/api/admin/bookings/bulk', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingIds: rejectSelectedIds,
+            action: 'reject',
+            statusNote: rejectReason.trim() || undefined
           })
+        })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Kunne ikke avslå bookinger')
         }
-      } else {
-        // Single booking or apply to all in group
+      } else if (rejectAllInGroup && rejectingBookingId) {
+        // Apply to all in recurring group - use single endpoint with applyToAll
         await fetch(`/api/admin/bookings/${rejectingBookingId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             action: "reject",
             statusNote: rejectReason.trim() || undefined,
-            applyToAll: rejectAllInGroup
+            applyToAll: true
+          })
+        })
+      } else if (rejectingBookingId) {
+        // Single booking rejection
+        await fetch(`/api/admin/bookings/${rejectingBookingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            action: "reject",
+            statusNote: rejectReason.trim() || undefined,
+            applyToAll: false
           })
         })
       }
@@ -459,6 +496,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
       setSelectedBooking(null)
     } catch (error) {
       console.error("Failed to reject booking:", error)
+      alert(error instanceof Error ? error.message : 'En feil oppstod')
     } finally {
       setProcessingId(null)
       setRejectingBookingId(null)
@@ -2162,7 +2200,15 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                 {bulkEditMode ? (
                   /* Bulk Edit Form */
                   <div className="space-y-4">
-                    <h4 className="text-sm font-semibold text-gray-700">Rediger alle {selectedRecurringGroup.bookings.length} bookinger</h4>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <h4 className="text-sm font-semibold text-blue-800">
+                        {bulkEditSelectedOnly 
+                          ? `Rediger ${selectedModalBookingIds.size} valgte bookinger`
+                          : `Rediger alle ${selectedRecurringGroup.bookings.length} bookinger`
+                        }
+                      </h4>
+                      <p className="text-xs text-blue-600 mt-1">Felt som står tomme beholdes uendret</p>
+                    </div>
                     
                     {/* Title */}
                     <div>
@@ -2174,7 +2220,6 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         placeholder={firstBooking?.title || "Behold eksisterende"}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
-                      <p className="text-xs text-gray-500 mt-1">La stå tom for å beholde eksisterende tittel</p>
                     </div>
 
                     {/* Resource */}
@@ -2230,13 +2275,87 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         </>
                       )}
                     </div>
+                    
+                    {/* Time - New absolute time */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nytt tidspunkt (alle datoer)</label>
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="time"
+                          value={bulkEditData.newStartTime}
+                          onChange={(e) => setBulkEditData(prev => ({ ...prev, newStartTime: e.target.value }))}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <span className="text-gray-500">–</span>
+                        <input
+                          type="time"
+                          value={bulkEditData.newEndTime}
+                          onChange={(e) => setBulkEditData(prev => ({ ...prev, newEndTime: e.target.value }))}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Sett nytt klokkeslett for alle valgte bookinger (datoene beholdes)</p>
+                    </div>
+                    
+                    {/* Time shift alternative */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Eller: Flytt tid med X minutter</label>
+                      <div className="flex gap-2 items-center">
+                        <button
+                          type="button"
+                          onClick={() => setBulkEditData(prev => ({ ...prev, timeShiftMinutes: prev.timeShiftMinutes - 30, newStartTime: "", newEndTime: "" }))}
+                          className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
+                          -30 min
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBulkEditData(prev => ({ ...prev, timeShiftMinutes: prev.timeShiftMinutes - 60, newStartTime: "", newEndTime: "" }))}
+                          className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
+                          -1 time
+                        </button>
+                        <span className={`flex-1 text-center font-medium ${bulkEditData.timeShiftMinutes !== 0 ? 'text-blue-600' : 'text-gray-400'}`}>
+                          {bulkEditData.timeShiftMinutes === 0 
+                            ? 'Ingen endring' 
+                            : bulkEditData.timeShiftMinutes > 0 
+                              ? `+${bulkEditData.timeShiftMinutes} min`
+                              : `${bulkEditData.timeShiftMinutes} min`
+                          }
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setBulkEditData(prev => ({ ...prev, timeShiftMinutes: prev.timeShiftMinutes + 60, newStartTime: "", newEndTime: "" }))}
+                          className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
+                          +1 time
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBulkEditData(prev => ({ ...prev, timeShiftMinutes: prev.timeShiftMinutes + 30, newStartTime: "", newEndTime: "" }))}
+                          className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
+                          +30 min
+                        </button>
+                      </div>
+                      {bulkEditData.timeShiftMinutes !== 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setBulkEditData(prev => ({ ...prev, timeShiftMinutes: 0 }))}
+                          className="text-xs text-blue-600 hover:underline mt-1"
+                        >
+                          Nullstill
+                        </button>
+                      )}
+                    </div>
 
                     {/* Action buttons */}
                     <div className="flex gap-2 pt-2">
                       <button
                         onClick={() => {
                           setBulkEditMode(false)
-                          setBulkEditData({ title: "", resourceId: "", resourcePartId: null })
+                          setBulkEditSelectedOnly(false)
+                          setBulkEditData({ title: "", resourceId: "", resourcePartId: null, newStartTime: "", newEndTime: "", timeShiftMinutes: 0 })
                         }}
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
                       >
@@ -2244,7 +2363,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       </button>
                       <button
                         onClick={handleBulkUpdate}
-                        disabled={isBulkUpdating || (!bulkEditData.title && !bulkEditData.resourceId)}
+                        disabled={isBulkUpdating || (!bulkEditData.title && !bulkEditData.resourceId && !bulkEditData.newStartTime && !bulkEditData.newEndTime && bulkEditData.timeShiftMinutes === 0)}
                         className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                       >
                         {isBulkUpdating ? (
@@ -2395,13 +2514,25 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                 if (selectedCount === 0) return
                                 setProcessingId("batch")
                                 try {
-                                  // Approve all selected bookings
-                                  for (const bookingId of selectedModalBookingIds) {
-                                    await executeAction(bookingId, "approve", false)
+                                  // Use bulk endpoint for much faster processing
+                                  const response = await fetch('/api/admin/bookings/bulk', {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      bookingIds: Array.from(selectedModalBookingIds),
+                                      action: 'approve'
+                                    })
+                                  })
+                                  if (!response.ok) {
+                                    const error = await response.json()
+                                    throw new Error(error.error || 'Kunne ikke godkjenne bookinger')
                                   }
                                   await fetchBookings()
                                   setSelectedRecurringGroup(null)
                                   setSelectedModalBookingIds(new Set())
+                                } catch (error) {
+                                  console.error('Bulk approve failed:', error)
+                                  alert(error instanceof Error ? error.message : 'En feil oppstod')
                                 } finally {
                                   setProcessingId(null)
                                 }
@@ -2424,13 +2555,13 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                             <button
                               onClick={() => {
                                 if (selectedCount === 0) return
-                                // Store selected IDs for rejection
+                                // Store selected IDs for bulk rejection
                                 const selectedArray = Array.from(selectedModalBookingIds)
                                 setRejectSelectedIds(selectedArray)
                                 setSelectedRecurringGroup(null)
                                 setRejectingBookingId(selectedArray[0])
                                 setRejectReason("")
-                                setRejectAllInGroup(allPendingSelected)
+                                setRejectAllInGroup(selectedArray.length > 1) // Flag for bulk rejection
                                 setRejectModalOpen(true)
                               }}
                               disabled={processingId !== null || selectedCount === 0}
@@ -2444,23 +2575,50 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       )
                     })()}
                     
-                    {/* Edit button - at bottom like single booking modal */}
+                    {/* Edit buttons - at bottom like single booking modal */}
                     <div className="border-t pt-4 mt-4">
-                      <button
-                        onClick={() => {
-                          fetchResources()
-                          setBulkEditMode(true)
-                          setBulkEditData({
-                            title: "",
-                            resourceId: "",
-                            resourcePartId: null
-                          })
-                        }}
-                        className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Pencil className="w-4 h-4" />
-                        Rediger
-                      </button>
+                      <div className="flex gap-2">
+                        {selectedModalBookingIds.size > 0 && (
+                          <button
+                            onClick={() => {
+                              fetchResources()
+                              setBulkEditMode(true)
+                              setBulkEditSelectedOnly(true)
+                              setBulkEditData({
+                                title: "",
+                                resourceId: "",
+                                resourcePartId: null,
+                                newStartTime: "",
+                                newEndTime: "",
+                                timeShiftMinutes: 0
+                              })
+                            }}
+                            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                          >
+                            <Pencil className="w-4 h-4" />
+                            Rediger valgte ({selectedModalBookingIds.size})
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            fetchResources()
+                            setBulkEditMode(true)
+                            setBulkEditSelectedOnly(false)
+                            setBulkEditData({
+                              title: "",
+                              resourceId: "",
+                              resourcePartId: null,
+                              newStartTime: "",
+                              newEndTime: "",
+                              timeShiftMinutes: 0
+                            })
+                          }}
+                          className={`${selectedModalBookingIds.size > 0 ? 'flex-1' : 'w-full'} px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2`}
+                        >
+                          <Pencil className="w-4 h-4" />
+                          Rediger alle
+                        </button>
+                      </div>
                     </div>
                   </>
                 )}
