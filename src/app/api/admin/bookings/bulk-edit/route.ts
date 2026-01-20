@@ -215,7 +215,8 @@ export async function PATCH(request: Request) {
             firstBooking.resource.name,
             `${bookings.length} bookinger redigert`,
             "Se admin-panel for detaljer",
-            firstBooking.user.name || "Ukjent"
+            firstBooking.user.name || "Ukjent",
+            firstBooking.user.email || ""
           )
           await sendEmail(firstBooking.organizationId, { to: admin.email, ...emailContent })
         }
