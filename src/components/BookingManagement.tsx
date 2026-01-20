@@ -2402,26 +2402,22 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                               }}
                             >
                               <div className="flex items-center gap-3">
-                                {/* Checkbox for pending bookings */}
-                                {isPending ? (
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={(e) => {
-                                      e.stopPropagation()
-                                      const newSet = new Set(selectedModalBookingIds)
-                                      if (e.target.checked) {
-                                        newSet.add(booking.id)
-                                      } else {
-                                        newSet.delete(booking.id)
-                                      }
-                                      setSelectedModalBookingIds(newSet)
-                                    }}
-                                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                                  />
-                                ) : (
-                                  <div className="w-4 h-4" /> /* Spacer for non-pending */
-                                )}
+                                {/* Checkbox for all bookings */}
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    e.stopPropagation()
+                                    const newSet = new Set(selectedModalBookingIds)
+                                    if (e.target.checked) {
+                                      newSet.add(booking.id)
+                                    } else {
+                                      newSet.delete(booking.id)
+                                    }
+                                    setSelectedModalBookingIds(newSet)
+                                  }}
+                                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                />
                                 <div className="text-sm">
                                   <p className="font-medium text-gray-900">
                                     {format(new Date(booking.startTime), "EEEE d. MMM", { locale: nb })}
@@ -2452,33 +2448,37 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                     </div>
                     {/* Action buttons for selected bookings */}
                     {(() => {
-                      const selectedCount = selectedModalBookingIds.size
-                      const allPendingSelected = selectedCount === pendingBookings.length && selectedCount > 0
+                      // Count only PENDING bookings that are selected (for approve/reject)
+                      const selectedPendingIds = pendingBookings
+                        .filter(b => selectedModalBookingIds.has(b.id))
+                        .map(b => b.id)
+                      const selectedPendingCount = selectedPendingIds.length
+                      const allPendingSelected = selectedPendingCount === pendingBookings.length && pendingBookings.length > 0
                       
-                      if (selectedCount === 0 && pendingBookings.length === 0) return null
+                      if (pendingBookings.length === 0) return null
                       
                       return (
                         <div className="border-t pt-4">
                           <p className="text-sm text-gray-600 mb-3">
-                            {selectedCount === 0 
-                              ? "Velg bookinger du vil behandle"
+                            {selectedPendingCount === 0 
+                              ? "Velg ventende bookinger for å godkjenne/avslå"
                               : allPendingSelected
-                                ? `Behandle alle ${selectedCount} ventende bookinger:`
-                                : `Behandle ${selectedCount} av ${pendingBookings.length} valgte bookinger:`
+                                ? `Behandle alle ${selectedPendingCount} ventende bookinger:`
+                                : `Behandle ${selectedPendingCount} av ${pendingBookings.length} ventende bookinger:`
                             }
                           </p>
                           <div className="flex gap-2">
                             <button
                               onClick={async () => {
-                                if (selectedCount === 0) return
+                                if (selectedPendingCount === 0) return
                                 setProcessingId("batch")
                                 try {
-                                  // Use bulk endpoint for much faster processing
+                                  // Use bulk endpoint - only approve pending bookings
                                   const response = await fetch('/api/admin/bookings/bulk', {
                                     method: 'PATCH',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                      bookingIds: Array.from(selectedModalBookingIds),
+                                      bookingIds: selectedPendingIds,
                                       action: 'approve'
                                     })
                                   })
@@ -2496,7 +2496,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                   setProcessingId(null)
                                 }
                               }}
-                              disabled={processingId !== null || selectedCount === 0}
+                              disabled={processingId !== null || selectedPendingCount === 0}
                               className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                             >
                               {processingId !== null ? (
@@ -2507,27 +2507,26 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                               ) : (
                                 <>
                                   <CheckCircle2 className="w-4 h-4" />
-                                  {allPendingSelected ? "Godkjenn alle" : `Godkjenn (${selectedCount})`}
+                                  {allPendingSelected ? "Godkjenn alle" : `Godkjenn (${selectedPendingCount})`}
                                 </>
                               )}
                             </button>
                             <button
                               onClick={() => {
-                                if (selectedCount === 0) return
-                                // Store selected IDs for bulk rejection
-                                const selectedArray = Array.from(selectedModalBookingIds)
-                                setRejectSelectedIds(selectedArray)
+                                if (selectedPendingCount === 0) return
+                                // Store selected pending IDs for bulk rejection
+                                setRejectSelectedIds(selectedPendingIds)
                                 setSelectedRecurringGroup(null)
-                                setRejectingBookingId(selectedArray[0])
+                                setRejectingBookingId(selectedPendingIds[0])
                                 setRejectReason("")
-                                setRejectAllInGroup(selectedArray.length > 1) // Flag for bulk rejection
+                                setRejectAllInGroup(selectedPendingIds.length > 1) // Flag for bulk rejection
                                 setRejectModalOpen(true)
                               }}
-                              disabled={processingId !== null || selectedCount === 0}
+                              disabled={processingId !== null || selectedPendingCount === 0}
                               className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                             >
                               <XCircle className="w-4 h-4" />
-                              {allPendingSelected ? "Avslå alle" : `Avslå (${selectedCount})`}
+                              {allPendingSelected ? "Avslå alle" : `Avslå (${selectedPendingCount})`}
                             </button>
                           </div>
                         </div>
