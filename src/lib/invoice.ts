@@ -120,14 +120,7 @@ export async function createInvoiceForRegistration(
     where: { id: registrationId },
     include: {
       user: true,
-      competition: true,
-      organization: {
-        select: {
-          id: true,
-          name: true,
-          isMvaRegistered: true
-        }
-      }
+      competition: true
     }
   })
 
@@ -139,8 +132,14 @@ export async function createInvoiceForRegistration(
     throw new Error("Registration has no amount to invoice")
   }
   
+  // Hent organisasjonsinfo separat
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { id: true, name: true, isMvaRegistered: true }
+  })
+  
   // Sjekk om organisasjonen er MVA-registrert
-  const isMvaRegistered = registration.organization?.isMvaRegistered ?? false
+  const isMvaRegistered = organization?.isMvaRegistered ?? false
 
   // Generer fakturanummer (YYYY-NNNN format)
   const year = new Date().getFullYear()

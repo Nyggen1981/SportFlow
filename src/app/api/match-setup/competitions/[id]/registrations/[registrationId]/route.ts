@@ -80,7 +80,7 @@ export async function PATCH(
       const teamName = registration.teamName || registration.contactName
       
       // Sjekk om laget allerede finnes
-      const existingTeam = await prisma.team.findFirst({
+      const existingTeam = await prisma.competitionTeam.findFirst({
         where: {
           competitionId,
           name: teamName
@@ -97,15 +97,14 @@ export async function PATCH(
       // Opprett lag og oppdater påmelding i en transaksjon
       await prisma.$transaction(async (tx) => {
         // Opprett laget
-        await tx.team.create({
+        await tx.competitionTeam.create({
           data: {
             name: teamName,
             competitionId,
             contactName: registration.contactName,
             contactEmail: registration.contactEmail,
             contactPhone: registration.contactPhone,
-            players: registration.participants as string[] || [],
-            organizationId: session.user.organizationId
+            players: (registration.players as any[])?.map((p: any) => p.name) || []
           }
         })
         
