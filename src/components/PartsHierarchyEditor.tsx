@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { 
   Plus, 
   Trash2, 
@@ -38,6 +38,24 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [editingPart, setEditingPart] = useState<HierarchicalPart | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+
+  // Auto-expand all parts that have children
+  useEffect(() => {
+    const parentsWithChildren = new Set<string>()
+    parts.forEach(part => {
+      if (part.parentId) {
+        parentsWithChildren.add(part.parentId)
+      }
+    })
+    // Only update if there are new parents to expand
+    if (parentsWithChildren.size > 0) {
+      setExpandedIds(prev => {
+        const newSet = new Set(prev)
+        parentsWithChildren.forEach(id => newSet.add(id))
+        return newSet
+      })
+    }
+  }, [parts])
 
   // Build tree structure from flat list
   const buildTree = (flatParts: HierarchicalPart[]): HierarchicalPart[] => {
@@ -510,10 +528,10 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
       <button
         type="button"
         onClick={() => addPart(null)}
-        className="w-full p-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 font-medium"
+        className="px-4 py-2.5 border border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center gap-2"
       >
-        <Plus className="w-5 h-5" />
-        Legg til ny del
+        <Plus className="w-4 h-4" />
+        Legg til del
       </button>
 
       {/* Help text */}
@@ -521,7 +539,7 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
         <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
           <p className="text-sm text-blue-800 font-medium mb-2">💡 Tips</p>
           <ul className="text-sm text-blue-700 space-y-1">
-            <li>• <strong>Klikk på en del</strong> for å redigere den</li>
+            <li>• Klikk på en del for å redigere den</li>
             <li>• Klikk <strong>+</strong> for å legge til underdeler</li>
             <li>• Hoveddeler blokkerer automatisk alle underdeler når de bookes</li>
             <li>• Klikk på pilen for å se/skjule underdeler</li>
