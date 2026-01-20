@@ -761,9 +761,53 @@ export default function MyBookingsPage() {
                 <>
                   {/* Mobile card view */}
                   <div className="md:hidden space-y-3">
-                    {standaloneBookings.concat(
-                      Object.values(recurringGroups).flat()
-                    ).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()).map((booking) => {
+                    {/* Recurring groups first */}
+                    {Object.entries(recurringGroups).map(([groupId, groupBookings]) => {
+                      const firstBooking = groupBookings[0]
+                      const pendingCount = groupBookings.filter(b => b.status === "pending").length
+                      const approvedCount = groupBookings.filter(b => b.status === "approved").length
+                      
+                      return (
+                        <div
+                          key={`group-${groupId}`}
+                          onClick={() => setSelectedRecurringGroup({ groupId, bookings: groupBookings })}
+                          className="bg-blue-50/50 rounded-xl border border-blue-200 p-4 cursor-pointer active:scale-[0.98] transition-all"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div 
+                              className="w-3 h-3 rounded-full flex-shrink-0 mt-1.5"
+                              style={{ backgroundColor: firstBooking.resource.color || "#3b82f6" }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <h3 className="font-semibold text-gray-900 truncate">{firstBooking.title}</h3>
+                                <FolderOpen className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+                                  📅 {groupBookings.length}x gjentakende
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 mt-1">{firstBooking.resource.name}</p>
+                              {firstBooking.resourcePart && (
+                                <p className="text-xs text-gray-500">→ {firstBooking.resourcePart.name}</p>
+                              )}
+                              <div className="flex items-center gap-3 mt-2 text-xs">
+                                {pendingCount > 0 && (
+                                  <span className="text-amber-600">{pendingCount} venter</span>
+                                )}
+                                {approvedCount > 0 && (
+                                  <span className="text-green-600">{approvedCount} godkjent</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    
+                    {/* Standalone bookings */}
+                    {standaloneBookings.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()).map((booking) => {
                       const statusInfo = getStatusInfo(booking.status)
                       const StatusIcon = statusInfo.icon
                       const isPast = new Date(booking.startTime) < new Date()
