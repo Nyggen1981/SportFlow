@@ -6,7 +6,6 @@ import {
   Trash2, 
   ChevronRight, 
   ChevronDown,
-  Edit3,
   Upload,
   X,
   ImageIcon,
@@ -209,8 +208,14 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
               )}
             </button>
 
-            {/* Main content */}
-            <div className="flex-1 min-w-0">
+            {/* Main content - clickable to edit */}
+            <div 
+              className="flex-1 min-w-0 cursor-pointer hover:bg-gray-50 rounded-lg p-2 -m-2 transition-colors"
+              onClick={() => {
+                const fullPart = parts.find(p => (p.id || p.tempId) === id) || part
+                setEditingPart({ ...fullPart })
+              }}
+            >
               <div className="flex items-center gap-2 flex-wrap">
                 <h4 className="font-semibold text-gray-900">
                   {part.name || <span className="text-gray-400 italic">Uten navn</span>}
@@ -250,17 +255,6 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
 
             {/* Action buttons - always visible */}
             <div className="flex items-center gap-1 flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  const fullPart = parts.find(p => (p.id || p.tempId) === id) || part
-                  setEditingPart({ ...fullPart })
-                }}
-                className="p-2 rounded-lg hover:bg-blue-100 text-blue-600 transition-colors"
-                title="Rediger"
-              >
-                <Edit3 className="w-4 h-4" />
-              </button>
               <button
                 type="button"
                 onClick={() => addPart(id)}
@@ -527,7 +521,8 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
         <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
           <p className="text-sm text-blue-800 font-medium mb-2">💡 Tips</p>
           <ul className="text-sm text-blue-700 space-y-1">
-            <li>• Klikk <strong>+</strong> på en del for å legge til underdeler</li>
+            <li>• <strong>Klikk på en del</strong> for å redigere den</li>
+            <li>• Klikk <strong>+</strong> for å legge til underdeler</li>
             <li>• Hoveddeler blokkerer automatisk alle underdeler når de bookes</li>
             <li>• Klikk på pilen for å se/skjule underdeler</li>
           </ul>
