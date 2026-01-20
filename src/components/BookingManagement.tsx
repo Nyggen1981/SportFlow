@@ -2296,58 +2296,6 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       </div>
                       <p className="text-xs text-gray-500 mt-1">Sett nytt klokkeslett for alle valgte bookinger (datoene beholdes)</p>
                     </div>
-                    
-                    {/* Time shift alternative */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Eller: Flytt tid med X minutter</label>
-                      <div className="flex gap-2 items-center">
-                        <button
-                          type="button"
-                          onClick={() => setBulkEditData(prev => ({ ...prev, timeShiftMinutes: prev.timeShiftMinutes - 30, newStartTime: "", newEndTime: "" }))}
-                          className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                        >
-                          -30 min
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setBulkEditData(prev => ({ ...prev, timeShiftMinutes: prev.timeShiftMinutes - 60, newStartTime: "", newEndTime: "" }))}
-                          className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                        >
-                          -1 time
-                        </button>
-                        <span className={`flex-1 text-center font-medium ${bulkEditData.timeShiftMinutes !== 0 ? 'text-blue-600' : 'text-gray-400'}`}>
-                          {bulkEditData.timeShiftMinutes === 0 
-                            ? 'Ingen endring' 
-                            : bulkEditData.timeShiftMinutes > 0 
-                              ? `+${bulkEditData.timeShiftMinutes} min`
-                              : `${bulkEditData.timeShiftMinutes} min`
-                          }
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setBulkEditData(prev => ({ ...prev, timeShiftMinutes: prev.timeShiftMinutes + 60, newStartTime: "", newEndTime: "" }))}
-                          className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                        >
-                          +1 time
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setBulkEditData(prev => ({ ...prev, timeShiftMinutes: prev.timeShiftMinutes + 30, newStartTime: "", newEndTime: "" }))}
-                          className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                        >
-                          +30 min
-                        </button>
-                      </div>
-                      {bulkEditData.timeShiftMinutes !== 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setBulkEditData(prev => ({ ...prev, timeShiftMinutes: 0 }))}
-                          className="text-xs text-blue-600 hover:underline mt-1"
-                        >
-                          Nullstill
-                        </button>
-                      )}
-                    </div>
 
                     {/* Action buttons */}
                     <div className="flex gap-2 pt-2">
