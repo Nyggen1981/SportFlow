@@ -25,10 +25,9 @@ interface Competition {
   startDate: string
   venue?: string
   registrationType: "TEAM" | "PLAYER"
-  registrationOpenDate?: string
-  registrationCloseDate?: string
-  teamFee?: number
-  playerFee?: number
+  registrationOpen: boolean
+  registrationDeadline?: string
+  registrationFee?: number
   _count: {
     teams: number
     matches: number
@@ -108,12 +107,12 @@ export default function CompetitionsPage() {
   }
 
   const isRegistrationOpen = (comp: Competition) => {
-    const now = new Date()
-    const openDate = comp.registrationOpenDate ? new Date(comp.registrationOpenDate) : null
-    const closeDate = comp.registrationCloseDate ? new Date(comp.registrationCloseDate) : null
+    if (!comp.registrationOpen) return false
     
-    if (openDate && now < openDate) return false
-    if (closeDate && now > closeDate) return false
+    const now = new Date()
+    const deadline = comp.registrationDeadline ? new Date(comp.registrationDeadline) : null
+    
+    if (deadline && now > deadline) return false
     return comp.status === "SCHEDULED" || comp.status === "DRAFT"
   }
 
@@ -186,9 +185,7 @@ export default function CompetitionsPage() {
             <div className="grid gap-4">
               {competitions.map((competition) => {
                 const registrationOpen = isRegistrationOpen(competition)
-                const fee = competition.registrationType === "TEAM" 
-                  ? competition.teamFee 
-                  : competition.playerFee
+                const fee = competition.registrationFee
 
                 return (
                   <Link

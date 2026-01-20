@@ -58,14 +58,13 @@ interface FormData {
   thirdPlaceMatch: boolean
   // Påmeldingsinnstillinger
   registrationType: RegistrationType
-  teamFee: number | null
-  playerFee: number | null
-  minTeams: number | null
-  maxTeams: number | null
+  registrationOpen: boolean
+  registrationDeadline: string
+  registrationFee: number | null
+  maxRegistrations: number | null
   minPlayersPerTeam: number | null
   maxPlayersPerTeam: number | null
-  registrationOpenDate: string
-  registrationCloseDate: string
+  requiresPayment: boolean
 }
 
 export default function NewCompetitionPage() {
@@ -139,14 +138,13 @@ export default function NewCompetitionPage() {
     thirdPlaceMatch: false,
     // Påmeldingsinnstillinger
     registrationType: "TEAM",
-    teamFee: null,
-    playerFee: null,
-    minTeams: 2,
-    maxTeams: null,
+    registrationOpen: false,
+    registrationDeadline: "",
+    registrationFee: null,
+    maxRegistrations: null,
     minPlayersPerTeam: 1,
     maxPlayersPerTeam: null,
-    registrationOpenDate: "",
-    registrationCloseDate: ""
+    requiresPayment: false
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -871,35 +869,35 @@ export default function NewCompetitionPage() {
                     </>
                   )}
 
-                  {/* Registration Dates */}
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <label htmlFor="registrationOpenDate" className="block text-sm font-medium text-gray-700 mb-1">
-                        <Calendar className="w-4 h-4 inline mr-1" />
-                        Påmelding åpner
-                      </label>
-                      <input
-                        type="date"
-                        id="registrationOpenDate"
-                        name="registrationOpenDate"
-                        value={formData.registrationOpenDate}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="registrationCloseDate" className="block text-sm font-medium text-gray-700 mb-1">
-                        Påmelding stenger
-                      </label>
-                      <input
-                        type="date"
-                        id="registrationCloseDate"
-                        name="registrationCloseDate"
-                        value={formData.registrationCloseDate}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
+                  {/* Registration Open Toggle */}
+                  <div className="flex items-center gap-3 mb-6">
+                    <input
+                      type="checkbox"
+                      id="registrationOpen"
+                      name="registrationOpen"
+                      checked={formData.registrationOpen}
+                      onChange={(e) => setFormData(prev => ({ ...prev, registrationOpen: e.target.checked }))}
+                      className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                    />
+                    <label htmlFor="registrationOpen" className="text-sm font-medium text-gray-700">
+                      Åpen for påmelding
+                    </label>
+                  </div>
+
+                  {/* Registration Deadline */}
+                  <div className="mb-6">
+                    <label htmlFor="registrationDeadline" className="block text-sm font-medium text-gray-700 mb-1">
+                      <Calendar className="w-4 h-4 inline mr-1" />
+                      Påmeldingsfrist
+                    </label>
+                    <input
+                      type="date"
+                      id="registrationDeadline"
+                      name="registrationDeadline"
+                      value={formData.registrationDeadline}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    />
                   </div>
                 </div>
 
@@ -916,16 +914,16 @@ export default function NewCompetitionPage() {
                     </p>
                   </div>
 
-                  {formData.registrationType === "TEAM" ? (
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="teamFee" className="block text-sm font-medium text-gray-700 mb-1">
-                        Avgift per lag (NOK)
+                      <label htmlFor="registrationFee" className="block text-sm font-medium text-gray-700 mb-1">
+                        Påmeldingsavgift (NOK)
                       </label>
                       <input
                         type="number"
-                        id="teamFee"
-                        name="teamFee"
-                        value={formData.teamFee ?? ""}
+                        id="registrationFee"
+                        name="registrationFee"
+                        value={formData.registrationFee ?? ""}
                         onChange={handleChange}
                         min={0}
                         step="50"
@@ -933,24 +931,22 @@ export default function NewCompetitionPage() {
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       />
                     </div>
-                  ) : (
                     <div>
-                      <label htmlFor="playerFee" className="block text-sm font-medium text-gray-700 mb-1">
-                        Avgift per spiller (NOK)
+                      <label htmlFor="maxRegistrations" className="block text-sm font-medium text-gray-700 mb-1">
+                        Maks påmeldinger
                       </label>
                       <input
                         type="number"
-                        id="playerFee"
-                        name="playerFee"
-                        value={formData.playerFee ?? ""}
+                        id="maxRegistrations"
+                        name="maxRegistrations"
+                        value={formData.maxRegistrations ?? ""}
                         onChange={handleChange}
-                        min={0}
-                        step="50"
-                        placeholder="0 = Gratis"
+                        min={1}
+                        placeholder="Ubegrenset"
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       />
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {error && (

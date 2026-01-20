@@ -61,24 +61,25 @@ export async function POST(
     }
     
     // Sjekk om påmelding er åpen
-    const now = new Date()
-    if (competition.registrationOpenDate && now < competition.registrationOpenDate) {
+    if (!competition.registrationOpen) {
       return NextResponse.json(
-        { error: "Påmeldingen har ikke åpnet ennå" },
+        { error: "Påmeldingen er ikke åpen" },
         { status: 400 }
       )
     }
-    if (competition.registrationCloseDate && now > competition.registrationCloseDate) {
+    
+    const now = new Date()
+    if (competition.registrationDeadline && now > competition.registrationDeadline) {
       return NextResponse.json(
         { error: "Påmeldingsfristen har gått ut" },
         { status: 400 }
       )
     }
     
-    // Sjekk om det er plass til flere lag
-    if (competition.maxTeams) {
-      const currentTeamCount = competition._count.teams + competition._count.registrations
-      if (currentTeamCount >= competition.maxTeams) {
+    // Sjekk om det er plass til flere påmeldinger
+    if (competition.maxRegistrations) {
+      const currentCount = competition._count.teams + competition._count.registrations
+      if (currentCount >= competition.maxRegistrations) {
         return NextResponse.json(
           { error: "Konkurransen er full" },
           { status: 400 }
@@ -134,11 +135,8 @@ export async function POST(
       )
     }
     
-    // Beregn avgift (lagre som øre/integer)
-    const fee = competition.registrationType === "TEAM" 
-      ? competition.teamFee 
-      : competition.playerFee
-    const feeInOre = fee ? Math.round(Number(fee) * 100) : null
+    // Beregn avgift (allerede lagret som øre i skjemaet)
+    const feeInOre = competition.registrationFee || null
     
     // Opprett påmelding
     const registration = await prisma.competitionRegistration.create({

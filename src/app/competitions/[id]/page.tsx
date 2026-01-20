@@ -59,12 +59,10 @@ interface Competition {
   endDate?: string
   venue?: string
   registrationType: "TEAM" | "PLAYER"
-  registrationOpenDate?: string
-  registrationCloseDate?: string
-  teamFee?: number
-  playerFee?: number
-  minTeams?: number
-  maxTeams?: number
+  registrationOpen: boolean
+  registrationDeadline?: string
+  registrationFee?: number
+  maxRegistrations?: number
   minPlayersPerTeam?: number
   maxPlayersPerTeam?: number
   teams: Team[]
@@ -139,12 +137,12 @@ export default function CompetitionViewPage({ params }: { params: Promise<{ id: 
 
   const isRegistrationOpen = () => {
     if (!competition) return false
-    const now = new Date()
-    const openDate = competition.registrationOpenDate ? new Date(competition.registrationOpenDate) : null
-    const closeDate = competition.registrationCloseDate ? new Date(competition.registrationCloseDate) : null
+    if (!competition.registrationOpen) return false
     
-    if (openDate && now < openDate) return false
-    if (closeDate && now > closeDate) return false
+    const now = new Date()
+    const deadline = competition.registrationDeadline ? new Date(competition.registrationDeadline) : null
+    
+    if (deadline && now > deadline) return false
     return competition.status === "SCHEDULED" || competition.status === "DRAFT"
   }
 
@@ -198,7 +196,7 @@ export default function CompetitionViewPage({ params }: { params: Promise<{ id: 
   }
 
   const registrationOpen = isRegistrationOpen()
-  const fee = competition.registrationType === "TEAM" ? competition.teamFee : competition.playerFee
+  const fee = competition.registrationFee
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -378,9 +376,9 @@ export default function CompetitionViewPage({ params }: { params: Promise<{ id: 
                       <UserPlus className="w-5 h-5" />
                       Påmelding er åpen!
                     </div>
-                    {competition.registrationCloseDate && (
+                    {competition.registrationDeadline && (
                       <p className="text-sm text-green-600 mt-1">
-                        Stenger: {new Date(competition.registrationCloseDate).toLocaleDateString("nb-NO")}
+                        Frist: {new Date(competition.registrationDeadline).toLocaleDateString("nb-NO")}
                       </p>
                     )}
                   </div>
@@ -552,7 +550,7 @@ function RegistrationForm({
   const [players, setPlayers] = useState<{ name: string }[]>([{ name: "" }])
   const [notes, setNotes] = useState("")
 
-  const fee = competition.registrationType === "TEAM" ? competition.teamFee : competition.playerFee
+  const fee = competition.registrationFee
 
   const addPlayer = () => {
     if (competition.maxPlayersPerTeam && players.length >= competition.maxPlayersPerTeam) {

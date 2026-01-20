@@ -108,14 +108,13 @@ export async function POST(request: NextRequest) {
       resourceId,
       // Påmeldingsfelter
       registrationType = "TEAM",
-      teamFee,
-      playerFee,
-      minTeams,
-      maxTeams,
+      registrationOpen = false,
+      registrationDeadline,
+      registrationFee,
+      maxRegistrations,
       minPlayersPerTeam,
       maxPlayersPerTeam,
-      registrationOpenDate,
-      registrationCloseDate
+      requiresPayment = false
     } = body
     
     if (!name || !type || !startDate) {
@@ -253,14 +252,13 @@ export async function POST(request: NextRequest) {
         status: "DRAFT",
         // Påmeldingsinnstillinger
         registrationType,
-        teamFee: teamFee ? parseFloat(teamFee) : null,
-        playerFee: playerFee ? parseFloat(playerFee) : null,
-        minTeams,
-        maxTeams,
-        minPlayersPerTeam,
-        maxPlayersPerTeam,
-        registrationOpenDate: registrationOpenDate ? new Date(registrationOpenDate) : null,
-        registrationCloseDate: registrationCloseDate ? new Date(registrationCloseDate) : null
+        registrationOpen,
+        registrationDeadline: registrationDeadline ? new Date(registrationDeadline) : null,
+        registrationFee: registrationFee ? parseInt(registrationFee) : null,
+        maxRegistrations: maxRegistrations ? parseInt(maxRegistrations) : null,
+        minPlayersPerTeam: minPlayersPerTeam ? parseInt(minPlayersPerTeam) : null,
+        maxPlayersPerTeam: maxPlayersPerTeam ? parseInt(maxPlayersPerTeam) : null,
+        requiresPayment
       }
     })
     
