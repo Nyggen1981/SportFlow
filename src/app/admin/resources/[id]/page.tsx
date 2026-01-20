@@ -77,6 +77,9 @@ export default function EditResourcePage({ params }: Props) {
   const [categories, setCategories] = useState<Category[]>([])
   const [error, setError] = useState("")
   const [successMessage, setSuccessMessage] = useState("")
+  
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"basic" | "booking" | "parts" | "pricing" | "moderators">("basic")
 
   // Form state
   const [name, setName] = useState("")
@@ -574,18 +577,105 @@ export default function EditResourcePage({ params }: Props) {
           Tilbake til fasiliteter
         </Link>
 
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Rediger fasilitet</h1>
-              <p className="text-gray-500 text-sm">Oppdater informasjon om fasiliteten</p>
-            </div>
+        {/* Page Header */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+            <Building2 className="w-6 h-6 text-blue-600" />
           </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Rediger fasilitet</h1>
+            <p className="text-gray-500 text-sm">{name || "Oppdater informasjon om fasiliteten"}</p>
+          </div>
+        </div>
 
-          <form id="resource-form" onSubmit={handleSubmit} className="space-y-6">
+        {/* Tab Navigation */}
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-6 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab("basic")}
+            className={`flex-1 min-w-[80px] px-3 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+              activeTab === "basic"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            }`}
+          >
+            <Info className="w-4 h-4 inline mr-1.5" />
+            Grunnleggende
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("booking")}
+            className={`flex-1 min-w-[80px] px-3 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+              activeTab === "booking"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            }`}
+          >
+            <Calendar className="w-4 h-4 inline mr-1.5" />
+            Booking
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("parts")}
+            className={`flex-1 min-w-[80px] px-3 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+              activeTab === "parts"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            }`}
+          >
+            <Layers className="w-4 h-4 inline mr-1.5" />
+            Deler & Kart
+          </button>
+          {pricingEnabled && (
+            <button
+              type="button"
+              onClick={() => setActiveTab("pricing")}
+              className={`flex-1 min-w-[80px] px-3 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                activeTab === "pricing"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+              }`}
+            >
+              <DollarSign className="w-4 h-4 inline mr-1.5" />
+              Prising
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setActiveTab("moderators")}
+            className={`flex-1 min-w-[80px] px-3 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+              activeTab === "moderators"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            }`}
+          >
+            <Users className="w-4 h-4 inline mr-1.5" />
+            Moderatorer
+          </button>
+        </div>
+
+        {/* Error/Success Messages */}
+        {error && (
+          <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm mb-6">
+            {error}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="p-4 rounded-xl bg-green-50 border border-green-100 text-green-700 text-sm flex items-center gap-2 mb-6">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {successMessage}
+          </div>
+        )}
+
+        {/* Tab Content */}
+        <form id="resource-form" onSubmit={handleSubmit}>
+
+          {/* BASIC TAB */}
+          {activeTab === "basic" && (
+          <div className="space-y-6">
             {error && (
               <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm">
                 {error}
@@ -755,6 +845,32 @@ export default function EditResourcePage({ params }: Props) {
               </div>
             </div>
 
+            {/* Save button for Basic tab */}
+            <div className="pt-6">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full sm:w-auto btn btn-primary flex items-center justify-center gap-2 px-6 py-2.5 disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Lagrer...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    Lagre endringer
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+          )}
+
+          {/* BOOKING TAB */}
+          {activeTab === "booking" && (
+          <div className="space-y-6">
             {/* Booking settings */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
               <div className="flex items-center gap-2 border-b border-gray-200 pb-3 mb-4">
@@ -958,143 +1074,32 @@ export default function EditResourcePage({ params }: Props) {
             </div>
             )}
 
-            {/* Pricing Configuration - Samlet for fasilitet og deler */}
-            {pricingEnabled && (
-              <div className="bg-white rounded-xl border-2 border-blue-200 bg-blue-50/30 p-6 space-y-6">
-                <div className="flex items-center justify-between border-b border-blue-200 pb-3 mb-4">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-5 h-5 text-blue-600" />
-                    <div>
-                      <h2 className="text-lg font-semibold text-gray-900">Prislogikk</h2>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Konfigurer prising for hele fasiliteten og hver del. Deler uten egen prislogikk bruker fasilitetens prislogikk.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Vis prisinfo checkbox */}
-                <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
-                  <input
-                    type="checkbox"
-                    id="visPrislogikk"
-                    checked={visPrislogikk}
-                    onChange={(e) => setVisPrislogikk(e.target.checked)}
-                    className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <label htmlFor="visPrislogikk" className="text-sm font-medium text-gray-700">
-                    Vis prisinfo på fasilitetssiden
-                  </label>
-                </div>
-
-                {/* Hele fasiliteten - Prising */}
-                {allowWholeBooking && (
-                  <div className="space-y-6">
-                    <div className="border-b border-gray-200 pb-2">
-                      <h3 className="font-semibold text-gray-900">Hele fasiliteten</h3>
-                    </div>
-                    
-                    {/* Varighetspriser (timepris, døgnpris, gratis) */}
-                    <DurationPricingEditor
-                      rules={pricingRules}
-                      onChange={setPricingRules}
-                      customRoles={customRoles}
-                    />
-
-                    {/* Fastprispakker */}
-                    <FixedPricePackagesEditor
-                      resourceId={id}
-                      packages={fixedPricePackages}
-                      onChange={setFixedPricePackages}
-                      customRoles={customRoles}
-                    />
-                  </div>
+            {/* Save button for Booking tab */}
+            <div className="pt-6">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full sm:w-auto btn btn-primary flex items-center justify-center gap-2 px-6 py-2.5 disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Lagrer...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    Lagre endringer
+                  </>
                 )}
+              </button>
+            </div>
+          </div>
+          )}
 
-                {/* Deler prislogikk */}
-                {parts.length > 0 && (
-                  <div className="space-y-4 pt-6 border-t-2 border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-gray-900">Deler</h3>
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      Konfigurer prising for hver del. Hvis ingen prislogikk er satt for en del, brukes fasilitetens prislogikk.
-                      <span className="text-xs text-gray-400 ml-2">({parts.length} deler totalt)</span>
-                    </p>
-                    
-                    {/* Sorter hierarkisk: hoveddeler først, deretter underdeler rekursivt */}
-                    {(() => {
-                      // Rekursiv funksjon for å bygge hierarkisk liste med alle nivåer
-                      const buildHierarchy = (parentId: string | null, level: number): Array<{ part: Part; partIndex: number; level: number }> => {
-                        const children = parts.filter(p => {
-                          const pParentId = p.parentId || null
-                          if (parentId === null) return pParentId === null
-                          return pParentId === parentId
-                        })
-                        const sortedChildren = [...children].sort((a, b) => a.name.localeCompare(b.name, 'no'))
-                        
-                        const result: Array<{ part: Part; partIndex: number; level: number }> = []
-                        for (const child of sortedChildren) {
-                          const childIndex = parts.findIndex(p => (p.id && p.id === child.id) || (p.tempId && p.tempId === child.tempId))
-                          result.push({ part: child, partIndex: childIndex, level })
-                          // Rekursivt legg til barn av denne delen
-                          const childId = child.id || child.tempId || null
-                          if (childId) {
-                            result.push(...buildHierarchy(childId, level + 1))
-                          }
-                        }
-                        return result
-                      }
-                      
-                      const sortedParts = buildHierarchy(null, 0)
-                      
-                      return sortedParts.map(({ part, partIndex, level }) => (
-                        <div 
-                          key={part.id || part.tempId || partIndex} 
-                          className={`p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4 ${level > 0 ? 'border-l-4' : ''} ${level === 1 ? 'ml-6 border-l-blue-300' : ''} ${level === 2 ? 'ml-12 border-l-green-300' : ''} ${level >= 3 ? 'ml-16 border-l-purple-300' : ''}`}
-                        >
-                          <div className="border-b border-gray-200 pb-2">
-                            <h4 className="font-medium text-gray-900">{part.name}</h4>
-                            <p className="text-xs text-gray-500">{level === 0 ? "Hoveddel" : level === 1 ? "Underdel" : `Nivå ${level + 1}`}</p>
-                          </div>
-                        
-                          {/* Varighetspriser for denne delen */}
-                          <DurationPricingEditor
-                            rules={part.pricingRules || []}
-                            onChange={(newRules) => {
-                              const newParts = [...parts]
-                              newParts[partIndex].pricingRules = newRules
-                              setParts(newParts)
-                            }}
-                            customRoles={customRoles}
-                          />
-                        
-                          {/* Fastprispakker for denne delen */}
-                          {part.id ? (
-                            <FixedPricePackagesEditor
-                              resourcePartId={part.id}
-                              packages={partFixedPricePackages[part.id] || []}
-                              onChange={(newPackages) => {
-                                setPartFixedPricePackages(prev => ({
-                                  ...prev,
-                                  [part.id!]: newPackages
-                                }))
-                              }}
-                              customRoles={customRoles}
-                            />
-                          ) : (
-                            <p className="text-xs text-gray-500 italic">
-                              Lagre fasiliteten først for å kunne legge til fastprispakker på denne delen.
-                            </p>
-                          )}
-                        </div>
-                      ))
-                    })()}
-                  </div>
-                )}
-              </div>
-            )}
-
+          {/* PARTS & MAP TAB */}
+          {activeTab === "parts" && (
+          <div className="space-y-6">
             {/* Parts - Hierarchical */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
               <div className="flex items-center gap-2 border-b border-gray-200 pb-3 mb-4">
@@ -1111,12 +1116,12 @@ export default function EditResourcePage({ params }: Props) {
                 <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
                   <input
                     type="checkbox"
-                    id="allowWholeBooking"
+                    id="allowWholeBookingParts"
                     checked={allowWholeBooking}
                     onChange={(e) => setAllowWholeBooking(e.target.checked)}
                     className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  <label htmlFor="allowWholeBooking" className="text-sm text-gray-700">
+                  <label htmlFor="allowWholeBookingParts" className="text-sm text-gray-700">
                     Tillat booking av hele fasiliteten (i tillegg til deler)
                   </label>
                 </div>
@@ -1131,7 +1136,6 @@ export default function EditResourcePage({ params }: Props) {
                   <h2 className="text-lg font-semibold text-gray-900">Oversiktskart</h2>
                 </div>
                 
-                {/* Check if any parts are unsaved (no id) */}
                 {parts.some(p => !p.id) ? (
                   <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
                     <p className="text-sm text-amber-800">
@@ -1154,6 +1158,186 @@ export default function EditResourcePage({ params }: Props) {
               </div>
             )}
 
+            {/* Save button for Parts tab */}
+            <div className="pt-6">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full sm:w-auto btn btn-primary flex items-center justify-center gap-2 px-6 py-2.5 disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Lagrer...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    Lagre endringer
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+          )}
+
+          {/* PRICING TAB */}
+          {activeTab === "pricing" && pricingEnabled && (
+          <div className="space-y-6">
+            {/* Pricing Configuration - Samlet for fasilitet og deler */}
+            <div className="bg-white rounded-xl border-2 border-blue-200 bg-blue-50/30 p-6 space-y-6">
+              <div className="flex items-center justify-between border-b border-blue-200 pb-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Prislogikk</h2>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Konfigurer prising for hele fasiliteten og hver del. Deler uten egen prislogikk bruker fasilitetens prislogikk.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Vis prisinfo checkbox */}
+              <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200">
+                <input
+                  type="checkbox"
+                  id="visPrislogikkTab"
+                  checked={visPrislogikk}
+                  onChange={(e) => setVisPrislogikk(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="visPrislogikkTab" className="text-sm font-medium text-gray-700">
+                  Vis prisinfo på fasilitetssiden
+                </label>
+              </div>
+
+              {/* Hele fasiliteten - Prising */}
+              {allowWholeBooking && (
+                <div className="space-y-6">
+                  <div className="border-b border-gray-200 pb-2">
+                    <h3 className="font-semibold text-gray-900">Hele fasiliteten</h3>
+                  </div>
+                  
+                  <DurationPricingEditor
+                    rules={pricingRules}
+                    onChange={setPricingRules}
+                    customRoles={customRoles}
+                  />
+
+                  <FixedPricePackagesEditor
+                    resourceId={id}
+                    packages={fixedPricePackages}
+                    onChange={setFixedPricePackages}
+                    customRoles={customRoles}
+                  />
+                </div>
+              )}
+
+              {/* Deler prislogikk */}
+              {parts.length > 0 && (
+                <div className="space-y-4 pt-6 border-t-2 border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-gray-900">Deler</h3>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Konfigurer prising for hver del. Hvis ingen prislogikk er satt for en del, brukes fasilitetens prislogikk.
+                    <span className="text-xs text-gray-400 ml-2">({parts.length} deler totalt)</span>
+                  </p>
+                  
+                  {(() => {
+                    const buildHierarchy = (parentId: string | null, level: number): Array<{ part: Part; partIndex: number; level: number }> => {
+                      const children = parts.filter(p => {
+                        const pParentId = p.parentId || null
+                        if (parentId === null) return pParentId === null
+                        return pParentId === parentId
+                      })
+                      const sortedChildren = [...children].sort((a, b) => a.name.localeCompare(b.name, 'no'))
+                      
+                      const result: Array<{ part: Part; partIndex: number; level: number }> = []
+                      for (const child of sortedChildren) {
+                        const childIndex = parts.findIndex(p => (p.id && p.id === child.id) || (p.tempId && p.tempId === child.tempId))
+                        result.push({ part: child, partIndex: childIndex, level })
+                        const childId = child.id || child.tempId || null
+                        if (childId) {
+                          result.push(...buildHierarchy(childId, level + 1))
+                        }
+                      }
+                      return result
+                    }
+                    
+                    const sortedParts = buildHierarchy(null, 0)
+                    
+                    return sortedParts.map(({ part, partIndex, level }) => (
+                      <div 
+                        key={part.id || part.tempId || partIndex} 
+                        className={`p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4 ${level > 0 ? 'border-l-4' : ''} ${level === 1 ? 'ml-6 border-l-blue-300' : ''} ${level === 2 ? 'ml-12 border-l-green-300' : ''} ${level >= 3 ? 'ml-16 border-l-purple-300' : ''}`}
+                      >
+                        <div className="border-b border-gray-200 pb-2">
+                          <h4 className="font-medium text-gray-900">{part.name}</h4>
+                          <p className="text-xs text-gray-500">{level === 0 ? "Hoveddel" : level === 1 ? "Underdel" : `Nivå ${level + 1}`}</p>
+                        </div>
+                      
+                        <DurationPricingEditor
+                          rules={part.pricingRules || []}
+                          onChange={(newRules) => {
+                            const newParts = [...parts]
+                            newParts[partIndex].pricingRules = newRules
+                            setParts(newParts)
+                          }}
+                          customRoles={customRoles}
+                        />
+                      
+                        {part.id ? (
+                          <FixedPricePackagesEditor
+                            resourcePartId={part.id}
+                            packages={partFixedPricePackages[part.id] || []}
+                            onChange={(newPackages) => {
+                              setPartFixedPricePackages(prev => ({
+                                ...prev,
+                                [part.id!]: newPackages
+                              }))
+                            }}
+                            customRoles={customRoles}
+                          />
+                        ) : (
+                          <p className="text-xs text-gray-500 italic">
+                            Lagre fasiliteten først for å kunne legge til fastprispakker på denne delen.
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Save button for Pricing tab */}
+            <div className="pt-6">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full sm:w-auto btn btn-primary flex items-center justify-center gap-2 px-6 py-2.5 disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Lagrer...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    Lagre endringer
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+          )}
+
+          {/* MODERATORS TAB */}
+          {activeTab === "moderators" && (
+          <div className="space-y-6">
             {/* Moderators */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
               <div className="flex items-center gap-2 border-b border-gray-200 pb-3 mb-4">
@@ -1183,11 +1367,9 @@ export default function EditResourcePage({ params }: Props) {
                         await fetch(`/api/admin/resources/${id}/moderators?userId=${mod.user.id}`, {
                           method: "DELETE"
                         })
-                        // Reload moderators
                         const modsRes = await fetch(`/api/admin/resources/${id}/moderators`)
                         const updated = modsRes.ok ? await modsRes.json() : []
                         setModerators(Array.isArray(updated) ? updated : [])
-                        // Update available moderators
                         const usersRes = await fetch("/api/admin/users")
                         const users = usersRes.ok ? await usersRes.json() : []
                         const usersArray = Array.isArray(users) ? users : []
@@ -1247,12 +1429,10 @@ export default function EditResourcePage({ params }: Props) {
                             body: JSON.stringify({ userId: selectedModeratorId })
                           })
                           
-                          // Reload moderators
                           const modsRes = await fetch(`/api/admin/resources/${id}/moderators`)
                           const updated = modsRes.ok ? await modsRes.json() : []
                           setModerators(Array.isArray(updated) ? updated : [])
                           
-                          // Update available moderators
                           const usersRes = await fetch("/api/admin/users")
                           const users = usersRes.ok ? await usersRes.json() : []
                           const usersArray = Array.isArray(users) ? users : []
@@ -1298,15 +1478,12 @@ export default function EditResourcePage({ params }: Props) {
               )}
             </div>
 
-            {/* Submit - Sticky at bottom */}
-            <div className="sticky bottom-0 bg-white border-t border-gray-200 py-4 mt-8 flex items-center justify-between shadow-lg">
-              <Link href="/admin/resources" className="btn btn-secondary py-2.5">
-                Avbryt
-              </Link>
+            {/* Save button for Moderators tab */}
+            <div className="pt-6">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="btn btn-primary py-2.5 flex items-center gap-2 disabled:opacity-50"
+                className="w-full sm:w-auto btn btn-primary flex items-center justify-center gap-2 px-6 py-2.5 disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>
@@ -1321,9 +1498,12 @@ export default function EditResourcePage({ params }: Props) {
                 )}
               </button>
             </div>
-          </form>
-        </div>
+          </div>
+          )}
+
+        </form>
       </div>
+      <Footer />
     </div>
   )
 }
