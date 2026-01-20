@@ -61,6 +61,7 @@ interface FormData {
   registrationOpen: boolean
   registrationDeadline: string
   registrationFee: number | null
+  minRegistrations: number | null
   maxRegistrations: number | null
   minPlayersPerTeam: number | null
   maxPlayersPerTeam: number | null
@@ -141,6 +142,7 @@ export default function NewCompetitionPage() {
     registrationOpen: false,
     registrationDeadline: "",
     registrationFee: null,
+    minRegistrations: 2,
     maxRegistrations: null,
     minPlayersPerTeam: 1,
     maxPlayersPerTeam: null,
@@ -899,20 +901,38 @@ export default function NewCompetitionPage() {
                       />
                     </div>
                     <div>
-                      <label htmlFor="maxRegistrations" className="block text-sm font-medium text-gray-700 mb-1">
-                        Maks påmeldinger
+                      <label htmlFor="minRegistrations" className="block text-sm font-medium text-gray-700 mb-1">
+                        Min påmeldinger
                       </label>
                       <input
                         type="number"
-                        id="maxRegistrations"
-                        name="maxRegistrations"
-                        value={formData.maxRegistrations ?? ""}
+                        id="minRegistrations"
+                        name="minRegistrations"
+                        value={formData.minRegistrations ?? ""}
                         onChange={handleChange}
-                        min={1}
-                        placeholder="Ubegrenset"
+                        min={2}
+                        placeholder="2"
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       />
+                      <p className="text-xs text-gray-500 mt-1">Minimum for å starte</p>
                     </div>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="maxRegistrations" className="block text-sm font-medium text-gray-700 mb-1">
+                      Maks påmeldinger
+                    </label>
+                    <input
+                      type="number"
+                      id="maxRegistrations"
+                      name="maxRegistrations"
+                      value={formData.maxRegistrations ?? ""}
+                      onChange={handleChange}
+                      min={1}
+                      placeholder="Ubegrenset"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">La stå tom for ingen grense</p>
                   </div>
                 </div>
 

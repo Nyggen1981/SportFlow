@@ -609,6 +609,7 @@ model Competition {
   registrationDeadline DateTime? // Påmeldingsfrist
   registrationType     RegistrationType @default(TEAM) // Spiller eller lag-påmelding
   registrationFee      Int? // Påmeldingsavgift i øre (null = gratis)
+  minRegistrations     Int? // Min antall påmeldinger for å starte (null = ingen krav)
   maxRegistrations     Int? // Maks antall påmeldinger (null = ubegrenset)
   maxPlayersPerTeam    Int? // Maks spillere per lag (for lagpåmelding)
   minPlayersPerTeam    Int? // Min spillere per lag (for lagpåmelding)
