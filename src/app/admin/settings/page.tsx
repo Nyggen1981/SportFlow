@@ -80,6 +80,9 @@ export default function AdminSettingsPage() {
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false)
   const [expandedTemplates, setExpandedTemplates] = useState<Set<string>>(new Set())
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"general" | "email" | "payment" | "advanced">("general")
+
   // Form state
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
@@ -561,17 +564,74 @@ export default function AdminSettingsPage() {
           Tilbake til dashboard
         </Link>
 
-        <div className="card p-6 md:p-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
-              <Settings className="w-6 h-6 text-gray-600" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">Innstillinger</h1>
-              <p className="text-gray-500 text-sm">Tilpass klubben og utseendet</p>
-            </div>
+        {/* Page Header */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
+            <Settings className="w-6 h-6 text-gray-600" />
           </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Innstillinger</h1>
+            <p className="text-gray-500 text-sm">Tilpass klubben og systemet</p>
+          </div>
+        </div>
 
+        {/* Tab Navigation */}
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-6 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab("general")}
+            className={`flex-1 min-w-[100px] px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              activeTab === "general"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            }`}
+          >
+            <Building className="w-4 h-4 inline mr-2" />
+            Generelt
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("email")}
+            className={`flex-1 min-w-[100px] px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              activeTab === "email"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            }`}
+          >
+            <Mail className="w-4 h-4 inline mr-2" />
+            E-post
+          </button>
+          {licenseInfo?.modules?.pricing && (
+            <button
+              type="button"
+              onClick={() => setActiveTab("payment")}
+              className={`flex-1 min-w-[100px] px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                activeTab === "payment"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+              }`}
+            >
+              <Key className="w-4 h-4 inline mr-2" />
+              Betaling
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setActiveTab("advanced")}
+            className={`flex-1 min-w-[100px] px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              activeTab === "advanced"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            }`}
+          >
+            <Database className="w-4 h-4 inline mr-2" />
+            Avansert
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === "general" && (
+        <div className="card p-6 md:p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
 
             {/* Organization info */}
@@ -826,9 +886,13 @@ export default function AdminSettingsPage() {
 
           </form>
         </div>
+        )}
 
+        {/* Email Tab */}
+        {activeTab === "email" && (
+        <>
             {/* SMTP Settings */}
-        <div className="card p-6 md:p-8 mt-6">
+        <div className="card p-6 md:p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
               <Mail className="w-6 h-6 text-blue-600" />
@@ -1005,8 +1069,98 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        {/* Vipps Settings */}
+        {/* Email Templates */}
         <div className="card p-6 md:p-8 mt-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+              <Mail className="w-6 h-6 text-green-600" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-xl font-bold text-gray-900">E-postmaler</h2>
+              <p className="text-gray-500 text-sm">Tilpass automatiske e-poster som sendes ved bookinger</p>
+            </div>
+            {emailTemplates.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (expandedTemplates.size === emailTemplates.length) {
+                    setExpandedTemplates(new Set())
+                  } else {
+                    setExpandedTemplates(new Set(emailTemplates.map(t => t.templateType)))
+                  }
+                }}
+                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                {expandedTemplates.size === emailTemplates.length ? "Lukk alle" : "Åpne alle"}
+              </button>
+            )}
+          </div>
+
+          {isLoadingTemplates ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {emailTemplates.map((template) => {
+                const isExpanded = expandedTemplates.has(template.templateType)
+                const label = getTemplateLabel(template.templateType)
+                
+                return (
+                  <div key={template.templateType} className="border border-gray-200 rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newExpanded = new Set(expandedTemplates)
+                        if (newExpanded.has(template.templateType)) {
+                          newExpanded.delete(template.templateType)
+                        } else {
+                          newExpanded.add(template.templateType)
+                        }
+                        setExpandedTemplates(newExpanded)
+                      }}
+                      className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors flex items-center justify-between text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        {isExpanded ? (
+                          <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                        )}
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{label.name}</h3>
+                          <p className="text-xs text-gray-500">{label.description}</p>
+                        </div>
+                      </div>
+                      {template.isCustom && (
+                        <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">
+                          Tilpasset
+                        </span>
+                      )}
+                    </button>
+                    {isExpanded && (
+                      <div className="p-4 bg-white border-t border-gray-200">
+                        <EmailTemplateEditor
+                          template={template}
+                          onSave={handleSaveEmailTemplate}
+                          onReset={() => handleResetEmailTemplate(template.templateType)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        </>
+        )}
+
+        {/* Payment Tab */}
+        {activeTab === "payment" && licenseInfo?.modules?.pricing && (
+        <>
+        {/* Vipps Settings */}
+        <div className="card p-6 md:p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center">
               <Key className="w-6 h-6 text-yellow-600" />
@@ -1220,94 +1374,14 @@ export default function AdminSettingsPage() {
             </div>
           </div>
         </div>
+        </>
+        )}
 
-        {/* Email Templates */}
-        <div className="card p-6 md:p-8 mt-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-              <Mail className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-bold text-gray-900">E-postmaler</h2>
-              <p className="text-gray-500 text-sm">Tilpass automatiske e-poster som sendes ved bookinger</p>
-            </div>
-            {emailTemplates.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (expandedTemplates.size === emailTemplates.length) {
-                    setExpandedTemplates(new Set())
-                  } else {
-                    setExpandedTemplates(new Set(emailTemplates.map(t => t.templateType)))
-                  }
-                }}
-                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                {expandedTemplates.size === emailTemplates.length ? "Lukk alle" : "Åpne alle"}
-              </button>
-            )}
-          </div>
-
-          {isLoadingTemplates ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {emailTemplates.map((template) => {
-                const isExpanded = expandedTemplates.has(template.templateType)
-                const label = getTemplateLabel(template.templateType)
-                
-                return (
-                  <div key={template.templateType} className="border border-gray-200 rounded-lg overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newExpanded = new Set(expandedTemplates)
-                        if (newExpanded.has(template.templateType)) {
-                          newExpanded.delete(template.templateType)
-                        } else {
-                          newExpanded.add(template.templateType)
-                        }
-                        setExpandedTemplates(newExpanded)
-                      }}
-                      className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors flex items-center justify-between text-left"
-                    >
-                      <div className="flex items-center gap-3">
-                        {isExpanded ? (
-                          <ChevronDown className="w-5 h-5 text-gray-500 flex-shrink-0" />
-                        ) : (
-                          <ChevronRight className="w-5 h-5 text-gray-500 flex-shrink-0" />
-                        )}
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{label.name}</h3>
-                          <p className="text-xs text-gray-500">{label.description}</p>
-                        </div>
-                      </div>
-                      {template.isCustom && (
-                        <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">
-                          Tilpasset
-                        </span>
-                      )}
-                    </button>
-                    {isExpanded && (
-                      <div className="p-4 bg-white border-t border-gray-200">
-                        <EmailTemplateEditor
-                          template={template}
-                          onSave={handleSaveEmailTemplate}
-                          onReset={() => handleResetEmailTemplate(template.templateType)}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
+        {/* Advanced Tab */}
+        {activeTab === "advanced" && (
+        <>
         {/* Data Export/Import */}
-        <div className="card p-6 md:p-8 mt-6">
+        <div className="card p-6 md:p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
               <Database className="w-6 h-6 text-purple-600" />
@@ -1606,6 +1680,8 @@ export default function AdminSettingsPage() {
             </div>
           </div>
         </div>
+        </>
+        )}
 
       </div>
       <Footer />
