@@ -2361,26 +2361,25 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                     <div>
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="text-sm font-semibold text-gray-700">Alle bookinger i serien</h4>
-                        {pendingBookings.length > 0 && (
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => {
-                                const pendingIds = pendingBookings.map(b => b.id)
-                                setSelectedModalBookingIds(new Set(pendingIds))
-                              }}
-                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                              Velg alle
-                            </button>
-                            <span className="text-gray-300">|</span>
-                            <button
-                              onClick={() => setSelectedModalBookingIds(new Set())}
-                              className="text-xs text-gray-500 hover:text-gray-700 font-medium"
-                            >
-                              Fjern valg
-                            </button>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              // Select ALL bookings in the series, not just pending
+                              const allIds = selectedRecurringGroup.bookings.map(b => b.id)
+                              setSelectedModalBookingIds(new Set(allIds))
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            Velg alle
+                          </button>
+                          <span className="text-gray-300">|</span>
+                          <button
+                            onClick={() => setSelectedModalBookingIds(new Set())}
+                            className="text-xs text-gray-500 hover:text-gray-700 font-medium"
+                          >
+                            Fjern valg
+                          </button>
+                        </div>
                       </div>
                       <div className="space-y-2 max-h-48 overflow-y-auto">
                         {selectedRecurringGroup.bookings.map((booking) => {
