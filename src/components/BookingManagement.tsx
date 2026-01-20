@@ -2575,15 +2575,19 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       )
                     })()}
                     
-                    {/* Edit buttons - at bottom like single booking modal */}
+                    {/* Edit button - at bottom like single booking modal */}
                     <div className="border-t pt-4 mt-4">
-                      <div className="flex gap-2">
-                        {selectedModalBookingIds.size > 0 && (
+                      {(() => {
+                        const selectedCount = selectedModalBookingIds.size
+                        const allSelected = selectedCount === selectedRecurringGroup.bookings.length && selectedCount > 0
+                        const editSelectedOnly = selectedCount > 0 && !allSelected
+                        
+                        return (
                           <button
                             onClick={() => {
                               fetchResources()
                               setBulkEditMode(true)
-                              setBulkEditSelectedOnly(true)
+                              setBulkEditSelectedOnly(editSelectedOnly)
                               setBulkEditData({
                                 title: "",
                                 resourceId: "",
@@ -2593,32 +2597,16 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                 timeShiftMinutes: 0
                               })
                             }}
-                            className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                            className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                           >
                             <Pencil className="w-4 h-4" />
-                            Rediger valgte ({selectedModalBookingIds.size})
+                            {allSelected || selectedCount === 0 
+                              ? "Rediger alle" 
+                              : `Rediger (${selectedCount})`
+                            }
                           </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            fetchResources()
-                            setBulkEditMode(true)
-                            setBulkEditSelectedOnly(false)
-                            setBulkEditData({
-                              title: "",
-                              resourceId: "",
-                              resourcePartId: null,
-                              newStartTime: "",
-                              newEndTime: "",
-                              timeShiftMinutes: 0
-                            })
-                          }}
-                          className={`${selectedModalBookingIds.size > 0 ? 'flex-1' : 'w-full'} px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2`}
-                        >
-                          <Pencil className="w-4 h-4" />
-                          Rediger alle
-                        </button>
-                      </div>
+                        )
+                      })()}
                     </div>
                   </>
                 )}
