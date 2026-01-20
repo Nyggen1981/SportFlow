@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
       playoffRounds,
       thirdPlaceMatch = false,
       resourceId,
+      lockedResourceIds = [],
       // Påmeldingsfelter
       registrationType = "TEAM",
       registrationOpen = false,
@@ -249,6 +250,7 @@ export async function POST(request: NextRequest) {
         playoffRounds,
         thirdPlaceMatch,
         resourceId,
+        lockedResourceIds: Array.isArray(lockedResourceIds) ? lockedResourceIds : [],
         organizationId: session.user.organizationId,
         status: "DRAFT",
         // Påmeldingsinnstillinger

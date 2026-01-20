@@ -42,6 +42,7 @@ interface FormData {
   dailyEndTime: string
   venue: string
   resourceId: string | null
+  lockedResourceIds: string[]
   pointsForWin: number
   pointsForDraw: number
   pointsForLoss: number
@@ -123,6 +124,7 @@ export default function NewCompetitionPage() {
     dailyEndTime: "18:00",
     venue: "",
     resourceId: null,
+    lockedResourceIds: [],
     pointsForWin: 3,
     pointsForDraw: 1,
     pointsForLoss: 0,
@@ -416,52 +418,93 @@ export default function NewCompetitionPage() {
                       </div>
                     ) : (
                       <>
-                        <select
-                          value={formData.resourceId || ""}
-                          onChange={(e) => {
-                            const resourceId = e.target.value || null
-                            const resource = resources.find(r => r.id === resourceId)
-                            setFormData(prev => ({
-                              ...prev,
-                              resourceId,
-                              venue: resource?.name || ""
-                            }))
-                          }}
-                          className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 ${
-                            !formData.resourceId ? "border-gray-300" : "border-orange-300 bg-orange-50"
-                          }`}
-                        >
-                          <option value="">Velg fasilitet...</option>
-                          {resources.map(resource => (
-                            <option key={resource.id} value={resource.id}>
-                              {resource.name} {resource.location ? `- ${resource.location}` : ""}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="mt-1 text-xs text-gray-500">
-                          Turneringen låses til denne fasiliteten og vises i bookingkalenderen
+                        <p className="text-xs text-gray-500 mb-2">
+                          Velg fasiliteter som skal låses til turneringen. Disse vil vises som opptatt i bookingkalenderen.
                         </p>
+                        <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
+                          {resources.map(resource => {
+                            const isSelected = formData.lockedResourceIds.includes(resource.id)
+                            const isPrimary = formData.resourceId === resource.id
+                            return (
+                              <label
+                                key={resource.id}
+                                className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                                  isSelected ? "bg-orange-50 border border-orange-200" : "hover:bg-gray-50"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked
+                                    setFormData(prev => {
+                                      const newIds = checked
+                                        ? [...prev.lockedResourceIds, resource.id]
+                                        : prev.lockedResourceIds.filter(id => id !== resource.id)
+                                      // Sett første valgte som primær, eller null hvis ingen valgt
+                                      const newResourceId = checked && !prev.resourceId
+                                        ? resource.id
+                                        : !checked && prev.resourceId === resource.id
+                                          ? newIds[0] || null
+                                          : prev.resourceId
+                                      return {
+                                        ...prev,
+                                        lockedResourceIds: newIds,
+                                        resourceId: newResourceId,
+                                        venue: newResourceId 
+                                          ? resources.find(r => r.id === newResourceId)?.name || ""
+                                          : ""
+                                      }
+                                    })
+                                  }}
+                                  className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                                />
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`font-medium ${isSelected ? "text-orange-700" : "text-gray-700"}`}>
+                                      {resource.name}
+                                    </span>
+                                    {isPrimary && (
+                                      <span className="text-xs bg-orange-200 text-orange-700 px-1.5 py-0.5 rounded">
+                                        Primær
+                                      </span>
+                                    )}
+                                  </div>
+                                  {resource.location && (
+                                    <span className="text-xs text-gray-500">{resource.location}</span>
+                                  )}
+                                  {resource.parts?.length > 0 && (
+                                    <span className="text-xs text-gray-400 ml-2">
+                                      ({resource.parts.length} baner)
+                                    </span>
+                                  )}
+                                </div>
+                              </label>
+                            )
+                          })}
+                        </div>
                       </>
                     )}
 
-                    {/* Valgt fasilitet info */}
-                    {formData.resourceId && (
+                    {/* Valgte fasiliteter info */}
+                    {formData.lockedResourceIds.length > 0 && (
                       <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                        <div className="flex items-center gap-2 text-sm text-orange-700">
+                        <div className="flex items-center gap-2 text-sm text-orange-700 mb-2">
                           <CheckCircle className="w-4 h-4" />
                           <span className="font-medium">
-                            {resources.find(r => r.id === formData.resourceId)?.name}
+                            {formData.lockedResourceIds.length} fasilitet{formData.lockedResourceIds.length > 1 ? "er" : ""} valgt
                           </span>
                         </div>
-                        {resources.find(r => r.id === formData.resourceId)?.parts?.length ? (
-                          <p className="mt-1 text-xs text-orange-600">
-                            {resources.find(r => r.id === formData.resourceId)?.parts.length} baner tilgjengelig for kampfordeling
-                          </p>
-                        ) : (
-                          <p className="mt-1 text-xs text-orange-600">
-                            Hele fasiliteten brukes til turneringen
-                          </p>
-                        )}
+                        <div className="flex flex-wrap gap-1">
+                          {formData.lockedResourceIds.map(id => {
+                            const resource = resources.find(r => r.id === id)
+                            return (
+                              <span key={id} className="text-xs bg-orange-200 text-orange-700 px-2 py-1 rounded">
+                                {resource?.name}
+                              </span>
+                            )
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -471,7 +514,7 @@ export default function NewCompetitionPage() {
                   <button
                     type="button"
                     onClick={() => setStep(2)}
-                    disabled={!formData.name || !formData.startDate || !formData.resourceId}
+                    disabled={!formData.name || !formData.startDate || formData.lockedResourceIds.length === 0}
                     className="px-6 py-2.5 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Neste: Innstillinger

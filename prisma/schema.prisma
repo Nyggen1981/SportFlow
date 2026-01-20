@@ -620,8 +620,11 @@ model Competition {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Kobling til fasilitet/ressurs (valgfritt)
+  // Primær fasilitet (for bakoverkompatibilitet)
   resourceId String?
   resource   Resource? @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  // Flere fasiliteter som er låst til turneringen (JSON array med resource IDs)
+  lockedResourceIds String[] @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
