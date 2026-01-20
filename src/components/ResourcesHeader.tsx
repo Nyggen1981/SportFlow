@@ -195,7 +195,7 @@ function ResourceCard({ resource }: { resource: Resource }) {
   return (
     <Link
       href={`/resources/${resource.id}`}
-      className="block bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+      className="group block bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
     >
       {/* Image */}
       <div className="relative h-32 sm:h-48 bg-gray-100">
@@ -205,22 +205,26 @@ function ResourceCard({ resource }: { resource: Resource }) {
               src={resource.image}
               alt={resource.name}
               fill
-              className="object-cover"
+              className="object-cover opacity-40 group-hover:opacity-50 transition-opacity"
             />
-            {/* Category color overlay - uniform fade, image visible in background */}
+            {/* Category color diagonal gradient overlay */}
             <div 
               className="absolute inset-0"
               style={{ 
-                backgroundColor: resource.category?.color || 'rgba(0,0,0,0.5)',
-                opacity: 0.6
+                background: `linear-gradient(135deg, ${resource.category?.color || '#3b82f6'}cc, ${resource.category?.color || '#3b82f6'}88)`
               }}
             />
           </>
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Building2 className="w-12 h-12 text-gray-300" />
-          </div>
+          <div 
+            className="absolute inset-0"
+            style={{ 
+              background: `linear-gradient(135deg, ${resource.category?.color || '#3b82f6'}ee, ${resource.category?.color || '#3b82f6'}88)`
+            }}
+          />
         )}
+        {/* Bottom gradient for contrast */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
         {/* Approval badge */}
         {resource.requiresApproval && (
           <div className="absolute top-2 right-2 px-2 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full flex items-center gap-1">
