@@ -2177,7 +2177,11 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
         return (
           <div 
             className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setSelectedRecurringGroup(null)}
+            onClick={() => {
+              setSelectedRecurringGroup(null)
+              setBulkEditMode(false)
+              setBulkEditSelectedOnly(false)
+            }}
           >
             <div 
               className="bg-white rounded-xl max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
@@ -2198,7 +2202,11 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                     </p>
                   </div>
                   <button
-                    onClick={() => setSelectedRecurringGroup(null)}
+                    onClick={() => {
+                      setSelectedRecurringGroup(null)
+                      setBulkEditMode(false)
+                      setBulkEditSelectedOnly(false)
+                    }}
                     className="p-1 rounded-full hover:bg-gray-100 transition-colors"
                   >
                     <X className="w-6 h-6 text-gray-400" />
