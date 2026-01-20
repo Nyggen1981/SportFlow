@@ -33,10 +33,10 @@ export async function GET() {
   const count = await prisma.booking.count({
     where: {
       status: "pending",
-      resource: {
-        organizationId: session.user.organizationId,
-        ...(isModerator && resourceIds ? { id: { in: resourceIds } } : {})
-      }
+      organizationId: session.user.organizationId,
+      // Only show future bookings (not past)
+      endTime: { gte: new Date() },
+      ...(isModerator && resourceIds ? { resourceId: { in: resourceIds } } : {})
     }
   })
 

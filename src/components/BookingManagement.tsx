@@ -1189,12 +1189,14 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
             </thead>
             <tbody className="divide-y divide-gray-100">
               {/* Render recurring groups as single rows - click opens modal */}
-              {sortGroups(filteredGroups).map(({ groupId, bookings: groupBookings }) => {
+              {sortGroups(filteredGroups).map(({ groupId, bookings: groupBookings, allBookings }) => {
                 const firstBooking = groupBookings[0]
                 const lastBooking = groupBookings[groupBookings.length - 1]
-                const pendingCount = groupBookings.filter(b => b.status === "pending").length
-                const approvedCount = groupBookings.filter(b => b.status === "approved").length
-                const rejectedCount = groupBookings.filter(b => b.status === "rejected" || b.status === "cancelled").length
+                // Use allBookings for counts to show full picture
+                const allGroupBookings = allBookings || groupBookings
+                const pendingCount = allGroupBookings.filter(b => b.status === "pending").length
+                const approvedCount = allGroupBookings.filter(b => b.status === "approved").length
+                const rejectedCount = allGroupBookings.filter(b => b.status === "rejected" || b.status === "cancelled").length
                 
                 return (
                   <tr 
@@ -1203,9 +1205,10 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                     onClick={(e) => {
                       const target = e.target as HTMLElement
                       if (target.closest('button')) return
-                      setSelectedRecurringGroup({ groupId, bookings: groupBookings })
+                      // Use allBookings so modal shows ALL bookings in the series, not just filtered ones
+                      setSelectedRecurringGroup({ groupId, bookings: allGroupBookings })
                       // Initialize with all pending bookings selected
-                      const pendingIds = groupBookings.filter(b => b.status === "pending").map(b => b.id)
+                      const pendingIds = allGroupBookings.filter(b => b.status === "pending").map(b => b.id)
                       setSelectedModalBookingIds(new Set(pendingIds))
                     }}
                   >
@@ -1273,17 +1276,25 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                     )}
                     <td className="px-4 py-4">
                       <div className="flex items-center justify-end">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDelete(firstBooking.id, true)
-                          }}
-                          disabled={processingId !== null}
-                          className="p-2 rounded-lg text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
-                          title="Slett alle i serien"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {/* Only show delete button for history/rejected tabs */}
+                        {(activeTab === "history" || activeTab === "rejected") ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              // Open the recurring group modal first so user can select what to delete
+                              setSelectedRecurringGroup({ groupId, bookings: allGroupBookings })
+                              // Select all bookings by default for deletion
+                              setSelectedModalBookingIds(new Set(allGroupBookings.map(b => b.id)))
+                            }}
+                            disabled={processingId !== null}
+                            className="p-2 rounded-lg text-gray-400 hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-50"
+                            title="Velg bookinger å slette"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <span className="w-8" /> 
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -2523,36 +2534,90 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       )
                     })()}
                     
-                    {/* Edit button - at bottom like single booking modal */}
-                    <div className="border-t pt-4 mt-4">
+                    {/* Edit and Delete buttons - at bottom like single booking modal */}
+                    <div className="border-t pt-4 mt-4 space-y-2">
                       {(() => {
                         const selectedCount = selectedModalBookingIds.size
                         const allSelected = selectedCount === selectedRecurringGroup.bookings.length && selectedCount > 0
                         const editSelectedOnly = selectedCount > 0 && !allSelected
                         
                         return (
-                          <button
-                            onClick={() => {
-                              fetchResources()
-                              setBulkEditMode(true)
-                              setBulkEditSelectedOnly(editSelectedOnly)
-                              setBulkEditData({
-                                title: "",
-                                resourceId: "",
-                                resourcePartId: null,
-                                newStartTime: "",
-                                newEndTime: "",
-                                timeShiftMinutes: 0
-                              })
-                            }}
-                            className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                          >
-                            <Pencil className="w-4 h-4" />
-                            {allSelected || selectedCount === 0 
-                              ? "Rediger alle" 
-                              : `Rediger (${selectedCount})`
-                            }
-                          </button>
+                          <>
+                            <button
+                              onClick={() => {
+                                fetchResources()
+                                setBulkEditMode(true)
+                                setBulkEditSelectedOnly(editSelectedOnly)
+                                setBulkEditData({
+                                  title: "",
+                                  resourceId: "",
+                                  resourcePartId: null,
+                                  newStartTime: "",
+                                  newEndTime: "",
+                                  timeShiftMinutes: 0
+                                })
+                              }}
+                              className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Pencil className="w-4 h-4" />
+                              {allSelected || selectedCount === 0 
+                                ? "Rediger alle" 
+                                : `Rediger (${selectedCount})`
+                              }
+                            </button>
+                            
+                            {/* Delete button - only show in history/rejected or for admins */}
+                            {(activeTab === "history" || activeTab === "rejected") && (
+                              <button
+                                onClick={async () => {
+                                  const bookingsToDelete = selectedCount > 0 
+                                    ? Array.from(selectedModalBookingIds)
+                                    : selectedRecurringGroup.bookings.map(b => b.id)
+                                  
+                                  const confirmMsg = selectedCount > 0
+                                    ? `Er du sikker på at du vil slette ${selectedCount} valgte booking${selectedCount > 1 ? 'er' : ''} permanent?\n\nDette kan IKKE angres!`
+                                    : `Er du sikker på at du vil slette ALLE ${selectedRecurringGroup.bookings.length} bookinger i denne serien permanent?\n\nDette kan IKKE angres!`
+                                  
+                                  if (!confirm(confirmMsg)) return
+                                  
+                                  setProcessingId("batch-delete")
+                                  try {
+                                    const response = await fetch('/api/admin/bookings/bulk-delete', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ bookingIds: bookingsToDelete })
+                                    })
+                                    if (!response.ok) {
+                                      const error = await response.json()
+                                      throw new Error(error.error || 'Kunne ikke slette bookinger')
+                                    }
+                                    await fetchBookings()
+                                    setSelectedRecurringGroup(null)
+                                    setSelectedModalBookingIds(new Set())
+                                  } catch (error) {
+                                    console.error('Bulk delete failed:', error)
+                                    alert(error instanceof Error ? error.message : 'En feil oppstod')
+                                  } finally {
+                                    setProcessingId(null)
+                                  }
+                                }}
+                                disabled={processingId !== null}
+                                className="w-full px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                {processingId === "batch-delete" ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Sletter...
+                                  </>
+                                ) : (
+                                  allSelected || selectedCount === 0 
+                                    ? "Slett alle permanent" 
+                                    : `Slett (${selectedCount}) permanent`
+                                )}
+                              </button>
+                            )}
+                          </>
                         )
                       })()}
                     </div>
