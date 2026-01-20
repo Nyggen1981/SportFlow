@@ -171,7 +171,6 @@ export function Navbar() {
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
-                <ReportBugButton className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" />
               </>
             ) : (
               <Link
