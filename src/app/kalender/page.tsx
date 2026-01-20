@@ -1756,7 +1756,9 @@ export default function CalendarPage() {
                       }`}>
                         {format(day, "d")}
                       </p>
-                      <div className="space-y-0.5 sm:space-y-1 flex-1 overflow-y-auto min-h-0">
+                      
+                      {/* LARGE SCREENS (lg+): Original scrollable list - unchanged */}
+                      <div className="hidden lg:block space-y-0.5 sm:space-y-1 flex-1 overflow-y-auto min-h-0">
                         {dayBookings.map((booking) => {
                           const isPending = booking.status === "pending"
                           const isCompetition = booking.status === "competition"
@@ -1791,6 +1793,60 @@ export default function CalendarPage() {
                           )
                         })}
                       </div>
+                      
+                      {/* SMALLER SCREENS (<lg): Compact list with limit */}
+                      {(() => {
+                        const maxVisible = 3
+                        const visibleBookings = dayBookings.slice(0, maxVisible)
+                        const hiddenCount = dayBookings.length - maxVisible
+                        
+                        return (
+                          <div className="lg:hidden space-y-px flex-1 min-h-0 overflow-hidden">
+                            {visibleBookings.map((booking) => {
+                              const isPending = booking.status === "pending"
+                              const isCompetition = booking.status === "competition"
+                              const bookingColor = isCompetition ? "#f97316" : (booking.resource.color || booking.resource.category?.color || "#3b82f6")
+                              
+                              return (
+                                <div
+                                  key={booking.id}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (!isCompetition) setSelectedBooking(booking)
+                                  }}
+                                  className={`px-0.5 py-px rounded text-[7px] md:text-[9px] transition-opacity flex-shrink-0 truncate ${
+                                    isPending 
+                                      ? "text-black border border-dashed cursor-pointer hover:opacity-90" 
+                                      : isCompetition
+                                        ? "bg-orange-100 text-orange-800 border border-orange-500 cursor-default"
+                                        : "text-black cursor-pointer hover:opacity-90"
+                                  }`}
+                                  style={{
+                                    backgroundColor: isPending ? `${bookingColor}20` : isCompetition ? undefined : bookingColor,
+                                    borderColor: isPending ? bookingColor : undefined,
+                                  }}
+                                  title={`${format(parseISO(booking.startTime), "HH:mm")}-${format(parseISO(booking.endTime), "HH:mm")} ${booking.title} - ${booking.resource.name}${booking.resourcePart?.name ? ` (${booking.resourcePart.name})` : ''}${isPending ? ' (venter på godkjenning)' : isCompetition ? ' (konkurranse)' : ''}`}
+                                >
+                                  <span className="font-medium">{booking.title}</span>
+                                  <span className="hidden md:inline opacity-70 ml-1">{format(parseISO(booking.startTime), "HH:mm")}</span>
+                                </div>
+                              )
+                            })}
+                            {hiddenCount > 0 && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedDate(day)
+                                  setViewMode("day")
+                                }}
+                                className="w-full text-[7px] md:text-[9px] text-blue-600 hover:text-blue-800 font-medium py-px hover:bg-blue-50 rounded transition-colors text-left px-0.5"
+                              >
+                                +{hiddenCount} til...
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </div>
                   )
                 })}
