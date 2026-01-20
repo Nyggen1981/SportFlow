@@ -2218,7 +2218,6 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                           : `Rediger alle ${selectedRecurringGroup.bookings.length} bookinger`
                         }
                       </h4>
-                      <p className="text-xs text-blue-600 mt-1">Felt som står tomme beholdes uendret</p>
                     </div>
                     
                     {/* Title */}
@@ -2228,7 +2227,6 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         type="text"
                         value={bulkEditData.title}
                         onChange={(e) => setBulkEditData(prev => ({ ...prev, title: e.target.value }))}
-                        placeholder={firstBooking?.title || "Behold eksisterende"}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
@@ -2252,7 +2250,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                             }))}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           >
-                            <option value="">Behold eksisterende fasilitet</option>
+                            <option value="">Velg fasilitet...</option>
                             {availableResources.map(resource => (
                               <option key={resource.id} value={resource.id}>
                                 {resource.name}
@@ -2308,7 +2306,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">Sett nytt klokkeslett for alle valgte bookinger (datoene beholdes)</p>
+                      <p className="text-xs text-gray-500 mt-1">Nytt klokkeslett for alle bookinger (datoene beholdes)</p>
                     </div>
 
                     {/* Action buttons */}
@@ -2325,7 +2323,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       </button>
                       <button
                         onClick={handleBulkUpdate}
-                        disabled={isBulkUpdating || (!bulkEditData.title && !bulkEditData.resourceId && !bulkEditData.newStartTime && !bulkEditData.newEndTime && bulkEditData.timeShiftMinutes === 0)}
+                        disabled={isBulkUpdating}
                         className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                       >
                         {isBulkUpdating ? (
@@ -2549,12 +2547,16 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                 fetchResources()
                                 setBulkEditMode(true)
                                 setBulkEditSelectedOnly(editSelectedOnly)
+                                // Pre-fill with values from the first booking
+                                const refBooking = selectedRecurringGroup.bookings[0]
+                                const startTime = new Date(refBooking.startTime)
+                                const endTime = new Date(refBooking.endTime)
                                 setBulkEditData({
-                                  title: "",
-                                  resourceId: "",
-                                  resourcePartId: null,
-                                  newStartTime: "",
-                                  newEndTime: "",
+                                  title: refBooking.title,
+                                  resourceId: refBooking.resource.id,
+                                  resourcePartId: refBooking.resourcePart?.id || null,
+                                  newStartTime: `${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')}`,
+                                  newEndTime: `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`,
                                   timeShiftMinutes: 0
                                 })
                               }}
