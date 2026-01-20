@@ -19,7 +19,8 @@ import { LicenseStatusCard } from "@/components/LicenseStatusCard"
 import { isPricingEnabled } from "@/lib/pricing"
 import { isMatchSetupEnabled } from "@/lib/match-setup"
 import { isAssetRegisterEnabled } from "@/lib/asset-register"
-import { FileText, ClipboardList } from "lucide-react"
+import { isExpensesEnabled } from "@/lib/expenses"
+import { FileText, ClipboardList, Receipt } from "lucide-react"
 
 async function getModeratorResources(userId: string) {
   const moderatorResources = await prisma.resourceModerator.findMany({
@@ -83,6 +84,7 @@ export default async function AdminPage() {
     const pricingEnabled = isAdmin ? await isPricingEnabled() : false
     const matchSetupEnabled = isAdmin ? await isMatchSetupEnabled() : false
     const assetRegisterEnabled = isAdmin ? await isAssetRegisterEnabled() : false
+    const expensesEnabled = isAdmin ? await isExpensesEnabled() : false
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -251,6 +253,22 @@ export default async function AdminPage() {
                     <div>
                       <p className="font-medium text-gray-900">Anleggsregister</p>
                       <p className="text-sm text-gray-500">Vedlikehold & oppfølging</p>
+                    </div>
+                  </div>
+                </Link>
+              )}
+              {expensesEnabled && (
+                <Link 
+                  href="/admin/expenses" 
+                  className="card p-4 hover:shadow-md transition-shadow group h-full flex items-center"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
+                      <Receipt className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">Utlegg</p>
+                      <p className="text-sm text-gray-500">Refusjoner & regninger</p>
                     </div>
                   </div>
                 </Link>

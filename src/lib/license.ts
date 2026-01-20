@@ -12,6 +12,8 @@ export interface LicenseValidationResult {
     booking: boolean // Alltid true (unntatt inaktiv lisens)
     pricing?: boolean // Hvis aktivert
     "match-setup"?: boolean // Kampoppsett-modul
+    "asset-register"?: boolean // Anleggsregister-modul
+    expenses?: boolean // Utlegg og refusjoner-modul (99 kr/mnd)
     [key: string]: boolean | undefined
   }
   pricing?: { // ✨ NYTT: Prisinformasjon
