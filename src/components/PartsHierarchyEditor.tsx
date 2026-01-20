@@ -6,11 +6,13 @@ import {
   Trash2, 
   ChevronRight, 
   ChevronDown,
-  GripVertical,
-  FolderOpen,
+  Edit3,
   Upload,
   X,
-  ImageIcon
+  ImageIcon,
+  Users,
+  FileText,
+  Layers
 } from "lucide-react"
 
 export interface HierarchicalPart {
@@ -25,6 +27,7 @@ export interface HierarchicalPart {
   parentId?: string | null
   children?: HierarchicalPart[]
   isNew?: boolean
+  pricingRules?: any[]
 }
 
 interface Props {
@@ -34,10 +37,8 @@ interface Props {
 
 export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingPart, setEditingPart] = useState<HierarchicalPart | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-  const [draggedId, setDraggedId] = useState<string | null>(null)
-  const [dragOverId, setDragOverId] = useState<string | null>(null)
 
   // Build tree structure from flat list
   const buildTree = (flatParts: HierarchicalPart[]): HierarchicalPart[] => {
@@ -92,7 +93,7 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
     }
     
     onPartsChange([...parts, newPart])
-    setEditingId(newPart.tempId!)
+    setEditingPart(newPart)
     
     // Expand parent if adding child
     if (parentId) {
@@ -100,7 +101,9 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
     }
   }
 
-  const handleImageUpload = (id: string, file: File) => {
+  const handleImageUpload = (file: File) => {
+    if (!editingPart) return
+    
     if (file.size > 1024 * 1024) {
       alert("Bildet er for stort. Maks 1MB.")
       return
@@ -113,25 +116,32 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
 
     const reader = new FileReader()
     reader.onloadend = () => {
-      updatePart(id, "image", reader.result as string)
+      setEditingPart({ ...editingPart, image: reader.result as string })
     }
     reader.readAsDataURL(file)
   }
 
-  const removeImage = (id: string) => {
-    updatePart(id, "image", "")
-  }
-
-  const updatePart = (id: string, field: keyof HierarchicalPart, value: string) => {
+  const saveEditingPart = () => {
+    if (!editingPart) return
+    
+    const id = editingPart.id || editingPart.tempId
     const updated = parts.map(p => {
       const partId = p.id || p.tempId || ''
       if (partId === id) {
-        const updatedPart = { ...p, [field]: value }
-        return updatedPart
+        return { ...editingPart }
       }
       return p
     })
-    onPartsChange([...updated])
+    
+    // Check if it's a new part
+    const exists = parts.some(p => (p.id || p.tempId) === id)
+    if (!exists) {
+      onPartsChange([...parts, editingPart])
+    } else {
+      onPartsChange(updated)
+    }
+    
+    setEditingPart(null)
   }
 
   const deletePart = (id: string) => {
@@ -156,176 +166,105 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
     onPartsChange(updated)
   }
 
-  // Drag and drop handlers
-  const handleDragStart = (e: React.DragEvent, id: string) => {
-    setDraggedId(id)
-    e.dataTransfer.effectAllowed = 'move'
-  }
-
-  const handleDragOver = (e: React.DragEvent, id: string) => {
-    e.preventDefault()
-    if (draggedId !== id) {
-      setDragOverId(id)
-    }
-  }
-
-  const handleDragLeave = () => {
-    setDragOverId(null)
-  }
-
-  const handleDrop = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault()
-    if (!draggedId || draggedId === targetId) {
-      setDraggedId(null)
-      setDragOverId(null)
-      return
-    }
-
-    // Reorder parts - move dragged item before target
-    const draggedIndex = parts.findIndex(p => (p.id || p.tempId) === draggedId)
-    const targetIndex = parts.findIndex(p => (p.id || p.tempId) === targetId)
-    
-    if (draggedIndex === -1 || targetIndex === -1) {
-      setDraggedId(null)
-      setDragOverId(null)
-      return
-    }
-
-    // Get the parts with same parent as target (for reordering within same level)
-    const draggedPart = parts[draggedIndex]
-    const targetPart = parts[targetIndex]
-
-    // Only reorder if they have the same parent
-    if (draggedPart.parentId === targetPart.parentId) {
-      const newParts = [...parts]
-      const [removed] = newParts.splice(draggedIndex, 1)
-      
-      // Recalculate target index after removal
-      const newTargetIndex = newParts.findIndex(p => (p.id || p.tempId) === targetId)
-      newParts.splice(newTargetIndex, 0, removed)
-      
-      onPartsChange(newParts)
-    }
-
-    setDraggedId(null)
-    setDragOverId(null)
-  }
-
-  const handleDragEnd = () => {
-    setDraggedId(null)
-    setDragOverId(null)
-  }
-
   const renderPart = (part: HierarchicalPart, level: number = 0) => {
     const id = part.id || part.tempId || ''
     const hasChildren = part.children && part.children.length > 0
     const isExpanded = expandedIds.has(id)
-    const isEditing = editingId === id
-    const isDragging = draggedId === id
-    const isDragOver = dragOverId === id
-    const showDetails = expandedIds.has(`details-${id}`)
 
     return (
-      <div key={id} className="select-none">
+      <div key={id}>
+        {/* Part Card */}
         <div 
-          className={`transition-all ${
-            level > 0 ? 'ml-6' : ''
-          } ${isDragging ? 'opacity-50' : ''} ${
-            isDragOver ? 'bg-blue-50' : ''
-          }`}
-          draggable
-          onDragStart={(e) => handleDragStart(e, id)}
-          onDragOver={(e) => handleDragOver(e, id)}
-          onDragLeave={handleDragLeave}
-          onDrop={(e) => handleDrop(e, id)}
-          onDragEnd={handleDragEnd}
+          className={`
+            bg-white border rounded-xl p-4 transition-all hover:shadow-md
+            ${level === 0 ? 'border-gray-200' : 'border-blue-200 bg-blue-50/30'}
+            ${level > 0 ? 'ml-8 mt-2' : ''}
+          `}
         >
-          {/* Main row - compact header */}
-          <div className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-gray-50 group border-b border-gray-100 last:border-b-0">
-            {/* Drag handle */}
-            <div className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600">
-              <GripVertical className="w-4 h-4" />
-            </div>
-
-            {/* Expand/collapse button for children */}
+          <div className="flex items-start gap-3">
+            {/* Expand button for children - only show if has children */}
             <button
               type="button"
-              onClick={() => toggleExpand(id)}
-              className={`p-1 rounded hover:bg-gray-200 ${hasChildren ? '' : 'invisible'}`}
+              onClick={() => hasChildren && toggleExpand(id)}
+              className={`
+                mt-1 p-1 rounded-lg transition-colors flex-shrink-0
+                ${hasChildren 
+                  ? 'hover:bg-gray-100 cursor-pointer text-gray-600' 
+                  : 'text-gray-300 cursor-default'
+                }
+              `}
+              disabled={!hasChildren}
+              title={hasChildren ? (isExpanded ? "Skjul underdeler" : "Vis underdeler") : "Ingen underdeler"}
             >
-              {isExpanded ? (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
+              {hasChildren ? (
+                isExpanded ? (
+                  <ChevronDown className="w-5 h-5" />
+                ) : (
+                  <ChevronRight className="w-5 h-5" />
+                )
               ) : (
-                <ChevronRight className="w-4 h-4 text-gray-500" />
+                <div className="w-5 h-5 flex items-center justify-center">
+                  <div className="w-2 h-2 rounded-full bg-gray-300" />
+                </div>
               )}
             </button>
 
-            {/* Folder icon */}
-            {hasChildren ? (
-              <FolderOpen className="w-4 h-4 text-amber-500 flex-shrink-0" />
-            ) : (
-              <div className="w-3 h-3 rounded bg-blue-500 flex-shrink-0" />
-            )}
-
-            {/* Name input */}
-            {isEditing || !part.name ? (
-              <input
-                type="text"
-                value={part.name}
-                onChange={(e) => updatePart(id, "name", e.target.value)}
-                onBlur={() => setEditingId(null)}
-                onKeyDown={(e) => e.key === "Enter" && setEditingId(null)}
-                placeholder="Navn på del..."
-                className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                autoFocus
-              />
-            ) : (
-              <span
-                onClick={() => setEditingId(id)}
-                className="flex-1 text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600"
-              >
-                {part.name}
-              </span>
-            )}
-
-            {/* Quick info badges */}
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              {part.capacity && (
-                <span className="px-2 py-0.5 bg-gray-100 rounded">
-                  {part.capacity} pers.
-                </span>
-              )}
-              {part.image && (
-                <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
+            {/* Main content */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="font-semibold text-gray-900">
+                  {part.name || <span className="text-gray-400 italic">Uten navn</span>}
+                </h4>
+                
+                {/* Badges */}
+                {part.capacity && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
+                    <Users className="w-3 h-3" />
+                    {part.capacity}
+                  </span>
+                )}
+                {part.image && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">
+                    <ImageIcon className="w-3 h-3" />
+                    Bilde
+                  </span>
+                )}
+                {part.adminNote && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs">
+                    <FileText className="w-3 h-3" />
+                    Notat
+                  </span>
+                )}
+                {hasChildren && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs">
+                    <Layers className="w-3 h-3" />
+                    {part.children!.length} underdel{part.children!.length > 1 ? 'er' : ''}
+                  </span>
+                )}
+              </div>
+              
+              {part.description && (
+                <p className="text-sm text-gray-500 mt-1 line-clamp-1">{part.description}</p>
               )}
             </div>
 
-            {/* Action buttons - show on hover */}
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Action buttons - always visible */}
+            <div className="flex items-center gap-1 flex-shrink-0">
               <button
                 type="button"
                 onClick={() => {
-                  const newExpanded = new Set(expandedIds)
-                  if (showDetails) {
-                    newExpanded.delete(`details-${id}`)
-                  } else {
-                    newExpanded.add(`details-${id}`)
-                  }
-                  setExpandedIds(newExpanded)
+                  const fullPart = parts.find(p => (p.id || p.tempId) === id) || part
+                  setEditingPart({ ...fullPart })
                 }}
-                className="p-1.5 rounded hover:bg-gray-200 text-gray-600"
-                title={showDetails ? "Skjul detaljer" : "Vis detaljer"}
+                className="p-2 rounded-lg hover:bg-blue-100 text-blue-600 transition-colors"
+                title="Rediger"
               >
-                {showDetails ? (
-                  <ChevronDown className="w-4 h-4" />
-                ) : (
-                  <ChevronRight className="w-4 h-4" />
-                )}
+                <Edit3 className="w-4 h-4" />
               </button>
               <button
                 type="button"
                 onClick={() => addPart(id)}
-                className="p-1.5 rounded hover:bg-blue-100 text-blue-600"
+                className="p-2 rounded-lg hover:bg-green-100 text-green-600 transition-colors"
                 title="Legg til underdel"
               >
                 <Plus className="w-4 h-4" />
@@ -333,85 +272,20 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
               <button
                 type="button"
                 onClick={() => setDeleteConfirmId(id)}
-                className="p-1.5 rounded hover:bg-red-100 text-red-500"
+                className="p-2 rounded-lg hover:bg-red-100 text-red-500 transition-colors"
                 title="Slett"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
           </div>
-
-          {/* Details section - collapsible */}
-          {showDetails && (
-            <div className="px-3 py-2 bg-gray-50 rounded-lg mt-1 space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  value={part.description || ""}
-                  onChange={(e) => updatePart(id, "description", e.target.value)}
-                  placeholder="Beskrivelse (valgfri)"
-                  className="px-2 py-1.5 text-sm border border-gray-200 rounded bg-white focus:border-blue-300 focus:ring-1 focus:ring-blue-300 outline-none"
-                />
-                <input
-                  type="number"
-                  value={part.capacity || ""}
-                  onChange={(e) => updatePart(id, "capacity", e.target.value)}
-                  placeholder="Kapasitet"
-                  className="px-2 py-1.5 text-sm border border-gray-200 rounded bg-white focus:border-blue-300 focus:ring-1 focus:ring-blue-300 outline-none"
-                />
-              </div>
-              
-              {/* Image upload */}
-              <div className="space-y-2">
-                {part.image ? (
-                  <div className="relative">
-                    <img 
-                      src={part.image} 
-                      alt={part.name}
-                      className="w-full h-32 object-cover rounded-lg border border-gray-200"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(id)}
-                      className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                      title="Fjern bilde"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
-                    <Upload className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-500">Last opp bilde (valgfri)</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) {
-                          handleImageUpload(id, file)
-                        }
-                      }}
-                    />
-                  </label>
-                )}
-              </div>
-              
-              <textarea
-                value={part.adminNote || ""}
-                onChange={(e) => updatePart(id, "adminNote", e.target.value)}
-                placeholder="Admin notat (f.eks. 'Nøkler hentes i resepsjonen' - vises i godkjent e-post)"
-                rows={2}
-                className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded bg-white focus:border-blue-300 focus:ring-1 focus:ring-blue-300 resize-none outline-none"
-              />
-            </div>
-          )}
         </div>
 
-        {/* Children */}
+        {/* Children - rendered with indent */}
         {hasChildren && isExpanded && (
-          <div className="ml-4 mt-1">
+          <div className="relative">
+            {/* Vertical line connecting children */}
+            <div className="absolute left-6 top-0 bottom-4 w-px bg-blue-200" />
             {part.children!.map(child => renderPart(child, level + 1))}
           </div>
         )}
@@ -442,16 +316,163 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
 
   return (
     <div className="space-y-3">
+      {/* Edit Modal */}
+      {editingPart && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            {/* Modal header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-gray-900">
+                  {editingPart.isNew ? "Ny del" : "Rediger del"}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setEditingPart(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal content */}
+            <div className="p-6 space-y-5">
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Navn på del <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editingPart.name}
+                  onChange={(e) => setEditingPart({ ...editingPart, name: e.target.value })}
+                  placeholder="F.eks. Bane 1, Sal A, Møterom Nord..."
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                  autoFocus
+                />
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Beskrivelse
+                </label>
+                <input
+                  type="text"
+                  value={editingPart.description || ""}
+                  onChange={(e) => setEditingPart({ ...editingPart, description: e.target.value })}
+                  placeholder="Kort beskrivelse av delen (valgfritt)"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                />
+              </div>
+
+              {/* Capacity */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Kapasitet (antall personer)
+                </label>
+                <input
+                  type="number"
+                  value={editingPart.capacity || ""}
+                  onChange={(e) => setEditingPart({ ...editingPart, capacity: e.target.value })}
+                  placeholder="F.eks. 20"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                />
+              </div>
+
+              {/* Image */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Bilde
+                </label>
+                {editingPart.image ? (
+                  <div className="relative">
+                    <img 
+                      src={editingPart.image} 
+                      alt={editingPart.name}
+                      className="w-full h-40 object-cover rounded-xl border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setEditingPart({ ...editingPart, image: null })}
+                      className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                      title="Fjern bilde"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center gap-2 px-4 py-8 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                    <Upload className="w-8 h-8 text-gray-400" />
+                    <span className="text-sm text-gray-500">Klikk for å laste opp bilde</span>
+                    <span className="text-xs text-gray-400">Maks 1MB</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleImageUpload(file)
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Admin Note */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Admin-notat
+                </label>
+                <textarea
+                  value={editingPart.adminNote || ""}
+                  onChange={(e) => setEditingPart({ ...editingPart, adminNote: e.target.value })}
+                  placeholder="F.eks. 'Nøkler hentes i resepsjonen' - vises i godkjent booking-epost"
+                  rows={3}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none outline-none transition-all"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Dette notatet vises til brukeren når bookingen er godkjent
+                </p>
+              </div>
+            </div>
+
+            {/* Modal footer */}
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 rounded-b-2xl flex gap-3">
+              <button
+                type="button"
+                onClick={() => setEditingPart(null)}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-100 transition-colors"
+              >
+                Avbryt
+              </button>
+              <button
+                type="button"
+                onClick={saveEditingPart}
+                disabled={!editingPart.name.trim()}
+                className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {editingPart.isNew ? "Legg til" : "Lagre"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete confirmation dialog */}
       {deleteConfirmId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Slette del?</h3>
-            <p className="text-gray-600 mb-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl p-6">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-2">Slette del?</h3>
+            <p className="text-gray-600 text-center mb-6">
               Er du sikker på at du vil slette <strong>{getPartName(deleteConfirmId)}</strong>?
               {countChildren(deleteConfirmId) > 0 && (
-                <span className="block mt-2 text-red-600">
-                  ⚠️ Dette vil også slette {countChildren(deleteConfirmId)} underdel{countChildren(deleteConfirmId) > 1 ? 'er' : ''}.
+                <span className="block mt-2 text-red-600 font-medium">
+                  ⚠️ Dette vil også slette {countChildren(deleteConfirmId)} underdel{countChildren(deleteConfirmId) > 1 ? 'er' : ''}!
                 </span>
               )}
             </p>
@@ -459,7 +480,7 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
               <button
                 type="button"
                 onClick={() => setDeleteConfirmId(null)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition-colors"
               >
                 Avbryt
               </button>
@@ -469,7 +490,7 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
                   deletePart(deleteConfirmId)
                   setDeleteConfirmId(null)
                 }}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors"
               >
                 Ja, slett
               </button>
@@ -478,36 +499,40 @@ export function PartsHierarchyEditor({ parts, onPartsChange }: Props) {
         </div>
       )}
 
-      {/* Tree view */}
-      <div className="border border-gray-200 rounded-xl bg-white overflow-hidden">
-        {tree.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-8">
-            Ingen deler lagt til ennå
-          </p>
-        ) : (
-          <div className="divide-y divide-gray-100">
-            {tree.map(part => renderPart(part))}
-          </div>
-        )}
-      </div>
+      {/* Parts list */}
+      {tree.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+          <Layers className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 mb-1">Ingen deler lagt til ennå</p>
+          <p className="text-sm text-gray-400">Legg til deler for å la brukere booke spesifikke områder</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {tree.map(part => renderPart(part))}
+        </div>
+      )}
 
       {/* Add root part button */}
       <button
         type="button"
         onClick={() => addPart(null)}
-        className="w-full p-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+        className="w-full p-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 font-medium"
       >
-        <Plus className="w-4 h-4" />
-        Legg til hoveddel
+        <Plus className="w-5 h-5" />
+        Legg til ny del
       </button>
 
       {/* Help text */}
-      <div className="text-xs text-gray-500 space-y-1 bg-gray-50 p-3 rounded-lg">
-        <p><strong>Tips:</strong></p>
-        <p>• Dra i <GripVertical className="w-3 h-3 inline" /> for å endre rekkefølgen</p>
-        <p>• Klikk <Plus className="w-3 h-3 inline" /> på en del for å legge til underdel</p>
-        <p>• <strong>Hoveddeler</strong> blokkerer alle sine underdeler når de bookes</p>
-      </div>
+      {tree.length > 0 && (
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+          <p className="text-sm text-blue-800 font-medium mb-2">💡 Tips</p>
+          <ul className="text-sm text-blue-700 space-y-1">
+            <li>• Klikk <strong>+</strong> på en del for å legge til underdeler</li>
+            <li>• Hoveddeler blokkerer automatisk alle underdeler når de bookes</li>
+            <li>• Klikk på pilen for å se/skjule underdeler</li>
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
