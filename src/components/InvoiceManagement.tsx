@@ -14,7 +14,9 @@ import {
   Eye,
   Trash2,
   RotateCcw,
-  MoreVertical
+  MoreVertical,
+  X,
+  AlertCircle
 } from "lucide-react"
 import Link from "next/link"
 
@@ -43,6 +45,13 @@ export function InvoiceManagement() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  
+  // Preview modal state
+  const [previewModalOpen, setPreviewModalOpen] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null)
 
   useEffect(() => {
     fetchInvoices()
@@ -105,6 +114,39 @@ export function InvoiceManagement() {
     } finally {
       setDeletingId(null)
     }
+  }
+
+  const handlePreview = async (invoice: Invoice) => {
+    setPreviewLoading(true)
+    setPreviewError(null)
+    setPreviewInvoice(invoice)
+    setPreviewModalOpen(true)
+    
+    try {
+      const response = await fetch(`/api/invoices/${invoice.id}/pdf`)
+      if (!response.ok) {
+        throw new Error("Kunne ikke laste forhåndsvisning")
+      }
+      
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      setPreviewUrl(url)
+    } catch (error) {
+      console.error("Error loading preview:", error)
+      setPreviewError(error instanceof Error ? error.message : "Kunne ikke laste forhåndsvisning")
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  const closePreviewModal = () => {
+    setPreviewModalOpen(false)
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(null)
+    }
+    setPreviewInvoice(null)
+    setPreviewError(null)
   }
 
   const fetchInvoices = async () => {
@@ -268,15 +310,13 @@ export function InvoiceManagement() {
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex items-center justify-end gap-1">
-                      <a
-                        href={`/api/invoices/${invoice.id}/pdf`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() => handlePreview(invoice)}
                         className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         title="Forhåndsvis PDF"
                       >
                         <Eye className="w-4 h-4" />
-                      </a>
+                      </button>
                       <a
                         href={`/api/invoices/${invoice.id}/pdf`}
                         download={`Faktura_${invoice.invoiceNumber}.pdf`}
@@ -339,6 +379,71 @@ export function InvoiceManagement() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {previewModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-4xl w-full shadow-2xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Forhåndsvisning av faktura</h3>
+                  {previewInvoice && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      Faktura {previewInvoice.invoiceNumber} - {previewInvoice.billingName}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={closePreviewModal}
+                  className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            {/* PDF Preview */}
+            <div className="flex-1 overflow-auto p-6 bg-gray-50">
+              {previewLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                </div>
+              ) : previewError ? (
+                <div className="text-center py-8">
+                  <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-2" />
+                  <p className="text-red-600">{previewError}</p>
+                </div>
+              ) : previewUrl ? (
+                <iframe
+                  src={previewUrl}
+                  className="w-full h-full min-h-[600px] border border-gray-200 rounded-lg"
+                  title="Faktura forhåndsvisning"
+                />
+              ) : null}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-200 flex items-center justify-between">
+              <a
+                href={previewInvoice ? `/api/invoices/${previewInvoice.id}/pdf` : "#"}
+                download={previewInvoice ? `Faktura_${previewInvoice.invoiceNumber}.pdf` : "faktura.pdf"}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Last ned PDF
+              </a>
+              <button
+                onClick={closePreviewModal}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Lukk
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
