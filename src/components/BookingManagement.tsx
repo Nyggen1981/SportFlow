@@ -73,7 +73,9 @@ interface BookingManagementProps {
 // Separate component for admin note that fetches its own data
 function AdminNoteSection({ bookingId }: { bookingId: string }) {
   const [note, setNote] = useState("")
+  const [originalNote, setOriginalNote] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
   const [isSaved, setIsSaved] = useState(false)
 
   useEffect(() => {
@@ -83,6 +85,7 @@ function AdminNoteSection({ bookingId }: { bookingId: string }) {
         if (res.ok) {
           const data = await res.json()
           setNote(data.adminNote || "")
+          setOriginalNote(data.adminNote || "")
         }
       } catch (error) {
         console.error("Failed to fetch admin note:", error)
@@ -94,6 +97,7 @@ function AdminNoteSection({ bookingId }: { bookingId: string }) {
   }, [bookingId])
 
   const saveNote = async () => {
+    setIsSaving(true)
     try {
       const res = await fetch(`/api/admin/bookings/${bookingId}/note`, {
         method: 'PATCH',
@@ -101,42 +105,62 @@ function AdminNoteSection({ bookingId }: { bookingId: string }) {
         body: JSON.stringify({ adminNote: note })
       })
       if (res.ok) {
+        setOriginalNote(note)
         setIsSaved(true)
         setTimeout(() => setIsSaved(false), 2000)
       }
     } catch (error) {
       console.error('Failed to save admin note:', error)
+    } finally {
+      setIsSaving(false)
     }
   }
 
+  const hasChanges = note !== originalNote
+
   return (
     <div className="border-t pt-4">
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-          <span>📝</span>
-          Admin-notat
-          <span className="text-xs font-normal text-gray-400">(kun synlig for admin)</span>
-        </h4>
-        {isSaved && (
-          <span className="text-xs text-green-600">✓ Lagret</span>
-        )}
-      </div>
+      <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+        <span>📝</span>
+        Admin-notat
+        <span className="text-xs font-normal text-gray-400">(kun synlig for admin)</span>
+      </h4>
       {isLoading ? (
         <div className="h-16 flex items-center justify-center">
           <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
         </div>
       ) : (
-        <textarea
-          value={note}
-          onChange={(e) => {
-            setNote(e.target.value)
-            setIsSaved(false)
-          }}
-          onBlur={saveNote}
-          placeholder="Skriv intern info her (f.eks. 'Konfirmasjon - ikke vis navn')"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-          rows={2}
-        />
+        <>
+          <textarea
+            value={note}
+            onChange={(e) => {
+              setNote(e.target.value)
+              setIsSaved(false)
+            }}
+            placeholder="Skriv intern info her (f.eks. 'Konfirmasjon - ikke vis navn')"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+            rows={2}
+          />
+          <div className="flex items-center justify-end gap-2 mt-2">
+            {isSaved && (
+              <span className="text-xs text-green-600">✓ Lagret</span>
+            )}
+            <button
+              onClick={saveNote}
+              disabled={!hasChanges || isSaving}
+              className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 text-white hover:bg-blue-700"
+            >
+              {isSaving ? (
+                <span className="flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Lagrer...
+                </span>
+              ) : (
+                "Lagre notat"
+              )}
+            </button>
+          </div>
+        </>
       )}
     </div>
   )
