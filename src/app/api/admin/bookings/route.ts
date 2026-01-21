@@ -57,7 +57,7 @@ export async function GET(request: Request) {
         endTime: true,
         status: true,
         statusNote: true,
-        adminNote: true,
+        adminNote: true, // Internal admin note - NOT shown to users (different from ResourcePart.adminNote)
         contactName: true,
         contactEmail: true,
         contactPhone: true,

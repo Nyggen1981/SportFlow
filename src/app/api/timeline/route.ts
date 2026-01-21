@@ -72,7 +72,7 @@ export async function GET(request: Request) {
       status: true,
       userId: true,
       isRecurring: true,
-      // Admin note - only for admins/moderators
+      // Internal admin note (NOT shown to users - different from ResourcePart.adminNote which goes in emails)
       ...(canSeeUserInfo ? { adminNote: true } : {}),
       resource: {
         select: {
