@@ -109,6 +109,122 @@ export async function createInvoiceForBooking(
 }
 
 /**
+ * Oppretter en samlet faktura for flere bookinger (f.eks. recurring bookings)
+ */
+export async function createInvoiceForMultipleBookings(
+  bookingIds: string[],
+  organizationId: string
+): Promise<{ invoiceId: string; invoiceNumber: string }> {
+  if (bookingIds.length === 0) {
+    throw new Error("No booking IDs provided")
+  }
+
+  // Hent alle bookinger med relaterte data
+  const bookings = await prisma.booking.findMany({
+    where: { id: { in: bookingIds } },
+    include: {
+      user: true,
+      resource: true,
+      resourcePart: true,
+      organization: {
+        select: {
+          id: true,
+          name: true,
+          isMvaRegistered: true
+        }
+      }
+    }
+  })
+
+  if (bookings.length === 0) {
+    throw new Error("No bookings found")
+  }
+
+  // Filtrer ut bookinger som ikke har beløp
+  const bookingsWithAmount = bookings.filter(b => b.totalAmount && Number(b.totalAmount) > 0)
+  
+  if (bookingsWithAmount.length === 0) {
+    throw new Error("No bookings with amount to invoice")
+  }
+
+  // Bruk første booking for kontaktinfo
+  const firstBooking = bookingsWithAmount[0]
+  
+  // Sjekk om organisasjonen er MVA-registrert
+  const isMvaRegistered = firstBooking.organization?.isMvaRegistered ?? false
+
+  // Generer fakturanummer (YYYY-NNNN format)
+  const year = new Date().getFullYear()
+  const lastInvoice = await prisma.invoice.findFirst({
+    where: {
+      organizationId,
+      invoiceNumber: {
+        startsWith: `${year}-`
+      }
+    },
+    orderBy: {
+      invoiceNumber: "desc"
+    }
+  })
+
+  let invoiceNumber: string
+  if (lastInvoice) {
+    const lastNumber = parseInt(lastInvoice.invoiceNumber.split("-")[1] || "0")
+    invoiceNumber = `${year}-${String(lastNumber + 1).padStart(4, "0")}`
+  } else {
+    invoiceNumber = `${year}-0001`
+  }
+
+  // Beregn totalt beløp fra alle bookinger
+  const totalAmount = bookingsWithAmount.reduce((sum, b) => sum + Number(b.totalAmount), 0)
+  
+  // Beregn MVA kun hvis organisasjonen er MVA-registrert
+  const taxRate = isMvaRegistered ? 0.25 : 0
+  const subtotal = isMvaRegistered ? totalAmount / (1 + taxRate) : totalAmount
+  const taxAmount = isMvaRegistered ? totalAmount - subtotal : 0
+
+  // Sett forfallsdato (standard 14 dager)
+  const dueDate = new Date()
+  dueDate.setDate(dueDate.getDate() + 14)
+
+  // Opprett faktura med alle bookinger tilkoblet
+  const invoice = await prisma.invoice.create({
+    data: {
+      invoiceNumber,
+      organizationId,
+      status: "DRAFT",
+      dueDate,
+      subtotal,
+      taxRate,
+      taxAmount,
+      totalAmount,
+      billingName: firstBooking.contactName || firstBooking.user.name || "",
+      billingEmail: firstBooking.contactEmail || firstBooking.user.email || "",
+      billingPhone: firstBooking.contactPhone || firstBooking.user.phone || null,
+      notes: bookingsWithAmount.length > 1 
+        ? `Samlet faktura for ${bookingsWithAmount.length} bookinger`
+        : undefined,
+      bookings: {
+        connect: bookingsWithAmount.map(b => ({ id: b.id }))
+      }
+    }
+  })
+
+  // Oppdater alle bookinger med faktura-ID
+  await prisma.booking.updateMany({
+    where: { id: { in: bookingsWithAmount.map(b => b.id) } },
+    data: {
+      invoiceId: invoice.id
+    }
+  })
+
+  return {
+    invoiceId: invoice.id,
+    invoiceNumber: invoice.invoiceNumber
+  }
+}
+
+/**
  * Oppretter en faktura for en konkurransepåmelding
  */
 export async function createInvoiceForRegistration(

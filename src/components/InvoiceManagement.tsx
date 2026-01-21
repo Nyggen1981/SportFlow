@@ -220,7 +220,7 @@ export function InvoiceManagement() {
           <p>Ingen fakturaer funnet</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-visible">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
@@ -267,13 +267,22 @@ export function InvoiceManagement() {
                     </span>
                   </td>
                   <td className="py-3 px-4">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1">
+                      <a
+                        href={`/api/invoices/${invoice.id}/pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Forhåndsvis PDF"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </a>
                       <a
                         href={`/api/invoices/${invoice.id}/pdf`}
                         download={`Faktura_${invoice.invoiceNumber}.pdf`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                         title="Last ned PDF"
                       >
                         <Download className="w-4 h-4" />
@@ -297,10 +306,10 @@ export function InvoiceManagement() {
                         {openMenuId === invoice.id && (
                           <>
                             <div 
-                              className="fixed inset-0 z-10" 
+                              className="fixed inset-0 z-[100]" 
                               onClick={() => setOpenMenuId(null)} 
                             />
-                            <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[160px] py-1">
+                            <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-[101] min-w-[160px] py-1">
                               {invoice.status === "PAID" && (
                                 <button
                                   onClick={() => handleMarkAsRefunded(invoice)}

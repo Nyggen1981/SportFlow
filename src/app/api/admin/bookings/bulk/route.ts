@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { sendEmail, getBookingApprovedEmail, getBookingRejectedEmail } from "@/lib/email"
+import { createInvoiceForMultipleBookings, sendInvoiceEmail } from "@/lib/invoice"
+import { isPricingEnabled } from "@/lib/pricing"
 import { nb } from "date-fns/locale"
 import { formatInTimeZone } from "date-fns-tz"
 
@@ -115,7 +117,10 @@ export async function PATCH(request: Request) {
     return acc
   }, {} as Record<string, { email: string; bookings: typeof bookings; organizationId: string }>)
 
-  // Fire and forget email sending
+  // Check if pricing module is enabled (for invoice creation)
+  const pricingEnabled = await isPricingEnabled()
+
+  // Fire and forget email sending and invoice creation
   void (async () => {
     for (const { email, bookings: userBookings, organizationId } of Object.values(bookingsByUser)) {
       try {
@@ -138,6 +143,31 @@ export async function PATCH(request: Request) {
             adminNote
           )
           await sendEmail(organizationId, { to: email, ...emailContent })
+
+          // Create combined invoice for approved bookings if pricing is enabled
+          if (pricingEnabled) {
+            // Refetch bookings to get updated totalAmount values
+            const approvedBookings = await prisma.booking.findMany({
+              where: { 
+                id: { in: userBookings.map(b => b.id) },
+                totalAmount: { gt: 0 },
+                invoiceId: null // Only bookings without invoice
+              }
+            })
+            
+            if (approvedBookings.length > 0) {
+              try {
+                const { invoiceId } = await createInvoiceForMultipleBookings(
+                  approvedBookings.map(b => b.id),
+                  organizationId
+                )
+                // Send combined invoice email
+                await sendInvoiceEmail(invoiceId, organizationId)
+              } catch (invoiceError) {
+                console.error("Failed to create/send combined invoice:", invoiceError)
+              }
+            }
+          }
         } else {
           const emailContent = await getBookingRejectedEmail(
             organizationId,

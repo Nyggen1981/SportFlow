@@ -393,6 +393,42 @@ export default function BookResourcePage({ params }: Props) {
     calculatePrice()
   }, [pricingEnabled, startDate, startTime, endDate, endTime, selectedParts, id, resource, session?.user?.id, usePackage, selectedPackageId, availablePackages])
 
+  // Calculate number of recurring bookings
+  const recurringCount = useMemo(() => {
+    if (!isRecurring || !startDate || !recurringEndDate) return 1
+    
+    const start = new Date(startDate)
+    const end = new Date(recurringEndDate)
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return 1
+    
+    let count = 0
+    let current = new Date(start)
+    
+    while (current <= end) {
+      count++
+      if (recurringType === "weekly") {
+        current.setDate(current.getDate() + 7)
+      } else if (recurringType === "biweekly") {
+        current.setDate(current.getDate() + 14)
+      } else if (recurringType === "monthly") {
+        current.setMonth(current.getMonth() + 1)
+      }
+    }
+    
+    return Math.max(1, count)
+  }, [isRecurring, startDate, recurringEndDate, recurringType])
+
+  // Calculate total price for all recurring bookings
+  const totalPrice = useMemo(() => {
+    if (!calculatedPrice || calculatedPrice.isFree) return null
+    return {
+      singlePrice: calculatedPrice.price,
+      total: calculatedPrice.price * recurringCount,
+      count: recurringCount
+    }
+  }, [calculatedPrice, recurringCount])
+
   // Ref to prevent race condition with double-clicks
   const isSubmittingRef = useRef(false)
 
@@ -1002,12 +1038,41 @@ export default function BookResourcePage({ params }: Props) {
                   ) : (
                     <>
                       <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl mb-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-700">Estimert pris:</span>
-                          <span className="text-2xl font-bold text-gray-900">
-                            {Number(calculatedPrice.price).toFixed(2)} kr
-                          </span>
-                        </div>
+                        {/* Recurring booking price breakdown */}
+                        {totalPrice && totalPrice.count > 1 ? (
+                          <>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm text-gray-600">Pris per booking:</span>
+                              <span className="text-sm font-medium text-gray-700">
+                                {Number(totalPrice.singlePrice).toFixed(2)} kr
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm text-gray-600">Antall bookinger:</span>
+                              <span className="text-sm font-medium text-gray-700">
+                                {totalPrice.count} stk
+                              </span>
+                            </div>
+                            <div className="border-t border-blue-200 pt-2 mt-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-gray-700">Total estimert pris:</span>
+                                <span className="text-2xl font-bold text-gray-900">
+                                  {Number(totalPrice.total).toFixed(2)} kr
+                                </span>
+                              </div>
+                              <p className="text-xs text-blue-600 mt-1">
+                                Faktura sendes for godkjente bookinger
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-700">Estimert pris:</span>
+                            <span className="text-2xl font-bold text-gray-900">
+                              {Number(calculatedPrice.price).toFixed(2)} kr
+                            </span>
+                          </div>
+                        )}
                         {calculatedPrice.reason && (
                           <p className="text-xs text-gray-600 italic mt-2">{calculatedPrice.reason}</p>
                         )}
