@@ -2129,7 +2129,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                               </div>
                               <div className="flex items-center gap-2">
                                 {isPast && (
-                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 text-gray-500">Utgått</span>
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 text-gray-500">Passert</span>
                                 )}
                                 {!isPast && booking.status === "pending" && (
                                   <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>
