@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { format } from "date-fns"
 import { nb } from "date-fns/locale"
 import { 
@@ -52,6 +52,10 @@ export function InvoiceManagement() {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null)
+  
+  // Dropdown menu position
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
+  const menuButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
 
   useEffect(() => {
     fetchInvoices()
@@ -331,7 +335,25 @@ export function InvoiceManagement() {
                       {/* Dropdown menu for actions */}
                       <div className="relative">
                         <button
-                          onClick={() => setOpenMenuId(openMenuId === invoice.id ? null : invoice.id)}
+                          ref={(el) => {
+                            if (el) menuButtonRefs.current.set(invoice.id, el)
+                          }}
+                          onClick={() => {
+                            if (openMenuId === invoice.id) {
+                              setOpenMenuId(null)
+                              setMenuPosition(null)
+                            } else {
+                              const button = menuButtonRefs.current.get(invoice.id)
+                              if (button) {
+                                const rect = button.getBoundingClientRect()
+                                setMenuPosition({
+                                  top: rect.bottom + 4,
+                                  left: rect.right - 160 // 160px is min-width of menu
+                                })
+                              }
+                              setOpenMenuId(invoice.id)
+                            }
+                          }}
                           disabled={deletingId === invoice.id || updatingId === invoice.id}
                           className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
                           title="Flere handlinger"
@@ -343,13 +365,19 @@ export function InvoiceManagement() {
                           )}
                         </button>
                         
-                        {openMenuId === invoice.id && (
+                        {openMenuId === invoice.id && menuPosition && (
                           <>
                             <div 
                               className="fixed inset-0 z-[100]" 
-                              onClick={() => setOpenMenuId(null)} 
+                              onClick={() => {
+                                setOpenMenuId(null)
+                                setMenuPosition(null)
+                              }} 
                             />
-                            <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-lg shadow-lg z-[101] min-w-[160px] py-1">
+                            <div 
+                              className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-[101] min-w-[160px] py-1"
+                              style={{ top: menuPosition.top, left: menuPosition.left }}
+                            >
                               {invoice.status === "PAID" && (
                                 <button
                                   onClick={() => handleMarkAsRefunded(invoice)}
@@ -362,6 +390,7 @@ export function InvoiceManagement() {
                               <button
                                 onClick={() => {
                                   setOpenMenuId(null)
+                                  setMenuPosition(null)
                                   handleDelete(invoice)
                                 }}
                                 className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
