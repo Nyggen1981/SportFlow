@@ -23,6 +23,7 @@ interface Category {
   description: string | null
   icon: string | null
   color: string
+  isActive: boolean
   _count?: { resources: number }
 }
 
@@ -119,6 +120,20 @@ export default function AdminCategoriesPage() {
     fetchCategories()
   }
 
+  const toggleCategoryActive = async (category: Category) => {
+    await fetch(`/api/admin/categories/${category.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        name: category.name,
+        description: category.description,
+        color: category.color,
+        isActive: !category.isActive 
+      })
+    })
+    fetchCategories()
+  }
+
   if (status === "loading" || isLoading) {
     return (
       <div className="min-h-screen bg-slate-50">
@@ -164,7 +179,10 @@ export default function AdminCategoriesPage() {
         ) : (
           <div className="grid gap-4">
             {categories.map((category) => (
-              <div key={category.id} className="card p-5">
+              <div 
+                key={category.id} 
+                className={`card p-5 ${!category.isActive ? 'opacity-60' : ''}`}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div 
@@ -177,7 +195,14 @@ export default function AdminCategoriesPage() {
                       />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">{category.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-gray-900">{category.name}</h3>
+                        {!category.isActive && (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
+                            Deaktivert
+                          </span>
+                        )}
+                      </div>
                       {category.description && (
                         <p className="text-sm text-gray-500">{category.description}</p>
                       )}
@@ -186,7 +211,21 @@ export default function AdminCategoriesPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
+                    {/* Toggle switch */}
+                    <button
+                      onClick={() => toggleCategoryActive(category)}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${
+                        category.isActive ? 'bg-green-500' : 'bg-gray-300'
+                      }`}
+                      title={category.isActive ? 'Deaktiver kategori' : 'Aktiver kategori'}
+                    >
+                      <span 
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                          category.isActive ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
                     <button
                       onClick={() => openEditModal(category)}
                       className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"

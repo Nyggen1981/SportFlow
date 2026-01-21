@@ -52,6 +52,7 @@ interface Resource {
     id: string
     name: string
     color: string | null
+    isActive?: boolean
   } | null
   parts: Array<{
     id: string
@@ -319,12 +320,13 @@ export default function CalendarPage() {
     }))
   }, [timelineData])
 
-  // Get all categories
+  // Get all active categories
   const categories = useMemo(() => {
     if (!timelineData) return []
     const categorySet = new Map<string, { id: string; name: string; color: string | null }>()
     timelineData.resources.forEach(resource => {
-      if (resource.category) {
+      // Only include active categories in the dropdown
+      if (resource.category && resource.category.isActive !== false) {
         categorySet.set(resource.category.id, {
           id: resource.category.id,
           name: resource.category.name,

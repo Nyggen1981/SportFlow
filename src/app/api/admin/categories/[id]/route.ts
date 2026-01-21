@@ -14,14 +14,15 @@ export async function PUT(
   }
 
   const { id } = await params
-  const { name, description, color } = await request.json()
+  const { name, description, color, isActive } = await request.json()
 
   const category = await prisma.resourceCategory.update({
     where: { id },
     data: {
       name,
       description,
-      color
+      color,
+      ...(typeof isActive === 'boolean' ? { isActive } : {})
     }
   })
 

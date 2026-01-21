@@ -186,6 +186,7 @@ model ResourceCategory {
   description String?
   icon        String?
   color       String  @default("#3b82f6")
+  isActive    Boolean @default(true)
 
   resources Resource[]
 }

@@ -82,7 +82,9 @@ export async function GET(request: Request) {
             select: {
               id: true,
               name: true,
-              color: true
+              color: true,
+              // @ts-expect-error - isActive field exists after prisma generate
+              isActive: true
             }
           },
           parts: {
@@ -132,7 +134,9 @@ export async function GET(request: Request) {
           select: {
             id: true,
             name: true,
-            color: true
+            color: true,
+            // @ts-expect-error - isActive field exists after prisma generate
+            isActive: true
           }
         },
         parts: {
@@ -201,7 +205,9 @@ export async function GET(request: Request) {
               select: {
                 id: true,
                 name: true,
-                color: true
+                color: true,
+                // @ts-expect-error - isActive field exists after prisma generate
+                isActive: true
               }
             },
             parts: {
