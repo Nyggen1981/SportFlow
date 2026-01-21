@@ -2470,13 +2470,30 @@ export default function CalendarPage() {
                     {selectedBooking.resourcePart && ` → ${selectedBooking.resourcePart.name}`}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Calendar className="w-4 h-4 text-gray-400" />
-                  {format(parseISO(selectedBooking.startTime), "EEEE d. MMMM yyyy", { locale: nb })}
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Clock className="w-4 h-4 text-gray-400" />
-                  {format(parseISO(selectedBooking.startTime), "HH:mm")} - {format(parseISO(selectedBooking.endTime), "HH:mm")}
+                {/* Date and time - Fra / Til */}
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Fra</p>
+                    <div className="flex items-center gap-1.5 text-gray-600">
+                      <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="text-sm">{format(parseISO(selectedBooking.startTime), "d. MMM yyyy", { locale: nb })}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-gray-600 mt-0.5">
+                      <Clock className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="text-sm">kl. {format(parseISO(selectedBooking.startTime), "HH:mm")}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Til</p>
+                    <div className="flex items-center gap-1.5 text-gray-600">
+                      <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="text-sm">{format(parseISO(selectedBooking.endTime), "d. MMM yyyy", { locale: nb })}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-gray-600 mt-0.5">
+                      <Clock className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="text-sm">kl. {format(parseISO(selectedBooking.endTime), "HH:mm")}</span>
+                    </div>
+                  </div>
                 </div>
                 {/* GDPR: Show user info to admins/moderators OR if it's your own booking */}
                 {(canManageBookings || selectedBooking.userId === session?.user?.id) && selectedBooking.user?.name && (
