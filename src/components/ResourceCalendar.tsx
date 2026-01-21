@@ -9,6 +9,8 @@ import {
   startOfWeek, 
   startOfMonth,
   endOfMonth,
+  startOfDay,
+  endOfDay,
   addDays, 
   addWeeks, 
   subWeeks,
@@ -136,12 +138,16 @@ export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3
       if (selectedPart && booking.resourcePartName !== selectedPart) {
         return false
       }
-      const bookingDate = parseISO(booking.startTime)
-      if (viewMode === "week") {
-        return weekDays.some(day => isSameDay(day, bookingDate))
-      } else {
-        return monthDays.some(day => isSameDay(day, bookingDate))
-      }
+      const bookingStart = parseISO(booking.startTime)
+      const bookingEnd = parseISO(booking.endTime)
+      
+      // Check if booking overlaps with any day in view (not just starts on it)
+      const daysToCheck = viewMode === "week" ? weekDays : monthDays
+      return daysToCheck.some(day => {
+        const dayStart = startOfDay(day)
+        const dayEnd = endOfDay(day)
+        return bookingStart <= dayEnd && bookingEnd >= dayStart
+      })
     })
   }, [bookings, selectedPart, weekDays, monthDays, viewMode])
 
@@ -232,20 +238,31 @@ export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3
 
   const getBookingsForDay = useCallback((day: Date) => {
     return filteredBookings.filter(booking => {
-      const start = parseISO(booking.startTime)
-      return isSameDay(day, start)
+      const bookingStart = parseISO(booking.startTime)
+      const bookingEnd = parseISO(booking.endTime)
+      const dayStart = startOfDay(day)
+      const dayEnd = endOfDay(day)
+      // Show booking if it overlaps with this day
+      return bookingStart <= dayEnd && bookingEnd >= dayStart
     })
   }, [filteredBookings])
 
   const getBookingsForDayAndHour = useCallback((day: Date, hour: number) => {
     return filteredBookings.filter(booking => {
-      const start = parseISO(booking.startTime)
-      const end = parseISO(booking.endTime)
+      const bookingStart = parseISO(booking.startTime)
+      const bookingEnd = parseISO(booking.endTime)
+      const dayStart = startOfDay(day)
+      const dayEnd = endOfDay(day)
       
-      if (!isSameDay(day, start)) return false
+      // First check if booking overlaps with this day at all
+      if (!(bookingStart <= dayEnd && bookingEnd >= dayStart)) return false
       
-      const startHour = start.getHours()
-      const endHour = end.getHours() + (end.getMinutes() > 0 ? 1 : 0)
+      // For this specific day, calculate the effective start/end hours
+      const effectiveStart = bookingStart < dayStart ? dayStart : bookingStart
+      const effectiveEnd = bookingEnd > dayEnd ? dayEnd : bookingEnd
+      
+      const startHour = effectiveStart.getHours()
+      const endHour = effectiveEnd.getHours() + (effectiveEnd.getMinutes() > 0 ? 1 : 0)
       
       return hour >= startHour && hour < endHour
     })
@@ -496,10 +513,18 @@ export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3
                   const allDayBookings = getBookingsForDay(day)
                   const bookingColumns = getBookingColumns(allDayBookings)
                   
-                  // Only render bookings that START in this hour (to avoid duplicates)
+                  // Render bookings that should start rendering at this hour
+                  // This includes: bookings starting this hour, or multi-day bookings starting at hour 6 (first hour)
                   const bookingsStartingThisHour = allDayBookings.filter(booking => {
-                    const start = parseISO(booking.startTime)
-                    return start.getHours() === hour
+                    const bookingStart = parseISO(booking.startTime)
+                    const dayStart = startOfDay(day)
+                    
+                    // If booking starts before this day, render it at hour 6 (first visible hour)
+                    if (bookingStart < dayStart) {
+                      return hour === 6
+                    }
+                    // Otherwise, render it at its actual start hour
+                    return bookingStart.getHours() === hour
                   })
                   
                   // Get blocked slots for this day
@@ -554,23 +579,29 @@ export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3
                       })}
                       
                       {bookingsStartingThisHour.map((booking) => {
-                          const start = parseISO(booking.startTime)
-                          const end = parseISO(booking.endTime)
+                          const bookingStart = parseISO(booking.startTime)
+                          const bookingEnd = parseISO(booking.endTime)
+                          const dayStartTime = startOfDay(day)
+                          const dayEndTime = endOfDay(day)
                           
-                          // Cap the end time to midnight of the same day to prevent overflow
-                          const endOfDay = new Date(start)
-                          endOfDay.setHours(23, 59, 59, 999)
-                          const cappedEnd = end > endOfDay ? endOfDay : end
+                          // For multi-day bookings, calculate effective start/end for this day
+                          const effectiveStart = bookingStart < dayStartTime ? dayStartTime : bookingStart
+                          const effectiveEnd = bookingEnd > dayEndTime ? dayEndTime : bookingEnd
                           
-                          const durationHours = (cappedEnd.getTime() - start.getTime()) / (1000 * 60 * 60)
+                          // Set effective start to hour 6 if it's before 6:00 (first visible hour)
+                          const displayStart = effectiveStart.getHours() < 6 
+                            ? new Date(effectiveStart.setHours(6, 0, 0, 0))
+                            : effectiveStart
+                          
+                          const durationHours = (effectiveEnd.getTime() - displayStart.getTime()) / (1000 * 60 * 60)
                           const isPending = booking.status === "pending"
                           const isCompetition = booking.status === "competition"
                           
                           // Add minimal gap between bookings vertically
                           const gapPx = 1
                           const cellHeight = 48
-                          const topPx = (start.getMinutes() / 60) * cellHeight + gapPx
-                          const heightPx = durationHours * cellHeight - (gapPx * 2)
+                          const topPx = (displayStart.getMinutes() / 60) * cellHeight + gapPx
+                          const heightPx = Math.max(durationHours * cellHeight - (gapPx * 2), 20)
                           
                           // Get column info for this booking
                           const columnInfo = bookingColumns.get(booking.id) || { column: 0, totalColumns: 1 }
@@ -810,13 +841,30 @@ export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3
                     {selectedBooking.resourcePartName && ` → ${selectedBooking.resourcePartName}`}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Calendar className="w-4 h-4 text-gray-400" />
-                  {format(parseISO(selectedBooking.startTime), "EEEE d. MMMM yyyy", { locale: nb })}
-                </div>
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Clock className="w-4 h-4 text-gray-400" />
-                  {format(parseISO(selectedBooking.startTime), "HH:mm")} - {format(parseISO(selectedBooking.endTime), "HH:mm")}
+                {/* Date and time - Fra / Til */}
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Fra</p>
+                    <div className="flex items-center gap-1.5 text-gray-600">
+                      <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="text-sm">{format(parseISO(selectedBooking.startTime), "d. MMM yyyy", { locale: nb })}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-gray-600 mt-0.5">
+                      <Clock className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="text-sm">kl. {format(parseISO(selectedBooking.startTime), "HH:mm")}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Til</p>
+                    <div className="flex items-center gap-1.5 text-gray-600">
+                      <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="text-sm">{format(parseISO(selectedBooking.endTime), "d. MMM yyyy", { locale: nb })}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-gray-600 mt-0.5">
+                      <Clock className="w-3.5 h-3.5 text-gray-400" />
+                      <span className="text-sm">kl. {format(parseISO(selectedBooking.endTime), "HH:mm")}</span>
+                    </div>
+                  </div>
                 </div>
                 {/* GDPR: Show user info to admins/moderators OR if it's your own booking */}
                 {(canManageBookings || selectedBooking.userId === session?.user?.id) && selectedBooking.userName && (
