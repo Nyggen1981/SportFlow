@@ -57,7 +57,7 @@ export async function GET(request: Request) {
         endTime: true,
         status: true,
         statusNote: true,
-        // adminNote: true, // DISABLED - Vercel cache issue, clear build cache first
+        adminNote: true,
         contactName: true,
         contactEmail: true,
         contactPhone: true,

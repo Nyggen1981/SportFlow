@@ -72,7 +72,7 @@ export async function GET(request: Request) {
       status: true,
       userId: true,
       isRecurring: true,
-      // ...(canSeeUserInfo ? { adminNote: true } : {}), // DISABLED - Vercel cache issue
+      ...(canSeeUserInfo ? { adminNote: true } : {}),
       resource: {
         select: {
           id: true,
