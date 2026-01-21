@@ -68,7 +68,11 @@ export async function PATCH(
   }
 
   // Update admin note using raw SQL to avoid Prisma client type issues
-  await prisma.$executeRaw`UPDATE "Booking" SET "adminNote" = ${adminNote || null} WHERE id = ${id}`
-
-  return NextResponse.json({ success: true })
+  try {
+    await prisma.$executeRaw`UPDATE "Booking" SET "adminNote" = ${adminNote || null} WHERE id = ${id}`
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Failed to update admin note:", error)
+    return NextResponse.json({ error: "Failed to save note" }, { status: 500 })
+  }
 }

@@ -150,23 +150,16 @@ function AdminNoteSection({ bookingId }: { bookingId: string }) {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
             rows={2}
           />
-          <div className="flex items-center justify-end gap-2 mt-2">
+          <div className="flex items-center justify-end gap-2 mt-1">
             {isSaved && (
-              <span className="text-xs text-green-600">✓ Lagret</span>
+              <span className="text-[10px] text-green-600">✓ Lagret</span>
             )}
             <button
               onClick={saveNote}
               disabled={!hasChanges || isSaving}
-              className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 text-white hover:bg-blue-700"
+              className="px-2 py-0.5 text-xs rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-blue-600 text-white hover:bg-blue-700"
             >
-              {isSaving ? (
-                <span className="flex items-center gap-1">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Lagrer...
-                </span>
-              ) : (
-                "Lagre notat"
-              )}
+              {isSaving ? "..." : "Lagre"}
             </button>
           </div>
         </>
