@@ -790,9 +790,8 @@ export default function BookResourcePage({ params }: Props) {
                       value={startDate}
                       onChange={(e) => {
                         setStartDate(e.target.value)
-                        if (!endDate || (endDate && new Date(e.target.value) > new Date(endDate))) {
-                          setEndDate(e.target.value)
-                        }
+                        // Always set end date to same as start date (95% of bookings are single-day)
+                        setEndDate(e.target.value)
                       }}
                       className="input cursor-pointer w-full text-sm sm:text-base py-1.5 sm:py-2"
                       min={new Date().toISOString().split("T")[0]}
