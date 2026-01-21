@@ -40,7 +40,8 @@ const roundTo15Min = (timeStr: string): string => {
 export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBookingModalProps) {
   const [title, setTitle] = useState(booking.title)
   const [description, setDescription] = useState(booking.description || "")
-  const [date, setDate] = useState(format(new Date(booking.startTime), "yyyy-MM-dd"))
+  const [startDate, setStartDate] = useState(format(new Date(booking.startTime), "yyyy-MM-dd"))
+  const [endDate, setEndDate] = useState(format(new Date(booking.endTime), "yyyy-MM-dd"))
   const [startTime, setStartTime] = useState(roundTo15Min(format(new Date(booking.startTime), "HH:mm")))
   const [endTime, setEndTime] = useState(roundTo15Min(format(new Date(booking.endTime), "HH:mm")))
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -89,9 +90,9 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
     setIsSubmitting(true)
 
     try {
-      // Combine date and times
-      const newStartTime = new Date(`${date}T${startTime}:00`)
-      const newEndTime = new Date(`${date}T${endTime}:00`)
+      // Combine dates and times
+      const newStartTime = new Date(`${startDate}T${startTime}:00`)
+      const newEndTime = new Date(`${endDate}T${endTime}:00`)
 
       if (newStartTime >= newEndTime) {
         setError("Sluttid må være etter starttid")
@@ -133,7 +134,7 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
       setError("En feil oppstod. Prøv igjen.")
       setIsSubmitting(false)
     }
-  }, [title, description, date, startTime, endTime, booking.id, booking.resourceId, booking.resourcePartId, isAdmin, selectedResourceId, selectedPartId, onSaved])
+  }, [title, description, startDate, endDate, startTime, endTime, booking.id, booking.resourceId, booking.resourcePartId, isAdmin, selectedResourceId, selectedPartId, onSaved])
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -287,91 +288,70 @@ export function EditBookingModal({ booking, isAdmin, onClose, onSaved }: EditBoo
             />
           </div>
 
-          {/* Date */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Calendar className="w-4 h-4 inline mr-1" />
-              Dato *
-            </label>
-            <input
-              type="date"
-              lang="no"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-              className="input cursor-pointer w-full"
-            />
-          </div>
-
-          {/* Time */}
+          {/* Dates and Times */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                <Clock className="w-4 h-4 inline mr-1" />
-                Fra *
+            {/* Start Date & Time */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                Fra
               </label>
+              <input
+                type="date"
+                lang="no"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value)
+                  // Auto-set end date to same day (most bookings are single-day)
+                  if (new Date(e.target.value) > new Date(endDate)) {
+                    setEndDate(e.target.value)
+                  }
+                }}
+                required
+                className="input cursor-pointer w-full text-sm"
+              />
               <select
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                onMouseDown={(e) => {
-                  // Scroll to bottom when clicking to open dropdown
-                  const select = e.target as HTMLSelectElement
-                  setTimeout(() => {
-                    if (select.options.length > 0) {
-                      select.selectedIndex = select.options.length - 1
-                      // Reset to actual value after a brief moment
-                      setTimeout(() => {
-                        const selectedIndex = Array.from(select.options).findIndex(opt => opt.value === startTime)
-                        if (selectedIndex > 0) {
-                          select.selectedIndex = selectedIndex
-                        }
-                      }, 50)
-                    }
-                  }, 0)
-                }}
                 required
-                className="input cursor-pointer w-full"
+                className="input cursor-pointer w-full text-sm"
               >
-                <option value="">Velg tid</option>
+                <option value="">Tid</option>
                 {timeOptions.map(({ value, label }) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                <Clock className="w-4 h-4 inline mr-1" />
-                Til *
+            
+            {/* End Date & Time */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                Til
               </label>
+              <input
+                type="date"
+                lang="no"
+                value={endDate}
+                min={startDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                required
+                className="input cursor-pointer w-full text-sm"
+              />
               <select
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                onMouseDown={(e) => {
-                  // Scroll to bottom when clicking to open dropdown
-                  const select = e.target as HTMLSelectElement
-                  setTimeout(() => {
-                    if (select.options.length > 0) {
-                      select.selectedIndex = select.options.length - 1
-                      // Reset to actual value after a brief moment
-                      setTimeout(() => {
-                        const selectedIndex = Array.from(select.options).findIndex(opt => opt.value === endTime)
-                        if (selectedIndex > 0) {
-                          select.selectedIndex = selectedIndex
-                        }
-                      }, 50)
-                    }
-                  }, 0)
-                }}
                 required
-                className="input cursor-pointer w-full"
+                className="input cursor-pointer w-full text-sm"
               >
-                <option value="">Velg tid</option>
+                <option value="">Tid</option>
                 {timeOptions.map(({ value, label }) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
             </div>
           </div>
+
 
           {/* Error */}
           {error && (
