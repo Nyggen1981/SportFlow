@@ -1259,7 +1259,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       </>
                     ) : (
                       <td className="px-4 py-4">
-                        {/* Status already shown in Booking column for recurring groups */}
+                        {/* Status shown in Booking column for recurring groups */}
                       </td>
                     )}
                     <td className="px-4 py-4">
@@ -1321,6 +1321,23 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                       />
                       <div className="flex-1 min-w-0">
                         <span className="font-medium text-gray-900">{booking.title}</span>
+                        {/* Show status badge under title when pricing is enabled */}
+                        {pricingEnabled && (
+                          <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                            {booking.status === "pending" && (
+                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">Venter</span>
+                            )}
+                            {booking.status === "approved" && (
+                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700">Godkjent</span>
+                            )}
+                            {booking.status === "rejected" && (
+                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700">Avslått</span>
+                            )}
+                            {booking.status === "cancelled" && (
+                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-600">Kansellert</span>
+                            )}
+                          </div>
+                        )}
                         {booking.description && (
                           <p className="text-xs text-gray-500 mt-1 line-clamp-2">{booking.description}</p>
                         )}
@@ -1357,6 +1374,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                   </td>
                   {pricingEnabled ? (
                     <>
+                      {/* Pris */}
                       <td className="px-4 py-4">
                         {booking.totalAmount && booking.totalAmount > 0 ? (
                           <p className="text-sm font-semibold text-gray-900">{Math.round(Number(booking.totalAmount))} kr</p>
@@ -1364,6 +1382,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                           <p className="text-xs text-gray-400">Gratis</p>
                         )}
                       </td>
+                      {/* Betalingsmetode */}
                       <td className="px-4 py-4">
                         {booking.totalAmount && booking.totalAmount > 0 && booking.preferredPaymentMethod ? (
                           <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700">
@@ -1375,29 +1394,21 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                           <p className="text-xs text-gray-400">—</p>
                         )}
                       </td>
+                      {/* Betalingsstatus */}
                       <td className="px-4 py-4">
-                        <div className="flex flex-col gap-1">
-                          {booking.status === "pending" && (
-                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700 w-fit">Venter</span>
-                          )}
-                          {booking.status === "approved" && (
-                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-green-100 text-green-700 w-fit">Godkjent</span>
-                          )}
-                          {booking.status === "rejected" && (
-                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700 w-fit">Avslått</span>
-                          )}
-                          {booking.status === "cancelled" && (
-                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-600 w-fit">Kansellert</span>
-                          )}
-                          {booking.payments && booking.payments.length > 0 ? (
-                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-emerald-100 text-emerald-700 w-fit">Betalt</span>
-                          ) : booking.totalAmount && Number(booking.totalAmount) > 0 ? (
-                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-500 w-fit">Ubetalt</span>
-                          ) : null}
-                        </div>
+                        {booking.totalAmount && booking.totalAmount > 0 ? (
+                          booking.payments && booking.payments.length > 0 ? (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded bg-emerald-100 text-emerald-700">Betalt</span>
+                          ) : (
+                            <span className="px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-500">Ubetalt</span>
+                          )
+                        ) : (
+                          <p className="text-xs text-gray-400">—</p>
+                        )}
                       </td>
                     </>
                   ) : (
+                    /* Status column when pricing is NOT enabled */
                     <td className="px-4 py-4">
                       {booking.status === "pending" && (
                         <span className="px-2 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">Venter</span>
