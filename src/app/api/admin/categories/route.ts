@@ -10,16 +10,42 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const categories = await prisma.resourceCategory.findMany({
-    include: {
-      _count: {
-        select: { resources: true }
-      }
-    },
-    orderBy: { name: "asc" }
-  })
+  // Use raw query to ensure isActive is included even if Prisma client isn't regenerated
+  const categories = await prisma.$queryRaw`
+    SELECT 
+      rc.id, 
+      rc.name, 
+      rc.description, 
+      rc.icon, 
+      rc.color, 
+      COALESCE(rc."isActive", true) as "isActive",
+      (SELECT COUNT(*) FROM "Resource" r WHERE r."categoryId" = rc.id)::int as "_resourceCount"
+    FROM "ResourceCategory" rc
+    ORDER BY rc.name ASC
+  ` as Array<{
+    id: string
+    name: string
+    description: string | null
+    icon: string | null
+    color: string
+    isActive: boolean
+    _resourceCount: number
+  }>
 
-  return NextResponse.json(categories)
+  // Transform to match expected format with _count
+  const transformedCategories = categories.map(cat => ({
+    id: cat.id,
+    name: cat.name,
+    description: cat.description,
+    icon: cat.icon,
+    color: cat.color,
+    isActive: cat.isActive,
+    _count: {
+      resources: cat._resourceCount
+    }
+  }))
+
+  return NextResponse.json(transformedCategories)
 }
 
 export async function POST(request: Request) {

@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { ChevronLeft, ChevronRight, X, Calendar, Clock, User, Repeat, CheckCircle2, XCircle, Trash2, Pencil, Loader2 } from "lucide-react"
 import { EditBookingModal } from "@/components/EditBookingModal"
+import { BookingModal, BookingModalData } from "@/components/BookingModal"
 import { 
   format, 
   startOfWeek, 
@@ -77,6 +78,8 @@ export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3
   const [selectedPart, setSelectedPart] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>("week")
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [fullBookingData, setFullBookingData] = useState<BookingModalData | null>(null)
+  const [isLoadingBookingDetails, setIsLoadingBookingDetails] = useState(false)
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
   const [bookings, setBookings] = useState<Booking[]>(initialBookings || [])
   const [isProcessing, setIsProcessing] = useState(false)
@@ -85,6 +88,7 @@ export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3
   const [rejectReason, setRejectReason] = useState("")
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null)
   const [isLoadingBookings, setIsLoadingBookings] = useState(!initialBookings)
+  const [pricingEnabled, setPricingEnabled] = useState(false)
   const weekViewScrollRef = useRef<HTMLDivElement>(null)
 
   // Fetch bookings client-side if not provided via props
@@ -112,6 +116,120 @@ export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3
 
     fetchBookings()
   }, [resourceId, initialBookings])
+
+  // Fetch pricing status
+  useEffect(() => {
+    fetch("/api/pricing/status")
+      .then(res => res.json())
+      .then(data => setPricingEnabled(data.enabled || false))
+      .catch(() => setPricingEnabled(false))
+  }, [])
+
+  // Fetch full booking details for the modal
+  const handleBookingClick = useCallback(async (booking: Booking) => {
+    if (booking.isCompetition) return
+    
+    setSelectedBooking(booking)
+    setIsLoadingBookingDetails(true)
+    
+    try {
+      const response = await fetch(`/api/bookings/${booking.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setFullBookingData({
+          id: data.id,
+          title: data.title,
+          description: data.description,
+          startTime: data.startTime,
+          endTime: data.endTime,
+          status: data.status,
+          statusNote: data.statusNote,
+          contactName: data.contactName,
+          contactEmail: data.contactEmail,
+          contactPhone: data.contactPhone,
+          totalAmount: data.totalAmount,
+          invoiceId: data.invoiceId,
+          invoice: data.invoice,
+          preferredPaymentMethod: data.preferredPaymentMethod,
+          isRecurring: data.isRecurring,
+          parentBookingId: data.parentBookingId,
+          resource: {
+            id: resourceId,
+            name: resourceName,
+            color: resourceColor
+          },
+          resourcePart: data.resourcePart,
+          user: data.user || { name: null, email: "" },
+          payments: data.payments
+        })
+      } else {
+        // Fallback to basic data
+        setFullBookingData({
+          id: booking.id,
+          title: booking.title,
+          description: null,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          status: booking.status,
+          statusNote: null,
+          contactName: null,
+          contactEmail: null,
+          contactPhone: null,
+          totalAmount: null,
+          invoiceId: null,
+          invoice: null,
+          preferredPaymentMethod: null,
+          isRecurring: booking.isRecurring,
+          parentBookingId: booking.parentBookingId,
+          resource: {
+            id: resourceId,
+            name: resourceName,
+            color: resourceColor
+          },
+          resourcePart: booking.resourcePartId ? { id: booking.resourcePartId, name: booking.resourcePartName || "" } : null,
+          user: { name: booking.userName || null, email: booking.userEmail || "" },
+          payments: []
+        })
+      }
+    } catch (error) {
+      console.error("Failed to fetch booking:", error)
+      // Use basic data on error
+      setFullBookingData({
+        id: booking.id,
+        title: booking.title,
+        description: null,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        status: booking.status,
+        statusNote: null,
+        contactName: null,
+        contactEmail: null,
+        contactPhone: null,
+        totalAmount: null,
+        invoiceId: null,
+        invoice: null,
+        preferredPaymentMethod: null,
+        isRecurring: booking.isRecurring,
+        parentBookingId: booking.parentBookingId,
+        resource: {
+          id: resourceId,
+          name: resourceName,
+          color: resourceColor
+        },
+        resourcePart: booking.resourcePartId ? { id: booking.resourcePartId, name: booking.resourcePartName || "" } : null,
+        user: { name: booking.userName || null, email: booking.userEmail || "" },
+        payments: []
+      })
+    } finally {
+      setIsLoadingBookingDetails(false)
+    }
+  }, [resourceId, resourceName, resourceColor])
+
+  const closeBookingModal = useCallback(() => {
+    setSelectedBooking(null)
+    setFullBookingData(null)
+    setApplyToAll(false)
+  }, [])
 
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -648,7 +766,7 @@ export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3
                           return (
                             <div
                               key={booking.id}
-                              onClick={() => !isCompetition && setSelectedBooking(booking)}
+                              onClick={() => !isCompetition && handleBookingClick(booking)}
                               className={`absolute rounded-md px-1 sm:px-2 py-0.5 sm:py-1 overflow-hidden pointer-events-auto ${
                                 isPending ? 'border-2 border-dashed' : 'border border-black'
                               } ${isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'}`}
@@ -749,7 +867,7 @@ export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3
                       return (
                         <div
                           key={booking.id}
-                          onClick={() => !isCompetition && setSelectedBooking(booking)}
+                          onClick={() => !isCompetition && handleBookingClick(booking)}
                           className={`px-1.5 py-0.5 rounded text-xs truncate ${isCompetition ? 'cursor-default' : 'cursor-pointer'} ${getClassNames()}`}
                           style={getInlineStyles()}
                           title={`${booking.title} - ${format(parseISO(booking.startTime), "HH:mm")}${booking.resourcePartName ? ` (${booking.resourcePartName})` : ''}${isPending ? ' (venter)' : ''}${isCompetition ? ' (Turneringskamp)' : ''}`}
@@ -793,232 +911,53 @@ export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3
       </div>
 
       {/* Booking Info Modal */}
-      {selectedBooking && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-lg font-bold text-gray-900">
-                {canManageBookings ? "Behandle booking" : "Booking-detaljer"}
-              </h3>
-              <button
-                onClick={() => setSelectedBooking(null)}
-                className="p-1 rounded hover:bg-gray-100"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            
-            {/* Content */}
-            <div className="p-4 space-y-4">
-              <div>
-                <h4 className="font-semibold text-gray-900 text-lg">{selectedBooking.title}</h4>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                    selectedBooking.status === "pending" 
-                      ? "bg-amber-100 text-amber-700" 
-                      : "bg-green-100 text-green-700"
-                  }`}>
-                    {selectedBooking.status === "pending" ? "Venter på godkjenning" : "Godkjent"}
-                  </span>
-                  {selectedBooking.isRecurring && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                      <Repeat className="w-3 h-3" />
-                      Gjentakende
-                    </span>
-                  )}
-                </div>
-              </div>
-              
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <div 
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: '#22c55e' }}
-                  />
-                  <span>
-                    {resourceName}
-                    {selectedBooking.resourcePartName && ` → ${selectedBooking.resourcePartName}`}
-                  </span>
-                </div>
-                {/* Date and time - Fra / Til */}
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Fra</p>
-                    <div className="flex items-center gap-1.5 text-gray-600">
-                      <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-sm">{format(parseISO(selectedBooking.startTime), "d. MMM yyyy", { locale: nb })}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-gray-600 mt-0.5">
-                      <Clock className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-sm">kl. {format(parseISO(selectedBooking.startTime), "HH:mm")}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Til</p>
-                    <div className="flex items-center gap-1.5 text-gray-600">
-                      <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-sm">{format(parseISO(selectedBooking.endTime), "d. MMM yyyy", { locale: nb })}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-gray-600 mt-0.5">
-                      <Clock className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-sm">kl. {format(parseISO(selectedBooking.endTime), "HH:mm")}</span>
-                    </div>
-                  </div>
-                </div>
-                {/* GDPR: Show user info to admins/moderators OR if it's your own booking */}
-                {(canManageBookings || selectedBooking.userId === session?.user?.id) && selectedBooking.userName && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <User className="w-4 h-4 text-gray-400" />
-                    {selectedBooking.userName}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Actions */}
-            {(() => {
-              // Only show actions if user is logged in
-              if (!isLoggedIn) {
-                return null
-              }
-
-              const isOwner = selectedBooking.userId === session?.user?.id
-              const canCancel = isOwner && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
-              const canEdit = (isOwner || canManageBookings) && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
-              const isPast = new Date(selectedBooking.startTime) < new Date()
-
-              if (canManageBookings) {
-                return (
-                  <div className="p-4 border-t bg-gray-50 rounded-b-xl space-y-3">
-                    {/* Recurring booking checkbox */}
-                    {selectedBooking.isRecurring && selectedBooking.status === "pending" && (
-                      <label className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={applyToAll}
-                          onChange={(e) => setApplyToAll(e.target.checked)}
-                          className="w-4 h-4 text-blue-600 rounded"
-                        />
-                        <span className="text-sm text-blue-800">
-                          Behandle alle gjentakende bookinger
-                        </span>
-                      </label>
-                    )}
-
-                    {selectedBooking.status === "pending" && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleBookingAction(selectedBooking.id, "approve")}
-                          disabled={isProcessing}
-                          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                        >
-                          {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                          {selectedBooking.isRecurring && applyToAll ? "Godkjenn alle" : "Godkjenn"}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setRejectingBookingId(selectedBooking.id)
-                            setSelectedBooking(null)
-                          }}
-                          disabled={isProcessing}
-                          className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <XCircle className="w-4 h-4" />
-                          {selectedBooking.isRecurring && applyToAll ? "Avslå alle" : "Avslå"}
-                        </button>
-                      </div>
-                    )}
-                    
-                    {/* Edit and Cancel buttons */}
-                    <div className="flex gap-2">
-                      {!isPast && (
-                        <button
-                          onClick={() => { 
-                            setEditingBooking({
-                              id: selectedBooking.id,
-                              title: selectedBooking.title,
-                              startTime: selectedBooking.startTime,
-                              endTime: selectedBooking.endTime,
-                              status: selectedBooking.status,
-                              resourcePartId: selectedBooking.resourcePartId || null,
-                              resourcePartName: selectedBooking.resourcePartName || null,
-                              resourcePartParentId: selectedBooking.resourcePartParentId || null,
-                              userId: selectedBooking.userId || null,
-                              userName: selectedBooking.userName || null,
-                              userEmail: selectedBooking.userEmail || null,
-                              isRecurring: selectedBooking.isRecurring || false,
-                              parentBookingId: selectedBooking.parentBookingId || null
-                            } as Booking)
-                            setSelectedBooking(null)
-                          }}
-                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Pencil className="w-4 h-4" />
-                          Rediger
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setCancellingBookingId(selectedBooking.id)
-                          setSelectedBooking(null)
-                        }}
-                        disabled={isProcessing}
-                        className="flex-1 px-4 py-2 bg-white border border-gray-300 text-red-600 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                      >
-                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                        Kanseller
-                      </button>
-                    </div>
-                  </div>
-                )
-              } else if (canEdit && !isPast) {
-                return (
-                  <div className="p-4 border-t bg-gray-50 rounded-b-xl space-y-2">
-                    <p className="text-xs text-gray-500 text-center mb-2">Dette er din booking</p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => { 
-                          setEditingBooking({
-                            id: selectedBooking.id,
-                            title: selectedBooking.title,
-                            startTime: selectedBooking.startTime,
-                            endTime: selectedBooking.endTime,
-                            status: selectedBooking.status,
-                            resourcePartId: selectedBooking.resourcePartId || null,
-                            resourcePartName: selectedBooking.resourcePartName || null,
-                            resourcePartParentId: selectedBooking.resourcePartParentId || null,
-                            userId: selectedBooking.userId || null,
-                            userName: selectedBooking.userName || null,
-                            userEmail: selectedBooking.userEmail || null,
-                            isRecurring: selectedBooking.isRecurring || false,
-                            parentBookingId: selectedBooking.parentBookingId || null
-                          } as Booking)
-                          setSelectedBooking(null)
-                        }}
-                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Pencil className="w-4 h-4" />
-                        Rediger
-                      </button>
-                      <button
-                        onClick={() => {
-                          setCancellingBookingId(selectedBooking.id)
-                          setSelectedBooking(null)
-                        }}
-                        disabled={isProcessing}
-                        className="flex-1 px-4 py-2 bg-white border border-gray-300 text-red-600 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                      >
-                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                        Kanseller
-                      </button>
-                    </div>
-                  </div>
-                )
-              } else {
-                return null
-              }
-            })()}
+      {selectedBooking && fullBookingData && (
+        <BookingModal
+          booking={fullBookingData}
+          isOpen={true}
+          onClose={closeBookingModal}
+          userRole={canManageBookings ? (isAdmin ? "admin" : "moderator") : "user"}
+          pricingEnabled={pricingEnabled}
+          isProcessing={isProcessing}
+          onApprove={canManageBookings ? async (bookingId) => {
+            await handleBookingAction(bookingId, "approve")
+            closeBookingModal()
+          } : undefined}
+          onReject={canManageBookings ? (bookingId) => {
+            setRejectingBookingId(bookingId)
+            closeBookingModal()
+          } : undefined}
+          onEdit={(booking) => {
+            setEditingBooking({
+              id: selectedBooking.id,
+              title: selectedBooking.title,
+              startTime: selectedBooking.startTime,
+              endTime: selectedBooking.endTime,
+              status: selectedBooking.status,
+              resourcePartId: selectedBooking.resourcePartId || null,
+              resourcePartName: selectedBooking.resourcePartName || null,
+              resourcePartParentId: selectedBooking.resourcePartParentId || null,
+              userId: selectedBooking.userId || null,
+              userName: selectedBooking.userName || null,
+              userEmail: selectedBooking.userEmail || null,
+              isRecurring: selectedBooking.isRecurring || false,
+              parentBookingId: selectedBooking.parentBookingId || null
+            } as Booking)
+            closeBookingModal()
+          }}
+          onCancel={async (bookingId) => {
+            setCancellingBookingId(bookingId)
+            closeBookingModal()
+          }}
+        />
+      )}
+      
+      {/* Loading state for booking modal */}
+      {selectedBooking && !fullBookingData && isLoadingBookingDetails && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-8 shadow-2xl flex flex-col items-center gap-4">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <p className="text-gray-600">Laster booking...</p>
           </div>
         </div>
       )}

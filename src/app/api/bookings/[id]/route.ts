@@ -22,10 +22,23 @@ export async function GET(
   const booking = await prisma.booking.findUnique({
     where: { id },
     include: {
-      resource: true,
+      resource: {
+        select: {
+          id: true,
+          name: true,
+          color: true,
+          organizationId: true
+        }
+      },
       resourcePart: true,
       user: {
         select: { id: true, name: true, email: true }
+      },
+      invoice: {
+        select: { id: true, status: true, invoiceNumber: true }
+      },
+      payments: {
+        select: { id: true, status: true, paymentMethod: true, amount: true }
       }
     }
   })

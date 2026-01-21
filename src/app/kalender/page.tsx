@@ -9,6 +9,7 @@ import { format, parseISO, startOfDay, addDays, setHours, startOfWeek, endOfWeek
 import { nb } from "date-fns/locale"
 import { Calendar, ChevronLeft, ChevronRight, GanttChart, Filter, X, Clock, User, MapPin, CheckCircle2, XCircle, Trash2, Loader2, Repeat, Pencil, Star } from "lucide-react"
 import { EditBookingModal } from "@/components/EditBookingModal"
+import { BookingModal, BookingModalData } from "@/components/BookingModal"
 
 interface Booking {
   id: string
@@ -80,95 +81,6 @@ interface TimelineData {
   date: string
 }
 
-// Separate component for admin note that fetches its own data
-function AdminNoteSection({ bookingId }: { bookingId: string }) {
-  const [note, setNote] = useState("")
-  const [originalNote, setOriginalNote] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [isSaved, setIsSaved] = useState(false)
-
-  useEffect(() => {
-    const fetchNote = async () => {
-      try {
-        const res = await fetch(`/api/admin/bookings/${bookingId}/note`)
-        if (res.ok) {
-          const data = await res.json()
-          setNote(data.adminNote || "")
-          setOriginalNote(data.adminNote || "")
-        }
-      } catch (error) {
-        console.error("Failed to fetch admin note:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    fetchNote()
-  }, [bookingId])
-
-  const saveNote = async () => {
-    setIsSaving(true)
-    try {
-      const res = await fetch(`/api/admin/bookings/${bookingId}/note`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminNote: note })
-      })
-      if (res.ok) {
-        setOriginalNote(note)
-        setIsSaved(true)
-        setTimeout(() => setIsSaved(false), 2000)
-      }
-    } catch (error) {
-      console.error('Failed to save admin note:', error)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const hasChanges = note !== originalNote
-
-  return (
-    <div className="mt-4 pt-4 border-t">
-      <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-        <span>📝</span>
-        Admin-notat
-        <span className="text-xs font-normal text-gray-400">(kun synlig for admin)</span>
-      </h4>
-      {isLoading ? (
-        <div className="h-16 flex items-center justify-center">
-          <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-        </div>
-      ) : (
-        <>
-          <textarea
-            value={note}
-            onChange={(e) => {
-              setNote(e.target.value)
-              setIsSaved(false)
-            }}
-            placeholder="Skriv intern info her..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-            rows={2}
-          />
-          <div className="flex items-center justify-end gap-2 mt-1">
-            {isSaved && (
-              <span className="text-[10px] text-green-600">✓ Lagret</span>
-            )}
-            <button
-              onClick={saveNote}
-              disabled={!hasChanges || isSaving}
-              className="px-2 py-0.5 text-xs rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-blue-600 text-white hover:bg-blue-700"
-            >
-              {isSaving ? "..." : "Lagre"}
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
 export default function CalendarPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -191,12 +103,15 @@ export default function CalendarPage() {
   const [showMobileFilters, setShowMobileFilters] = useState(false)
   const [showFilter, setShowFilter] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [fullBookingData, setFullBookingData] = useState<BookingModalData | null>(null)
+  const [isLoadingBooking, setIsLoadingBooking] = useState(false)
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [applyToAll, setApplyToAll] = useState(false)
   const [rejectingBookingId, setRejectingBookingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null)
+  const [pricingEnabled, setPricingEnabled] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [datePickerMonth, setDatePickerMonth] = useState(new Date())
@@ -260,6 +175,14 @@ export default function CalendarPage() {
     fetchTimelineData()
   }, [fetchTimelineData])
 
+  // Fetch pricing status
+  useEffect(() => {
+    fetch("/api/pricing/status")
+      .then(res => res.json())
+      .then(data => setPricingEnabled(data.enabled || false))
+      .catch(() => setPricingEnabled(false))
+  }, [])
+
   // Load user preferences on mount - fetch immediately, don't wait for timelineData
   // This prevents the flash where we show default view before switching to preferred view
   useEffect(() => {
@@ -314,6 +237,113 @@ export default function CalendarPage() {
       setSavingPreferences(false)
     }
   }, [isLoggedIn, viewMode, selectedCategoryId, selectedResourceId])
+
+  // Fetch full booking data for the modal
+  const handleBookingClick = useCallback(async (booking: Booking) => {
+    // Don't open modal for competitions
+    if (booking.isCompetition) return
+    
+    setSelectedBooking(booking)
+    setIsLoadingBooking(true)
+    
+    try {
+      const response = await fetch(`/api/bookings/${booking.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setFullBookingData({
+          id: data.id,
+          title: data.title,
+          description: data.description,
+          startTime: data.startTime,
+          endTime: data.endTime,
+          status: data.status,
+          statusNote: data.statusNote,
+          contactName: data.contactName,
+          contactEmail: data.contactEmail,
+          contactPhone: data.contactPhone,
+          totalAmount: data.totalAmount,
+          invoiceId: data.invoiceId,
+          invoice: data.invoice,
+          preferredPaymentMethod: data.preferredPaymentMethod,
+          isRecurring: data.isRecurring,
+          parentBookingId: data.parentBookingId,
+          resource: {
+            id: data.resource?.id || booking.resource.id,
+            name: data.resource?.name || booking.resource.name,
+            color: data.resource?.color || booking.resource.color
+          },
+          resourcePart: data.resourcePart,
+          user: data.user || { name: null, email: "" },
+          payments: data.payments
+        })
+      } else {
+        // Fallback to basic data if API fails
+        setFullBookingData({
+          id: booking.id,
+          title: booking.title,
+          description: null,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          status: booking.status,
+          statusNote: null,
+          contactName: null,
+          contactEmail: null,
+          contactPhone: null,
+          totalAmount: null,
+          invoiceId: null,
+          invoice: null,
+          preferredPaymentMethod: null,
+          isRecurring: booking.isRecurring,
+          parentBookingId: null,
+          resource: {
+            id: booking.resource.id,
+            name: booking.resource.name,
+            color: booking.resource.color
+          },
+          resourcePart: booking.resourcePart,
+          user: booking.user || { name: null, email: "" },
+          payments: []
+        })
+      }
+    } catch (error) {
+      console.error("Failed to fetch booking:", error)
+      // Use basic data on error
+      setFullBookingData({
+        id: booking.id,
+        title: booking.title,
+        description: null,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        status: booking.status,
+        statusNote: null,
+        contactName: null,
+        contactEmail: null,
+        contactPhone: null,
+        totalAmount: null,
+        invoiceId: null,
+        invoice: null,
+        preferredPaymentMethod: null,
+        isRecurring: booking.isRecurring,
+        parentBookingId: null,
+        resource: {
+          id: booking.resource.id,
+          name: booking.resource.name,
+          color: booking.resource.color
+        },
+        resourcePart: booking.resourcePart,
+        user: booking.user || { name: null, email: "" },
+        payments: []
+      })
+    } finally {
+      setIsLoadingBooking(false)
+    }
+  }, [])
+
+  const closeBookingModal = useCallback(() => {
+    setSelectedBooking(null)
+    setFullBookingData(null)
+    setApplyToAll(false)
+  }, [])
 
   const handleBookingAction = useCallback(async (bookingId: string, action: "approve" | "reject" | "cancel", statusNote?: string) => {
     setIsProcessing(true)
@@ -1759,7 +1789,7 @@ export default function CalendarPage() {
                               return (
                                 <div
                                   key={booking.id}
-                                  onClick={() => !isCompetition && setSelectedBooking(booking)}
+                                  onClick={() => !isCompetition && handleBookingClick(booking)}
                                   className={`absolute px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
                                     isPending ? 'cursor-pointer hover:opacity-90' : 
                                     isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
@@ -1868,7 +1898,7 @@ export default function CalendarPage() {
                           return (
                             <div
                               key={booking.id}
-                              onClick={() => !isCompetition && setSelectedBooking(booking)}
+                              onClick={() => !isCompetition && handleBookingClick(booking)}
                               className={`px-0.5 sm:px-1.5 py-0.5 rounded text-[8px] sm:text-xs transition-opacity flex-shrink-0 flex flex-col ${
                                 isPending 
                                   ? "text-black border border-dashed cursor-pointer hover:opacity-90" 
@@ -1913,7 +1943,7 @@ export default function CalendarPage() {
                                   key={booking.id}
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    if (!isCompetition) setSelectedBooking(booking)
+                                    if (!isCompetition) handleBookingClick(booking)
                                   }}
                                   className={`px-0.5 py-px rounded text-[7px] md:text-[9px] transition-opacity flex-shrink-0 truncate ${
                                     isPending 
@@ -2180,7 +2210,7 @@ export default function CalendarPage() {
                                     return (
                                       <button
                                         key={booking.id}
-                                        onClick={() => !isCompetition && setSelectedBooking(booking)}
+                                        onClick={() => !isCompetition && handleBookingClick(booking)}
                                         className={`absolute top-1 bottom-1 rounded px-2 py-1 text-xs font-medium transition-all overflow-hidden text-left ${
                                           isCompetition 
                                             ? 'cursor-default' 
@@ -2367,7 +2397,7 @@ export default function CalendarPage() {
                           return (
                             <div
                               key={booking.id}
-                              onClick={() => !isCompetition && setSelectedBooking(booking)}
+                              onClick={() => !isCompetition && handleBookingClick(booking)}
                               className={`absolute px-1 sm:px-2 py-0.5 sm:py-1 text-xs pointer-events-auto transition-opacity overflow-hidden ${
                                 isPending ? 'cursor-pointer hover:opacity-90' : 
                                 isCompetition ? 'cursor-default' : 'cursor-pointer hover:opacity-90'
@@ -2424,222 +2454,45 @@ export default function CalendarPage() {
         </div>
 
       {/* Booking Info Modal */}
-      {selectedBooking && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-lg font-bold text-gray-900">
-                {canManageBookings ? "Behandle booking" : "Booking-detaljer"}
-              </h3>
-              <button
-                onClick={() => setSelectedBooking(null)}
-                className="p-1 rounded hover:bg-gray-100"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            
-            {/* Content */}
-            <div className="p-4 space-y-4">
-              <div>
-                <h4 className="font-semibold text-gray-900 text-lg">{selectedBooking.title}</h4>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                    selectedBooking.status === "pending" 
-                      ? "bg-amber-100 text-amber-700" 
-                      : "bg-green-100 text-green-700"
-                  }`}>
-                    {selectedBooking.status === "pending" ? "Venter på godkjenning" : "Godkjent"}
-                  </span>
-                  {selectedBooking.isRecurring && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                      <Repeat className="w-3 h-3" />
-                      Gjentakende
-                    </span>
-                  )}
-                </div>
-              </div>
-              
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <div 
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: selectedBooking.resource.color || selectedBooking.resource.category?.color || "#3b82f6" }}
-                  />
-                  <span>
-                    {selectedBooking.resource.name}
-                    {selectedBooking.resourcePart && ` → ${selectedBooking.resourcePart.name}`}
-                  </span>
-                </div>
-                {/* Date and time - Fra / Til */}
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Fra</p>
-                    <div className="flex items-center gap-1.5 text-gray-600">
-                      <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-sm">{format(parseISO(selectedBooking.startTime), "d. MMM yyyy", { locale: nb })}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-gray-600 mt-0.5">
-                      <Clock className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-sm">kl. {format(parseISO(selectedBooking.startTime), "HH:mm")}</span>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Til</p>
-                    <div className="flex items-center gap-1.5 text-gray-600">
-                      <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-sm">{format(parseISO(selectedBooking.endTime), "d. MMM yyyy", { locale: nb })}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-gray-600 mt-0.5">
-                      <Clock className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-sm">kl. {format(parseISO(selectedBooking.endTime), "HH:mm")}</span>
-                    </div>
-                  </div>
-                </div>
-                {/* GDPR: Show user info to admins/moderators OR if it's your own booking */}
-                {(canManageBookings || selectedBooking.userId === session?.user?.id) && selectedBooking.user?.name && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <User className="w-4 h-4 text-gray-400" />
-                    {selectedBooking.user.name}
-                  </div>
-                )}
-              </div>
-              
-              {/* Admin note - only for admin/moderator */}
-              {canManageBookings && (
-                <AdminNoteSection bookingId={selectedBooking.id} />
-              )}
-            </div>
-
-            {/* Actions */}
-            {(() => {
-              // Only show actions if user is logged in
-              if (!isLoggedIn) {
-                return null
-              }
-
-              const isOwner = selectedBooking.userId === session?.user?.id
-              const canCancel = isOwner && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
-              const canEdit = (isOwner || canManageBookings) && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
-              const isPast = new Date(selectedBooking.startTime) < new Date()
-
-              if (canManageBookings) {
-  return (
-                  <div className="p-4 border-t bg-gray-50 rounded-b-xl space-y-3">
-                    {/* Recurring booking checkbox */}
-                    {selectedBooking.isRecurring && selectedBooking.status === "pending" && (
-                      <label className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={applyToAll}
-                          onChange={(e) => setApplyToAll(e.target.checked)}
-                          className="w-4 h-4 text-blue-600 rounded"
-                        />
-                        <span className="text-sm text-blue-800">
-                          Behandle alle gjentakende bookinger
-                        </span>
-                      </label>
-                    )}
-                    
-                    {selectedBooking.status === "pending" && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleBookingAction(selectedBooking.id, "approve")}
-                          disabled={isProcessing}
-                          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                        >
-                          {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                          {selectedBooking.isRecurring && applyToAll ? "Godkjenn alle" : "Godkjenn"}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setRejectingBookingId(selectedBooking.id)
-                            setSelectedBooking(null)
-                          }}
-                          disabled={isProcessing}
-                          className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <XCircle className="w-4 h-4" />
-                          {selectedBooking.isRecurring && applyToAll ? "Avslå alle" : "Avslå"}
-                        </button>
-                      </div>
-                    )}
-                    
-                    {/* Edit and Cancel buttons */}
-                    <div className="flex gap-2">
-                      {!isPast && (
-                        <button
-                          onClick={() => { 
-                            setEditingBooking({
-                              ...selectedBooking,
-                              resourceId: selectedBooking.resource.id,
-                              resourceName: selectedBooking.resource.name,
-                              resourcePartId: selectedBooking.resourcePart?.id || null,
-                              resourcePartName: selectedBooking.resourcePart?.name || null
-                            } as any)
-                            setSelectedBooking(null)
-                          }}
-                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Pencil className="w-4 h-4" />
-                          Rediger
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setCancellingBookingId(selectedBooking.id)
-                          setSelectedBooking(null)
-                        }}
-                        disabled={isProcessing}
-                        className="flex-1 px-4 py-2 bg-white border border-gray-300 text-red-600 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                      >
-                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                        Kanseller
-                      </button>
-                    </div>
-                  </div>
-                )
-              } else if (canEdit && !isPast) {
-                return (
-                  <div className="p-4 border-t bg-gray-50 rounded-b-xl space-y-2">
-                    <p className="text-xs text-gray-500 text-center mb-2">Dette er din booking</p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => { 
-                          setEditingBooking({
-                            ...selectedBooking,
-                            resourceId: selectedBooking.resource.id,
-                            resourceName: selectedBooking.resource.name,
-                            resourcePartId: selectedBooking.resourcePart?.id || null,
-                            resourcePartName: selectedBooking.resourcePart?.name || null
-                          } as any)
-                          setSelectedBooking(null)
-                        }}
-                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Pencil className="w-4 h-4" />
-                        Rediger
-                      </button>
-                      <button
-                        onClick={() => {
-                          setCancellingBookingId(selectedBooking.id)
-                          setSelectedBooking(null)
-                        }}
-                        disabled={isProcessing}
-                        className="flex-1 px-4 py-2 bg-white border border-gray-300 text-red-600 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                      >
-                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                        Kanseller
-                      </button>
-                    </div>
-                  </div>
-                )
-              } else {
-                // Ingen handlingsknapper for denne bookingen - footer er tom
-                return null
-              }
-            })()}
+      {selectedBooking && fullBookingData && (
+        <BookingModal
+          booking={fullBookingData}
+          isOpen={true}
+          onClose={closeBookingModal}
+          userRole={canManageBookings ? (isAdmin ? "admin" : "moderator") : "user"}
+          pricingEnabled={pricingEnabled}
+          isProcessing={isProcessing}
+          onApprove={canManageBookings ? async (bookingId) => {
+            await handleBookingAction(bookingId, "approve")
+            closeBookingModal()
+          } : undefined}
+          onReject={canManageBookings ? (bookingId) => {
+            setRejectingBookingId(bookingId)
+            closeBookingModal()
+          } : undefined}
+          onEdit={(booking) => {
+            setEditingBooking({
+              ...selectedBooking,
+              resourceId: selectedBooking.resource.id,
+              resourceName: selectedBooking.resource.name,
+              resourcePartId: selectedBooking.resourcePart?.id || null,
+              resourcePartName: selectedBooking.resourcePart?.name || null
+            } as any)
+            closeBookingModal()
+          }}
+          onCancel={async (bookingId) => {
+            setCancellingBookingId(bookingId)
+            closeBookingModal()
+          }}
+        />
+      )}
+      
+      {/* Loading state for booking modal */}
+      {selectedBooking && !fullBookingData && isLoadingBooking && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-8 shadow-2xl flex flex-col items-center gap-4">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            <p className="text-gray-600">Laster booking...</p>
           </div>
         </div>
       )}

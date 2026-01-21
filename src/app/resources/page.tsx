@@ -76,6 +76,7 @@ async function getResources() {
 async function getCategories() {
   try {
     return await prisma.resourceCategory.findMany({
+      where: { isActive: true },
       orderBy: { name: "asc" }
     })
   } catch (error) {

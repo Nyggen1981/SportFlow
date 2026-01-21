@@ -27,6 +27,7 @@ import {
   Filter
 } from "lucide-react"
 import { EditBookingModal } from "@/components/EditBookingModal"
+import { BookingModal, BookingModalData } from "@/components/BookingModal"
 import { format, isToday, isTomorrow, isThisWeek, parseISO } from "date-fns"
 import { nb } from "date-fns/locale"
 
@@ -1572,265 +1573,53 @@ export default function MyBookingsPage() {
 
       {/* Booking details modal */}
       {selectedBooking && (
-        <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => setSelectedBooking(null)}
-        >
-          <div 
-            className="bg-white rounded-xl max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div 
-              className="p-6 rounded-t-xl"
-              style={{ 
-                backgroundColor: selectedBooking.resource.color || "#3b82f6" 
-              }}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-white/80 text-sm font-medium">
-                    {selectedBooking.resource.name}
-                    {selectedBooking.resourcePart && ` • ${selectedBooking.resourcePart.name}`}
-                  </p>
-                  <h3 className="text-2xl font-bold text-white mt-1">
-                    {selectedBooking.title}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => setSelectedBooking(null)}
-                  className="p-1 rounded-full hover:bg-white/20 transition-colors"
-                >
-                  <X className="w-6 h-6 text-white" />
-                </button>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 space-y-6">
-              {/* Status */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {selectedBooking.status === "pending" && (
-                  <span className="px-3 py-1 text-sm font-medium rounded-full bg-amber-100 text-amber-700">
-                    Venter på godkjenning
-                  </span>
-                )}
-                {selectedBooking.status === "approved" && (
-                  <span className="px-3 py-1 text-sm font-medium rounded-full bg-green-100 text-green-700">
-                    Godkjent
-                  </span>
-                )}
-                {selectedBooking.status === "rejected" && (
-                  <span className="px-3 py-1 text-sm font-medium rounded-full bg-red-100 text-red-700">
-                    Avslått
-                  </span>
-                )}
-                {selectedBooking.status === "cancelled" && (
-                  <span className="px-3 py-1 text-sm font-medium rounded-full bg-gray-100 text-gray-600">
-                    Kansellert
-                  </span>
-                )}
-              </div>
-
-              {/* Description */}
-              {selectedBooking.description && (
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Beskrivelse</h4>
-                  <p className="text-gray-600 whitespace-pre-wrap">{selectedBooking.description}</p>
-                </div>
-              )}
-
-              {/* Date and time */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Dato</h4>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Calendar className="w-4 h-4 text-gray-400" />
-                    <span>{format(parseISO(selectedBooking.startTime), "EEEE d. MMMM yyyy", { locale: nb })}</span>
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Tid</h4>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Clock className="w-4 h-4 text-gray-400" />
-                    <span>
-                      {format(parseISO(selectedBooking.startTime), "HH:mm")} - {format(parseISO(selectedBooking.endTime), "HH:mm")}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {(() => {
-                      const start = parseISO(selectedBooking.startTime)
-                      const end = parseISO(selectedBooking.endTime)
-                      let durationMs = end.getTime() - start.getTime()
-                      
-                      // Håndter tilfelle hvor booking går over midnatt
-                      // Hvis varighet er negativ, betyr det at endTime er før startTime (sannsynligvis feil dato)
-                      // Legg til 24 timer for å korrigere (antagelse: booking går over midnatt og er < 24 timer)
-                      if (durationMs < 0) {
-                        durationMs += 24 * 60 * 60 * 1000
-                      }
-                      
-                      const durationHours = Math.round((durationMs / (1000 * 60 * 60)) * 10) / 10
-                      return `${durationHours} timer`
-                    })()}
-                  </p>
-                </div>
-              </div>
-
-              {/* Location */}
-              {selectedBooking.resource.location && (
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Lokasjon</h4>
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <MapPin className="w-4 h-4 text-gray-400" />
-                    <span>{selectedBooking.resource.location}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Price and payment info */}
-              {pricingEnabled && (
-                <div className="border-t pt-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Betaling</h4>
-                  {selectedBooking.totalAmount && selectedBooking.totalAmount > 0 ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <span className="text-sm font-medium text-gray-900">Totalpris:</span>
-                        <span className="text-lg font-bold text-gray-900">
-                          {Math.round(Number(selectedBooking.totalAmount))} kr
-                        </span>
-                      </div>
-                      {selectedBooking.preferredPaymentMethod && (
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">Foretrukket betalingsmetode:</p>
-                          <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-blue-100 text-blue-700">
-                            {selectedBooking.preferredPaymentMethod === "INVOICE" && "Faktura"}
-                            {selectedBooking.preferredPaymentMethod === "VIPPS" && "Vipps"}
-                            {selectedBooking.preferredPaymentMethod === "CARD" && "Kort"}
-                          </span>
-                        </div>
-                      )}
-                      {selectedBooking.payments && selectedBooking.payments.length > 0 && (
-                        <div>
-                          <p className="text-xs text-gray-500 mb-2">Betalinger:</p>
-                          <div className="space-y-2">
-                            {selectedBooking.payments.map((payment) => (
-                              <div key={payment.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                                <div>
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {payment.paymentMethod === "VIPPS" && "Vipps"}
-                                    {payment.paymentMethod === "CARD" && "Kort"}
-                                    {payment.paymentMethod === "BANK_TRANSFER" && "Bankoverføring"}
-                                    {payment.paymentMethod === "INVOICE" && "Faktura"}
-                                  </p>
-                                  <p className="text-xs text-gray-500">{Math.round(Number(payment.amount))} kr</p>
-                                </div>
-                                <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                                  payment.status === "COMPLETED" ? "bg-green-100 text-green-700" :
-                                  payment.status === "PENDING" ? "bg-amber-100 text-amber-700" :
-                                  payment.status === "FAILED" ? "bg-red-100 text-red-700" :
-                                  "bg-gray-100 text-gray-700"
-                                }`}>
-                                  {payment.status === "COMPLETED" && "Betalt"}
-                                  {payment.status === "PENDING" && "Venter"}
-                                  {payment.status === "PROCESSING" && "Behandler"}
-                                  {payment.status === "FAILED" && "Feilet"}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {selectedBooking.invoiceId && selectedBooking.invoice && (
-                        <div className="mt-3 space-y-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm text-gray-600">Faktura:</span>
-                            <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
-                              selectedBooking.invoice.status === "PAID" 
-                                ? "bg-green-100 text-green-700"
-                                : selectedBooking.invoice.status === "SENT"
-                                ? "bg-blue-100 text-blue-700"
-                                : selectedBooking.invoice.status === "DRAFT"
-                                ? "bg-gray-100 text-gray-600"
-                                : "bg-orange-100 text-orange-700"
-                            }`}>
-                              {selectedBooking.invoice.status === "PAID" && "Betalt"}
-                              {selectedBooking.invoice.status === "SENT" && "Sendt"}
-                              {selectedBooking.invoice.status === "DRAFT" && "Kladd"}
-                              {selectedBooking.invoice.status === "OVERDUE" && "Forfalt"}
-                            </span>
-                          </div>
-                          {selectedBooking.invoice.status !== "DRAFT" && (
-                            <a
-                              href={`/api/invoices/${selectedBooking.invoiceId}/pdf`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                              Se faktura
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-600">Gratis booking</p>
-                  )}
-                </div>
-              )}
-
-              {/* Status note */}
-              {selectedBooking.statusNote && (
-                <div className="border-t pt-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Statusnotat</h4>
-                  <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{selectedBooking.statusNote}</p>
-                </div>
-              )}
-
-              {/* Action buttons for approved/pending bookings */}
-              {(() => {
-                const isPast = new Date(selectedBooking.startTime) < new Date()
-                const canEdit = (selectedBooking.status === "pending" || selectedBooking.status === "approved") && !isPast
-                
-                if (canEdit) {
-                  return (
-                    <div className="border-t pt-4 space-y-2">
-                      <p className="text-xs text-gray-500 text-center">Dette er din booking</p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            setEditingBooking(selectedBooking)
-                            setSelectedBooking(null)
-                          }}
-                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Pencil className="w-4 h-4" />
-                          Rediger
-                        </button>
-                        <button
-                          onClick={() => {
-                            setCancellingId(selectedBooking.id)
-                            setSelectedBooking(null)
-                          }}
-                          disabled={isProcessing}
-                          className="flex-1 px-4 py-2 bg-white border border-gray-300 text-red-600 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Kanseller
-                        </button>
-                      </div>
-                    </div>
-                  )
-                }
-                return null
-              })()}
-            </div>
-          </div>
-        </div>
+        <BookingModal
+          booking={{
+            id: selectedBooking.id,
+            title: selectedBooking.title,
+            description: selectedBooking.description,
+            startTime: selectedBooking.startTime,
+            endTime: selectedBooking.endTime,
+            status: selectedBooking.status,
+            statusNote: selectedBooking.statusNote,
+            contactName: null,
+            contactEmail: null,
+            contactPhone: null,
+            totalAmount: selectedBooking.totalAmount,
+            invoiceId: selectedBooking.invoiceId,
+            invoice: selectedBooking.invoice,
+            preferredPaymentMethod: selectedBooking.preferredPaymentMethod,
+            isRecurring: selectedBooking.isRecurring,
+            parentBookingId: selectedBooking.parentBookingId,
+            resource: {
+              id: selectedBooking.resource.id,
+              name: selectedBooking.resource.name,
+              color: selectedBooking.resource.color
+            },
+            resourcePart: selectedBooking.resourcePart,
+            user: {
+              name: session?.user?.name || null,
+              email: session?.user?.email || ""
+            },
+            payments: selectedBooking.payments
+          }}
+          isOpen={true}
+          onClose={() => setSelectedBooking(null)}
+          userRole="user"
+          pricingEnabled={pricingEnabled}
+          isProcessing={isProcessing}
+          onEdit={(booking) => {
+            setEditingBooking(selectedBooking)
+            setSelectedBooking(null)
+          }}
+          onCancel={async (bookingId) => {
+            setCancellingId(bookingId)
+            setSelectedBooking(null)
+          }}
+          onViewInvoice={selectedBooking.invoiceId ? (invoiceId) => {
+            window.open(`/api/invoices/${invoiceId}/pdf`, '_blank')
+          } : undefined}
+        />
       )}
     </PageLayout>
   )
