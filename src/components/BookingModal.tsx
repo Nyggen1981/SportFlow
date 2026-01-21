@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { format } from "date-fns"
 import { nb } from "date-fns/locale"
 import {
@@ -167,15 +168,30 @@ export function BookingModal({
   onViewInvoice,
   isProcessing = false
 }: BookingModalProps) {
+  const { data: session } = useSession()
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   
+  // Check if user is logged in
+  const isLoggedIn = !!session?.user?.email
+  
   const isAdmin = userRole === "admin" || userRole === "moderator"
-  const canEdit = (booking.status === "approved" || booking.status === "pending") && 
-                  new Date(booking.startTime) > new Date()
+  // Check if current user owns this booking (must be logged in)
+  const isOwner = isLoggedIn && session?.user?.email === booking.user.email
+  
+  // Users can only edit/cancel their own bookings, admins can edit/cancel any
+  // Must be logged in to do anything
+  const isNotPastBooking = new Date(booking.startTime) > new Date()
+  const isEditableStatus = booking.status === "approved" || booking.status === "pending"
+  const canEdit = isLoggedIn && (isAdmin || isOwner) && isEditableStatus && isNotPastBooking
+  const canCancel = isLoggedIn && (isAdmin || isOwner) && isEditableStatus && isNotPastBooking
+  
+  // Only admin can approve/reject
   const canApproveReject = isAdmin && booking.status === "pending"
-  const canCancel = canEdit
+  // Only admin can mark as paid
   const canMarkAsPaid = isAdmin && pricingEnabled && booking.status === "approved" && 
                         booking.totalAmount && booking.totalAmount > 0
+  // Payment info only visible to admin or booking owner
+  const canSeePaymentInfo = pricingEnabled && (isAdmin || isOwner)
   
   if (!isOpen) return null
 
@@ -310,8 +326,8 @@ export function BookingModal({
             </div>
           </div>
 
-          {/* User info - only for admin/moderator */}
-          {isAdmin && (
+          {/* User info - only for admin/moderator or booking owner */}
+          {(isAdmin || isOwner) && (
             <div>
               <h4 className="text-sm font-semibold text-gray-700 mb-2">Bruker</h4>
               <div className="flex items-center gap-2 text-gray-600">
@@ -324,8 +340,8 @@ export function BookingModal({
             </div>
           )}
 
-          {/* Contact info */}
-          {(booking.contactName || booking.contactEmail || booking.contactPhone) && (
+          {/* Contact info - only visible to admin or booking owner */}
+          {(isAdmin || isOwner) && (booking.contactName || booking.contactEmail || booking.contactPhone) && (
             <div>
               <h4 className="text-sm font-semibold text-gray-700 mb-2">Kontaktinfo</h4>
               <div className="space-y-1 text-sm text-gray-600">
@@ -345,8 +361,8 @@ export function BookingModal({
           {/* Admin note - only visible to admin/moderator */}
           {isAdmin && <AdminNoteSection bookingId={booking.id} />}
 
-          {/* Price and payment info */}
-          {pricingEnabled && (
+          {/* Price and payment info - only visible to admin or booking owner */}
+          {canSeePaymentInfo && (
             <div className="border-t pt-4">
               <h4 className="text-sm font-semibold text-gray-700 mb-3">Betaling</h4>
               {booking.totalAmount && booking.totalAmount > 0 ? (
@@ -502,11 +518,11 @@ export function BookingModal({
             </div>
           )}
 
-          {/* Edit and Cancel buttons for approved/pending bookings that aren't past */}
-          {canEdit && (onEdit || onCancel) && (
+          {/* Edit and Cancel buttons - only for owner or admin/moderator */}
+          {((canEdit && onEdit) || (canCancel && onCancel)) && (
             <div className="border-t pt-4 space-y-2">
               <div className="flex gap-2">
-                {onEdit && (
+                {canEdit && onEdit && (
                   <button
                     onClick={() => onEdit(booking)}
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
@@ -515,7 +531,7 @@ export function BookingModal({
                     Rediger
                   </button>
                 )}
-                {onCancel && (
+                {canCancel && onCancel && (
                   <button
                     onClick={() => onCancel(booking.id)}
                     disabled={isProcessing}
