@@ -354,7 +354,7 @@ model Booking {
   // Optional: rejection/cancellation reason
   statusNote String?
 
-  // Admin-only note (not visible to regular users)
+  // Admin-only internal note (not visible to regular users) - Added 2026-01-21
   adminNote String?
 
   // Contact info for the booking
