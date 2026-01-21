@@ -1437,7 +1437,16 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                   <td className="px-4 py-4">
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                        {format(new Date(booking.startTime), "d. MMM yyyy", { locale: nb })}
+                        {(() => {
+                          const start = new Date(booking.startTime)
+                          const end = new Date(booking.endTime)
+                          const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd")
+                          if (sameDay) {
+                            return format(start, "d. MMM yyyy", { locale: nb })
+                          } else {
+                            return `${format(start, "d. MMM", { locale: nb })} - ${format(end, "d. MMM yyyy", { locale: nb })}`
+                          }
+                        })()}
                       </p>
                       <p className="text-xs text-gray-500">
                         {format(new Date(booking.startTime), "HH:mm")} - {format(new Date(booking.endTime), "HH:mm")}
@@ -1686,9 +1695,16 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                   <div className="flex items-center gap-2 text-gray-600">
                     <Calendar className="w-4 h-4 text-gray-400" />
                     <span>
-                      {format(new Date(selectedBooking.startTime), "EEEE d. MMMM yyyy", { locale: nb })}
-                      {" kl. "}
-                      {format(new Date(selectedBooking.startTime), "HH:mm")}
+                      {(() => {
+                        const start = new Date(selectedBooking.startTime)
+                        const end = new Date(selectedBooking.endTime)
+                        const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd")
+                        if (sameDay) {
+                          return `${format(start, "EEEE d. MMMM yyyy", { locale: nb })} kl. ${format(start, "HH:mm")} - ${format(end, "HH:mm")}`
+                        } else {
+                          return `${format(start, "EEEE d. MMMM yyyy", { locale: nb })} kl. ${format(start, "HH:mm")} → ${format(end, "EEEE d. MMMM yyyy", { locale: nb })} kl. ${format(end, "HH:mm")}`
+                        }
+                      })()}
                     </span>
                   </div>
                 </div>
