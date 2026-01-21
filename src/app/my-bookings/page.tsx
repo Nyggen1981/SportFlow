@@ -75,7 +75,6 @@ export default function MyBookingsPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null)
-  const [unreadCounts, setUnreadCounts] = useState({ upcoming: 0, history: 0 })
   const [selectedForDelete, setSelectedForDelete] = useState<Set<string>>(new Set())
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
   const [pricingEnabled, setPricingEnabled] = useState(false)
@@ -155,49 +154,11 @@ export default function MyBookingsPage() {
     }
   }, [session, fetchBookings])
 
-  // Fetch unread counts
-  const fetchUnreadCounts = useCallback(async () => {
-    try {
-      const res = await fetch("/api/bookings/unread")
-      if (res.ok) {
-        const data = await res.json()
-        setUnreadCounts({ upcoming: data.upcoming, history: data.history })
-      }
-    } catch (error) {
-      console.error("Failed to fetch unread counts:", error)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (session) {
-      fetchUnreadCounts()
-    }
-  }, [session, fetchUnreadCounts])
-
-  // Mark bookings as seen when switching tabs
-  const handleTabChange = useCallback(async (tab: Tab) => {
+  // Handle tab change
+  const handleTabChange = useCallback((tab: Tab) => {
     setActiveTab(tab)
     setSelectedForDelete(new Set()) // Clear selection when switching tabs
-    
-    // Mark bookings as seen for this tab
-    if ((tab === "upcoming" && unreadCounts.upcoming > 0) || 
-        (tab === "history" && unreadCounts.history > 0)) {
-      try {
-        await fetch("/api/bookings/mark-seen", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: tab })
-        })
-        // Update local state
-        setUnreadCounts(prev => ({
-          ...prev,
-          [tab]: 0
-        }))
-      } catch (error) {
-        console.error("Failed to mark bookings as seen:", error)
-      }
-    }
-  }, [unreadCounts])
+  }, [])
 
   const handleCancel = useCallback(async (bookingId: string) => {
     setIsProcessing(true)
@@ -688,11 +649,6 @@ export default function MyBookingsPage() {
                       {upcoming.length}
                     </span>
                   )}
-                  {unreadCounts.upcoming > 0 && (
-                    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-green-500 text-white text-[10px] font-bold rounded-full animate-pulse">
-                      {unreadCounts.upcoming}
-                    </span>
-                  )}
                 </button>
                 <button
                   onClick={() => handleTabChange("history")}
@@ -709,11 +665,6 @@ export default function MyBookingsPage() {
                       activeTab === "history" ? "bg-gray-200 text-gray-700" : "bg-gray-200 text-gray-600"
                     }`}>
                       {history.length}
-                    </span>
-                  )}
-                  {unreadCounts.history > 0 && (
-                    <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full animate-pulse">
-                      {unreadCounts.history}
                     </span>
                   )}
                 </button>

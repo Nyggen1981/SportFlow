@@ -1179,6 +1179,9 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                 const pendingCount = allGroupBookings.filter(b => b.status === "pending").length
                 const approvedCount = allGroupBookings.filter(b => b.status === "approved").length
                 const rejectedCount = allGroupBookings.filter(b => b.status === "rejected" || b.status === "cancelled").length
+                // Count remaining (future) vs passed bookings
+                const remainingCount = allGroupBookings.filter(b => new Date(b.endTime) >= now).length
+                const passedCount = allGroupBookings.length - remainingCount
                 
                 return (
                   <tr 
@@ -1205,8 +1208,11 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                           <p className="font-medium text-gray-900">{firstBooking.title}</p>
                           <div className="flex items-center gap-1 flex-wrap mt-0.5">
                             <span className="inline-flex px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
-                              📅 {groupBookings.length}x
+                              📅 {remainingCount} igjen
                             </span>
+                            {passedCount > 0 && (
+                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-500">{passedCount} passert</span>
+                            )}
                             {pendingCount > 0 && (
                               <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">{pendingCount} venter</span>
                             )}
@@ -2283,17 +2289,20 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                               }
                             </button>
                             
-                            {/* Delete button - only show in history/rejected or for admins */}
-                            {(activeTab === "history" || activeTab === "rejected") && (
+                            {/* Delete hint - show when in history/rejected but nothing selected */}
+                            {(activeTab === "history" || activeTab === "rejected") && selectedCount === 0 && (
+                              <p className="text-xs text-gray-500 text-center py-2">
+                                Velg bookinger du vil slette
+                              </p>
+                            )}
+                            
+                            {/* Delete button - only show when bookings are selected in history/rejected tabs */}
+                            {(activeTab === "history" || activeTab === "rejected") && selectedCount > 0 && (
                               <button
                                 onClick={async () => {
-                                  const bookingsToDelete = selectedCount > 0 
-                                    ? Array.from(selectedModalBookingIds)
-                                    : selectedRecurringGroup.bookings.map(b => b.id)
+                                  const bookingsToDelete = Array.from(selectedModalBookingIds)
                                   
-                                  const confirmMsg = selectedCount > 0
-                                    ? `Er du sikker på at du vil slette ${selectedCount} valgte booking${selectedCount > 1 ? 'er' : ''} permanent?\n\nDette kan IKKE angres!`
-                                    : `Er du sikker på at du vil slette ALLE ${selectedRecurringGroup.bookings.length} bookinger i denne serien permanent?\n\nDette kan IKKE angres!`
+                                  const confirmMsg = `Er du sikker på at du vil slette ${selectedCount} valgte booking${selectedCount > 1 ? 'er' : ''} permanent?\n\nDette kan IKKE angres!`
                                   
                                   if (!confirm(confirmMsg)) return
                                   
@@ -2328,8 +2337,8 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                     Sletter...
                                   </>
                                 ) : (
-                                  allSelected || selectedCount === 0 
-                                    ? "Slett alle permanent" 
+                                  selectedCount === 1 
+                                    ? "Slett permanent" 
                                     : `Slett (${selectedCount}) permanent`
                                 )}
                               </button>
