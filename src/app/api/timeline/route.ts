@@ -72,8 +72,7 @@ export async function GET(request: Request) {
       status: true,
       userId: true,
       isRecurring: true,
-      // TODO: Re-enable after Vercel cache is cleared
-      // ...(canSeeUserInfo ? { adminNote: true } : {}),
+      ...(canSeeUserInfo ? { adminNote: true } : {}), // Internal admin note
       resource: {
         select: {
           id: true,
