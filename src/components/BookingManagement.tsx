@@ -2167,7 +2167,8 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         .filter(b => selectedModalBookingIds.has(b.id))
                         .map(b => b.id)
                       const selectedPendingCount = selectedPendingIds.length
-                      const allPendingSelected = selectedPendingCount === pendingBookings.length && pendingBookings.length > 0
+                      // Only say "alle" if there are multiple pending AND all are selected
+                      const allPendingSelected = selectedPendingCount === pendingBookings.length && pendingBookings.length > 1
                       
                       if (pendingBookings.length === 0) return null
                       
@@ -2178,7 +2179,9 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                               ? "Velg ventende bookinger for å godkjenne/avslå"
                               : allPendingSelected
                                 ? `Behandle alle ${selectedPendingCount} ventende bookinger:`
-                                : `Behandle ${selectedPendingCount} av ${pendingBookings.length} ventende bookinger:`
+                                : selectedPendingCount === 1
+                                  ? "Behandle 1 ventende booking:"
+                                  : `Behandle ${selectedPendingCount} av ${pendingBookings.length} ventende bookinger:`
                             }
                           </p>
                           <div className="flex gap-2">
@@ -2221,7 +2224,11 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                               ) : (
                                 <>
                                   <CheckCircle2 className="w-4 h-4" />
-                                  {allPendingSelected ? "Godkjenn alle" : `Godkjenn (${selectedPendingCount})`}
+                                  {allPendingSelected 
+                                    ? "Godkjenn alle" 
+                                    : selectedPendingCount === 1 
+                                      ? "Godkjenn" 
+                                      : `Godkjenn (${selectedPendingCount})`}
                                 </>
                               )}
                             </button>
@@ -2240,7 +2247,11 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                               className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                             >
                               <XCircle className="w-4 h-4" />
-                              {allPendingSelected ? "Avslå alle" : `Avslå (${selectedPendingCount})`}
+                              {allPendingSelected 
+                                ? "Avslå alle" 
+                                : selectedPendingCount === 1 
+                                  ? "Avslå" 
+                                  : `Avslå (${selectedPendingCount})`}
                             </button>
                           </div>
                         </div>
