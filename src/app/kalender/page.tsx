@@ -2382,6 +2382,35 @@ export default function CalendarPage() {
                   </div>
                 )}
               </div>
+              
+              {/* Admin note - only for admin/moderator */}
+              {canManageBookings && (
+                <div className="mt-4 pt-4 border-t">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                    <span>📝</span>
+                    Admin-notat
+                    <span className="text-xs font-normal text-gray-400">(kun synlig for admin)</span>
+                  </h4>
+                  <textarea
+                    defaultValue={(selectedBooking as any).adminNote || ""}
+                    onBlur={async (e) => {
+                      const newNote = e.target.value
+                      try {
+                        await fetch(`/api/admin/bookings/${selectedBooking.id}/note`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ adminNote: newNote })
+                        })
+                      } catch (error) {
+                        console.error('Failed to save admin note:', error)
+                      }
+                    }}
+                    placeholder="Skriv intern info her..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    rows={2}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Actions */}

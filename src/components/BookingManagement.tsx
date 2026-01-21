@@ -40,6 +40,7 @@ interface Booking {
   endTime: string
   status: string
   statusNote: string | null
+  adminNote: string | null
   contactName: string | null
   contactEmail: string | null
   contactPhone: string | null
@@ -1660,6 +1661,38 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                   </div>
                 </div>
               )}
+
+              {/* Admin note - only visible to admin/moderator */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <span>📝</span>
+                  Admin-notat
+                  <span className="text-xs font-normal text-gray-400">(kun synlig for admin)</span>
+                </h4>
+                <textarea
+                  value={selectedBooking.adminNote || ""}
+                  onChange={(e) => {
+                    // Update local state immediately for responsiveness
+                    setSelectedBooking(prev => prev ? { ...prev, adminNote: e.target.value } : null)
+                  }}
+                  onBlur={async (e) => {
+                    // Save to database on blur
+                    const newNote = e.target.value
+                    try {
+                      await fetch(`/api/admin/bookings/${selectedBooking.id}/note`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ adminNote: newNote })
+                      })
+                    } catch (error) {
+                      console.error('Failed to save admin note:', error)
+                    }
+                  }}
+                  placeholder="Skriv intern info her (f.eks. 'Konfirmasjon - ikke vis navn')"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  rows={2}
+                />
+              </div>
 
               {/* Price and payment info */}
               {pricingEnabled && (

@@ -354,6 +354,9 @@ model Booking {
   // Optional: rejection/cancellation reason
   statusNote String?
 
+  // Admin-only note (not visible to regular users)
+  adminNote String?
+
   // Contact info for the booking
   contactName  String?
   contactEmail String?

@@ -72,6 +72,8 @@ export async function GET(request: Request) {
       status: true,
       userId: true,
       isRecurring: true,
+      // Admin note - only for admins/moderators
+      ...(canSeeUserInfo ? { adminNote: true } : {}),
       resource: {
         select: {
           id: true,
