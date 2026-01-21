@@ -57,7 +57,6 @@ export async function GET(request: Request) {
         endTime: true,
         status: true,
         statusNote: true,
-        adminNote: true,
         contactName: true,
         contactEmail: true,
         contactPhone: true,

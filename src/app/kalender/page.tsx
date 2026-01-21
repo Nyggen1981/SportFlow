@@ -79,6 +79,78 @@ interface TimelineData {
   date: string
 }
 
+// Separate component for admin note that fetches its own data
+function AdminNoteSection({ bookingId }: { bookingId: string }) {
+  const [note, setNote] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaved, setIsSaved] = useState(false)
+
+  useEffect(() => {
+    const fetchNote = async () => {
+      try {
+        const res = await fetch(`/api/admin/bookings/${bookingId}/note`)
+        if (res.ok) {
+          const data = await res.json()
+          setNote(data.adminNote || "")
+        }
+      } catch (error) {
+        console.error("Failed to fetch admin note:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchNote()
+  }, [bookingId])
+
+  const saveNote = async () => {
+    try {
+      const res = await fetch(`/api/admin/bookings/${bookingId}/note`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminNote: note })
+      })
+      if (res.ok) {
+        setIsSaved(true)
+        setTimeout(() => setIsSaved(false), 2000)
+      }
+    } catch (error) {
+      console.error('Failed to save admin note:', error)
+    }
+  }
+
+  return (
+    <div className="mt-4 pt-4 border-t">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+          <span>📝</span>
+          Admin-notat
+          <span className="text-xs font-normal text-gray-400">(kun synlig for admin)</span>
+        </h4>
+        {isSaved && (
+          <span className="text-xs text-green-600">✓ Lagret</span>
+        )}
+      </div>
+      {isLoading ? (
+        <div className="h-16 flex items-center justify-center">
+          <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+        </div>
+      ) : (
+        <textarea
+          value={note}
+          onChange={(e) => {
+            setNote(e.target.value)
+            setIsSaved(false)
+          }}
+          onBlur={saveNote}
+          placeholder="Skriv intern info her..."
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+          rows={2}
+        />
+      )}
+    </div>
+  )
+}
+
 export default function CalendarPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -2385,47 +2457,7 @@ export default function CalendarPage() {
               
               {/* Admin note - only for admin/moderator */}
               {canManageBookings && (
-                <div className="mt-4 pt-4 border-t">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                      <span>📝</span>
-                      Admin-notat
-                      <span className="text-xs font-normal text-gray-400">(kun synlig for admin)</span>
-                    </h4>
-                    <span id="calendar-admin-note-status" className="text-xs text-green-600 opacity-0 transition-opacity">
-                      ✓ Lagret
-                    </span>
-                  </div>
-                  <textarea
-                    defaultValue={(selectedBooking as any).adminNote || ""}
-                    onChange={() => {
-                      const status = document.getElementById('calendar-admin-note-status')
-                      if (status) status.style.opacity = '0'
-                    }}
-                    onBlur={async (e) => {
-                      const newNote = e.target.value
-                      try {
-                        const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/note`, {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ adminNote: newNote })
-                        })
-                        if (res.ok) {
-                          const status = document.getElementById('calendar-admin-note-status')
-                          if (status) {
-                            status.style.opacity = '1'
-                            setTimeout(() => { status.style.opacity = '0' }, 2000)
-                          }
-                        }
-                      } catch (error) {
-                        console.error('Failed to save admin note:', error)
-                      }
-                    }}
-                    placeholder="Skriv intern info her..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                    rows={2}
-                  />
-                </div>
+                <AdminNoteSection bookingId={selectedBooking.id} />
               )}
             </div>
 
