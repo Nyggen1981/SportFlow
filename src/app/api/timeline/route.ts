@@ -72,8 +72,8 @@ export async function GET(request: Request) {
       status: true,
       userId: true,
       isRecurring: true,
-      // Internal admin note (NOT shown to users - different from ResourcePart.adminNote which goes in emails)
-      ...(canSeeUserInfo ? { adminNote: true } : {}),
+      // TODO: Re-enable after Vercel cache is cleared
+      // ...(canSeeUserInfo ? { adminNote: true } : {}),
       resource: {
         select: {
           id: true,

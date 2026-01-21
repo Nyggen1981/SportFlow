@@ -57,7 +57,8 @@ export async function GET(request: Request) {
         endTime: true,
         status: true,
         statusNote: true,
-        adminNote: true, // Internal admin note - NOT shown to users (different from ResourcePart.adminNote)
+        // TODO: Re-enable after Vercel cache is cleared
+        // adminNote: true, // Internal admin note - NOT shown to users
         contactName: true,
         contactEmail: true,
         contactPhone: true,
