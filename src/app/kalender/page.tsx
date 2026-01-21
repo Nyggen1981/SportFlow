@@ -955,7 +955,12 @@ export default function CalendarPage() {
     if (!timelineData) return []
     return filteredBookingsForCalendar.filter(booking => {
       const bookingStart = parseISO(booking.startTime)
-      return isSameDay(bookingStart, day)
+      const bookingEnd = parseISO(booking.endTime)
+      const dayStart = startOfDay(day)
+      const dayEnd = new Date(dayStart)
+      dayEnd.setHours(23, 59, 59, 999)
+      // Show booking if it overlaps with this day
+      return bookingStart <= dayEnd && bookingEnd >= dayStart
     })
   }, [timelineData, filteredBookingsForCalendar])
 
@@ -1632,7 +1637,12 @@ export default function CalendarPage() {
                         // Get all bookings for this day and calculate columns
                         const allDayBookings = filteredBookingsForCalendar.filter(booking => {
                           const bookingStart = parseISO(booking.startTime)
-                          return isSameDay(bookingStart, day)
+                          const bookingEnd = parseISO(booking.endTime)
+                          const dayStart = startOfDay(day)
+                          const dayEnd = new Date(dayStart)
+                          dayEnd.setHours(23, 59, 59, 999)
+                          // Show booking if it overlaps with this day (not just if it starts on this day)
+                          return bookingStart <= dayEnd && bookingEnd >= dayStart
                         })
                         
                         const bookingColumns = getBookingColumns(allDayBookings)
@@ -2266,7 +2276,12 @@ export default function CalendarPage() {
                       {(() => {
                         const dayBookings = filteredBookingsForCalendar.filter(booking => {
                           const bookingStart = parseISO(booking.startTime)
-                          return isSameDay(bookingStart, selectedDate)
+                          const bookingEnd = parseISO(booking.endTime)
+                          const dayStart = startOfDay(selectedDate)
+                          const dayEnd = new Date(dayStart)
+                          dayEnd.setHours(23, 59, 59, 999)
+                          // Show booking if it overlaps with this day (not just if it starts on this day)
+                          return bookingStart <= dayEnd && bookingEnd >= dayStart
                         })
                         
                         const bookingColumns = getBookingColumns(dayBookings)
