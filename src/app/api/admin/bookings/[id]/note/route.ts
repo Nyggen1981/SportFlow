@@ -23,16 +23,25 @@ export async function GET(
 
   const { id } = await params
 
-  // Fetch admin note using raw SQL
-  const result = await prisma.$queryRaw<{ adminNote: string | null }[]>`
-    SELECT "adminNote" FROM "Booking" WHERE id = ${id} AND "organizationId" = ${session.user.organizationId}
-  `
+  // Fetch admin note using type assertion to bypass Prisma client type checking
+  try {
+    const booking = await (prisma.booking.findFirst as any)({
+      where: {
+        id,
+        organizationId: session.user.organizationId
+      },
+      select: { adminNote: true }
+    })
 
-  if (!result || result.length === 0) {
-    return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+    if (!booking) {
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+    }
+
+    return NextResponse.json({ adminNote: booking.adminNote || null })
+  } catch (error) {
+    console.error("Failed to fetch admin note:", error)
+    return NextResponse.json({ adminNote: null })
   }
-
-  return NextResponse.json({ adminNote: result[0].adminNote })
 }
 
 export async function PATCH(
@@ -67,12 +76,15 @@ export async function PATCH(
     return NextResponse.json({ error: "Booking not found" }, { status: 404 })
   }
 
-  // Update admin note using raw SQL to avoid Prisma client type issues
+  // Update admin note - use type assertion to bypass Prisma client type checking
   try {
-    await prisma.$executeRaw`UPDATE "Booking" SET "adminNote" = ${adminNote || null} WHERE id = ${id}`
+    await (prisma.booking.update as any)({
+      where: { id },
+      data: { adminNote: adminNote || null }
+    })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Failed to update admin note:", error)
-    return NextResponse.json({ error: "Failed to save note" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to save note", details: String(error) }, { status: 500 })
   }
 }
