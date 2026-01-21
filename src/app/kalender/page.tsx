@@ -2386,21 +2386,37 @@ export default function CalendarPage() {
               {/* Admin note - only for admin/moderator */}
               {canManageBookings && (
                 <div className="mt-4 pt-4 border-t">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                    <span>📝</span>
-                    Admin-notat
-                    <span className="text-xs font-normal text-gray-400">(kun synlig for admin)</span>
-                  </h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <span>📝</span>
+                      Admin-notat
+                      <span className="text-xs font-normal text-gray-400">(kun synlig for admin)</span>
+                    </h4>
+                    <span id="calendar-admin-note-status" className="text-xs text-green-600 opacity-0 transition-opacity">
+                      ✓ Lagret
+                    </span>
+                  </div>
                   <textarea
                     defaultValue={(selectedBooking as any).adminNote || ""}
+                    onChange={() => {
+                      const status = document.getElementById('calendar-admin-note-status')
+                      if (status) status.style.opacity = '0'
+                    }}
                     onBlur={async (e) => {
                       const newNote = e.target.value
                       try {
-                        await fetch(`/api/admin/bookings/${selectedBooking.id}/note`, {
+                        const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/note`, {
                           method: 'PATCH',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ adminNote: newNote })
                         })
+                        if (res.ok) {
+                          const status = document.getElementById('calendar-admin-note-status')
+                          if (status) {
+                            status.style.opacity = '1'
+                            setTimeout(() => { status.style.opacity = '0' }, 2000)
+                          }
+                        }
                       } catch (error) {
                         console.error('Failed to save admin note:', error)
                       }

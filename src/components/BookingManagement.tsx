@@ -1664,26 +1664,42 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
 
               {/* Admin note - only visible to admin/moderator */}
               <div className="border-t pt-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                  <span>📝</span>
-                  Admin-notat
-                  <span className="text-xs font-normal text-gray-400">(kun synlig for admin)</span>
-                </h4>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <span>📝</span>
+                    Admin-notat
+                    <span className="text-xs font-normal text-gray-400">(kun synlig for admin)</span>
+                  </h4>
+                  <span id="admin-note-status" className="text-xs text-green-600 opacity-0 transition-opacity">
+                    ✓ Lagret
+                  </span>
+                </div>
                 <textarea
                   value={selectedBooking.adminNote || ""}
                   onChange={(e) => {
                     // Update local state immediately for responsiveness
                     setSelectedBooking(prev => prev ? { ...prev, adminNote: e.target.value } : null)
+                    // Hide saved status when typing
+                    const status = document.getElementById('admin-note-status')
+                    if (status) status.style.opacity = '0'
                   }}
                   onBlur={async (e) => {
                     // Save to database on blur
                     const newNote = e.target.value
                     try {
-                      await fetch(`/api/admin/bookings/${selectedBooking.id}/note`, {
+                      const res = await fetch(`/api/admin/bookings/${selectedBooking.id}/note`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ adminNote: newNote })
                       })
+                      if (res.ok) {
+                        // Show saved status
+                        const status = document.getElementById('admin-note-status')
+                        if (status) {
+                          status.style.opacity = '1'
+                          setTimeout(() => { status.style.opacity = '0' }, 2000)
+                        }
+                      }
                     } catch (error) {
                       console.error('Failed to save admin note:', error)
                     }
