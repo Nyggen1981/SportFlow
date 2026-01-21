@@ -31,6 +31,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { EditBookingModal } from "@/components/EditBookingModal"
+import { BookingDetailModal } from "@/components/BookingDetailModal"
 
 interface Booking {
   id: string
@@ -1695,16 +1696,9 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                   <div className="flex items-center gap-2 text-gray-600">
                     <Calendar className="w-4 h-4 text-gray-400" />
                     <span>
-                      {(() => {
-                        const start = new Date(selectedBooking.startTime)
-                        const end = new Date(selectedBooking.endTime)
-                        const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd")
-                        if (sameDay) {
-                          return `${format(start, "EEEE d. MMMM yyyy", { locale: nb })} kl. ${format(start, "HH:mm")} - ${format(end, "HH:mm")}`
-                        } else {
-                          return `${format(start, "EEEE d. MMMM yyyy", { locale: nb })} kl. ${format(start, "HH:mm")} → ${format(end, "EEEE d. MMMM yyyy", { locale: nb })} kl. ${format(end, "HH:mm")}`
-                        }
-                      })()}
+                      {format(new Date(selectedBooking.startTime), "EEEE d. MMMM yyyy", { locale: nb })}
+                      {" kl. "}
+                      {format(new Date(selectedBooking.startTime), "HH:mm")}
                     </span>
                   </div>
                 </div>
