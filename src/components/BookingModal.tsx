@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { format } from "date-fns"
+import { format, isSameDay } from "date-fns"
 import { nb } from "date-fns/locale"
 import {
   X,
@@ -300,31 +300,59 @@ export function BookingModal({
           )}
 
           {/* Date and time */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-2">Fra</h4>
-              <div className="flex items-center gap-2 text-gray-600">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <span>
-                  {format(new Date(booking.startTime), "EEEE d. MMMM yyyy", { locale: nb })}
-                  {" kl. "}
-                  {format(new Date(booking.startTime), "HH:mm")}
-                </span>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-2">Til</h4>
-              <div className="flex items-center gap-2 text-gray-600">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <span>
-                  {format(new Date(booking.endTime), "EEEE d. MMMM yyyy", { locale: nb })}
-                  {" kl. "}
-                  {format(new Date(booking.endTime), "HH:mm")}
-                </span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">{getDuration()}</p>
-            </div>
-          </div>
+          {(() => {
+            const start = new Date(booking.startTime)
+            const end = new Date(booking.endTime)
+            const sameDay = isSameDay(start, end)
+            
+            if (sameDay) {
+              // Same day - show date once with time range
+              return (
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Tidspunkt</h4>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Calendar className="w-4 h-4 text-gray-400" />
+                    <span>
+                      {format(start, "EEEE d. MMMM yyyy", { locale: nb })}
+                    </span>
+                  </div>
+                  <p className="text-lg font-medium text-gray-900 mt-1">
+                    {format(start, "HH:mm")} - {format(end, "HH:mm")}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">{getDuration()}</p>
+                </div>
+              )
+            } else {
+              // Different days - show Fra and Til
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Fra</h4>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <span>
+                        {format(start, "EEEE d. MMMM yyyy", { locale: nb })}
+                        {" kl. "}
+                        {format(start, "HH:mm")}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Til</h4>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <span>
+                        {format(end, "EEEE d. MMMM yyyy", { locale: nb })}
+                        {" kl. "}
+                        {format(end, "HH:mm")}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{getDuration()}</p>
+                  </div>
+                </div>
+              )
+            }
+          })()}
 
           {/* User info - only for admin/moderator or booking owner */}
           {(isAdmin || isOwner) && (
