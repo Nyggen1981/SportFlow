@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth"
 import { addWeeks, addMonths, getHours, getMinutes, setHours, setMinutes } from "date-fns"
 import { nb } from "date-fns/locale"
 import { formatInTimeZone, toZonedTime, fromZonedTime } from "date-fns-tz"
-import { sendEmail, getNewBookingRequestEmail } from "@/lib/email"
+import { sendEmail, getNewBookingRequestEmail, formatBookingDateTime } from "@/lib/email"
 
 const TIMEZONE = "Europe/Oslo"
 
@@ -561,8 +561,7 @@ export async function POST(request: Request) {
           
           const allRecipients = [...new Set([...adminEmails, ...moderatorEmails])]
 
-          const date = formatInTimeZone(new Date(firstBooking.startTime), TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb })
-          const time = `${formatInTimeZone(new Date(firstBooking.startTime), TIMEZONE, "HH:mm")} - ${formatInTimeZone(new Date(firstBooking.endTime), TIMEZONE, "HH:mm")}`
+          const { date, time } = formatBookingDateTime(new Date(firstBooking.startTime), new Date(firstBooking.endTime))
           
           let resourceName = resource.name
           if (resourcePartId) {

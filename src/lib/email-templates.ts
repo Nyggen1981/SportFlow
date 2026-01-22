@@ -109,7 +109,7 @@ export function getDefaultEmailTemplates() {
                 <p><strong>Arrangement:</strong> {{bookingTitle}}</p>
                 <p><strong>Fasilitet:</strong> {{resourceName}}</p>
                 <p><strong>Dato:</strong> {{date}}</p>
-                <p><strong>Tid:</strong> {{time}}</p>
+                {{#if time}}<p><strong>Tid:</strong> {{time}}</p>{{/if}}
                 <p><strong>Booket av:</strong> {{userName}} ({{userEmail}})</p>
                 {{#if description}}<p><strong>Beskrivelse:</strong> {{description}}</p>{{/if}}
               </div>
@@ -157,7 +157,7 @@ export function getDefaultEmailTemplates() {
                 <p><strong>Arrangement:</strong> {{bookingTitle}}</p>
                 <p><strong>Fasilitet:</strong> {{resourceName}}</p>
                 <p><strong>Dato:</strong> {{date}}</p>
-                <p><strong>Tid:</strong> {{time}}</p>
+                {{#if time}}<p><strong>Tid:</strong> {{time}}</p>{{/if}}
               </div>
               
               {{#if adminNote}}
@@ -204,7 +204,7 @@ export function getDefaultEmailTemplates() {
                 <p><strong>Arrangement:</strong> {{bookingTitle}}</p>
                 <p><strong>Fasilitet:</strong> {{resourceName}}</p>
                 <p><strong>Dato:</strong> {{date}}</p>
-                <p><strong>Tid:</strong> {{time}}</p>
+                {{#if time}}<p><strong>Tid:</strong> {{time}}</p>{{/if}}
                 {{#if reason}}<p><strong>Årsak:</strong> {{reason}}</p>{{/if}}
               </div>
               
@@ -245,7 +245,7 @@ export function getDefaultEmailTemplates() {
                 <p><strong>Arrangement:</strong> {{bookingTitle}}</p>
                 <p><strong>Fasilitet:</strong> {{resourceName}}</p>
                 <p><strong>Dato:</strong> {{date}}</p>
-                <p><strong>Tid:</strong> {{time}}</p>
+                {{#if time}}<p><strong>Tid:</strong> {{time}}</p>{{/if}}
                 {{#if reason}}<p><strong>Årsak:</strong> {{reason}}</p>{{/if}}
               </div>
               
@@ -287,7 +287,7 @@ export function getDefaultEmailTemplates() {
                 <p><strong>Arrangement:</strong> {{bookingTitle}}</p>
                 <p><strong>Fasilitet:</strong> {{resourceName}}</p>
                 <p><strong>Dato:</strong> {{date}}</p>
-                <p><strong>Tid:</strong> {{time}}</p>
+                {{#if time}}<p><strong>Tid:</strong> {{time}}</p>{{/if}}
                 <p><strong>Bruker:</strong> {{userName}} ({{userEmail}})</p>
               </div>
               
@@ -333,7 +333,7 @@ export function getDefaultEmailTemplates() {
                 <p><strong>Arrangement:</strong> {{bookingTitle}}</p>
                 <p><strong>Fasilitet:</strong> {{resourceName}}</p>
                 <p><strong>Dato:</strong> {{date}}</p>
-                <p><strong>Tid:</strong> {{time}}</p>
+                {{#if time}}<p><strong>Tid:</strong> {{time}}</p>{{/if}}
               </div>
               
               {{#if adminNote}}

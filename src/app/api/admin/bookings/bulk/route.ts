@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { sendEmail, getBookingApprovedEmail, getBookingRejectedEmail } from "@/lib/email"
+import { sendEmail, getBookingApprovedEmail, getBookingRejectedEmail, formatBookingDateTime } from "@/lib/email"
 import { createInvoiceForMultipleBookings, sendInvoiceEmail } from "@/lib/invoice"
 import { isPricingEnabled } from "@/lib/pricing"
 import { nb } from "date-fns/locale"
@@ -125,8 +125,7 @@ export async function PATCH(request: Request) {
     for (const { email, bookings: userBookings, organizationId } of Object.values(bookingsByUser)) {
       try {
         const firstBooking = userBookings[0]
-        const date = formatInTimeZone(new Date(firstBooking.startTime), TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb })
-        const time = `${formatInTimeZone(new Date(firstBooking.startTime), TIMEZONE, "HH:mm")} - ${formatInTimeZone(new Date(firstBooking.endTime), TIMEZONE, "HH:mm")}`
+        const { date, time } = formatBookingDateTime(new Date(firstBooking.startTime), new Date(firstBooking.endTime))
         const resourceName = firstBooking.resourcePart 
           ? `${firstBooking.resource.name} → ${firstBooking.resourcePart.name}`
           : firstBooking.resource.name

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { sendEmail, getBookingApprovedEmail, getBookingRejectedEmail } from "@/lib/email"
+import { sendEmail, getBookingApprovedEmail, getBookingRejectedEmail, formatBookingDateTime } from "@/lib/email"
 import { nb } from "date-fns/locale"
 import { formatInTimeZone } from "date-fns-tz"
 
@@ -243,8 +243,7 @@ export async function PATCH(
   // Send email notification (non-blocking - don't await)
   const userEmail = booking.contactEmail || booking.user.email
   if (userEmail) {
-    const date = formatInTimeZone(new Date(booking.startTime), TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb })
-    const time = `${formatInTimeZone(new Date(booking.startTime), TIMEZONE, "HH:mm")} - ${formatInTimeZone(new Date(booking.endTime), TIMEZONE, "HH:mm")}`
+    const { date, time } = formatBookingDateTime(new Date(booking.startTime), new Date(booking.endTime))
     const resourceName = booking.resourcePart 
       ? `${booking.resource.name} → ${booking.resourcePart.name}`
       : booking.resource.name

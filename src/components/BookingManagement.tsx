@@ -1352,21 +1352,34 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                   </td>
                   <td className="px-4 py-4">
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {(() => {
-                          const start = new Date(booking.startTime)
-                          const end = new Date(booking.endTime)
-                          const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd")
-                          if (sameDay) {
-                            return format(start, "d. MMM yyyy", { locale: nb })
-                          } else {
-                            return `${format(start, "d. MMM", { locale: nb })} - ${format(end, "d. MMM yyyy", { locale: nb })}`
-                          }
-                        })()}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {format(new Date(booking.startTime), "HH:mm")} - {format(new Date(booking.endTime), "HH:mm")}
-                      </p>
+                      {(() => {
+                        const start = new Date(booking.startTime)
+                        const end = new Date(booking.endTime)
+                        const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd")
+                        if (sameDay) {
+                          return (
+                            <>
+                              <p className="text-sm font-medium text-gray-900">
+                                {format(start, "d. MMM yyyy", { locale: nb })}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {format(start, "HH:mm")} - {format(end, "HH:mm")}
+                              </p>
+                            </>
+                          )
+                        } else {
+                          return (
+                            <>
+                              <p className="text-sm font-medium text-gray-900">
+                                {format(start, "d. MMM", { locale: nb })} kl. {format(start, "HH:mm")}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                → {format(end, "d. MMM yyyy", { locale: nb })} kl. {format(end, "HH:mm")}
+                              </p>
+                            </>
+                          )
+                        }
+                      })()}
                     </div>
                   </td>
                   <td className="px-4 py-4">
@@ -2136,12 +2149,34 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                   className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                                 />
                                 <div className="text-sm">
-                                  <p className={`font-medium ${isPast ? "text-gray-500" : "text-gray-900"}`}>
-                                    {format(new Date(booking.startTime), "EEEE d. MMM", { locale: nb })}
-                                  </p>
-                                  <p className={`text-xs ${isPast ? "text-gray-400" : "text-gray-500"}`}>
-                                    {format(new Date(booking.startTime), "HH:mm")} - {format(new Date(booking.endTime), "HH:mm")}
-                                  </p>
+                                  {(() => {
+                                    const start = new Date(booking.startTime)
+                                    const end = new Date(booking.endTime)
+                                    const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd")
+                                    if (sameDay) {
+                                      return (
+                                        <>
+                                          <p className={`font-medium ${isPast ? "text-gray-500" : "text-gray-900"}`}>
+                                            {format(start, "EEEE d. MMM", { locale: nb })}
+                                          </p>
+                                          <p className={`text-xs ${isPast ? "text-gray-400" : "text-gray-500"}`}>
+                                            {format(start, "HH:mm")} - {format(end, "HH:mm")}
+                                          </p>
+                                        </>
+                                      )
+                                    } else {
+                                      return (
+                                        <>
+                                          <p className={`font-medium ${isPast ? "text-gray-500" : "text-gray-900"}`}>
+                                            {format(start, "EEEE d. MMM", { locale: nb })} kl. {format(start, "HH:mm")}
+                                          </p>
+                                          <p className={`text-xs ${isPast ? "text-gray-400" : "text-gray-500"}`}>
+                                            → {format(end, "EEEE d. MMM", { locale: nb })} kl. {format(end, "HH:mm")}
+                                          </p>
+                                        </>
+                                      )
+                                    }
+                                  })()}
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">

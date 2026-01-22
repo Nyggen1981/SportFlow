@@ -1,6 +1,31 @@
 import nodemailer from "nodemailer"
 import { getEmailTemplate, getDefaultEmailTemplates, renderEmailTemplate } from "./email-templates"
 import { prisma } from "./prisma"
+import { formatInTimeZone } from "date-fns-tz"
+import { nb } from "date-fns/locale"
+
+const TIMEZONE = "Europe/Oslo"
+
+// Helper function to format date and time for emails, handling multi-day bookings
+export function formatBookingDateTime(startTime: Date, endTime: Date): { date: string; time: string } {
+  const startDate = formatInTimeZone(startTime, TIMEZONE, "yyyy-MM-dd")
+  const endDate = formatInTimeZone(endTime, TIMEZONE, "yyyy-MM-dd")
+  const isSameDay = startDate === endDate
+
+  if (isSameDay) {
+    // Same day: "fredag 7. mai 2027" and "18:00 - 20:00"
+    return {
+      date: formatInTimeZone(startTime, TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb }),
+      time: `${formatInTimeZone(startTime, TIMEZONE, "HH:mm")} - ${formatInTimeZone(endTime, TIMEZONE, "HH:mm")}`
+    }
+  } else {
+    // Multi-day: Show full date range with times
+    return {
+      date: `${formatInTimeZone(startTime, TIMEZONE, "EEEE d. MMMM", { locale: nb })} kl. ${formatInTimeZone(startTime, TIMEZONE, "HH:mm")} → ${formatInTimeZone(endTime, TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb })} kl. ${formatInTimeZone(endTime, TIMEZONE, "HH:mm")}`,
+      time: "" // Time is included in the date string for multi-day bookings
+    }
+  }
+}
 
 // Email configuration
 // Per-organization SMTP settings are stored in the Organization model

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { sendEmail, getBookingCancelledByAdminEmail, getBookingCancelledByUserEmail } from "@/lib/email"
+import { sendEmail, getBookingCancelledByAdminEmail, getBookingCancelledByUserEmail, formatBookingDateTime } from "@/lib/email"
 import { nb } from "date-fns/locale"
 import { formatInTimeZone } from "date-fns-tz"
 
@@ -64,8 +64,7 @@ export async function POST(
     })
 
     // Format date and time for email
-    const date = formatInTimeZone(new Date(booking.startTime), TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb })
-    const time = `${formatInTimeZone(new Date(booking.startTime), TIMEZONE, "HH:mm")} - ${formatInTimeZone(new Date(booking.endTime), TIMEZONE, "HH:mm")}`
+    const { date, time } = formatBookingDateTime(new Date(booking.startTime), new Date(booking.endTime))
     const resourceName = booking.resourcePart 
       ? `${booking.resource.name} → ${booking.resourcePart.name}`
       : booking.resource.name
