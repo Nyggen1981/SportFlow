@@ -170,6 +170,13 @@ export function BookingModal({
 }: BookingModalProps) {
   const { data: session } = useSession()
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
+  const [isApproving, setIsApproving] = useState(false)
+  const [isRejecting, setIsRejecting] = useState(false)
+  const [isCancelling, setIsCancelling] = useState(false)
+  const [isMarkingPaid, setIsMarkingPaid] = useState(false)
+  
+  // Combined loading state
+  const isAnyLoading = isProcessing || isApproving || isRejecting || isCancelling || isMarkingPaid
   
   // Check if user is logged in
   const isLoggedIn = !!session?.user?.email
@@ -464,14 +471,21 @@ export function BookingModal({
             <div className="border-t pt-4">
               <div className="flex gap-2">
                 <button
-                  onClick={() => onApprove(booking.id)}
-                  disabled={isProcessing}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  onClick={async () => {
+                    setIsApproving(true)
+                    try {
+                      await onApprove(booking.id)
+                    } finally {
+                      setIsApproving(false)
+                    }
+                  }}
+                  disabled={isAnyLoading}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
-                  {isProcessing ? (
+                  {isApproving ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Behandler...
+                      Godkjenner...
                     </>
                   ) : (
                     <>
@@ -481,12 +495,28 @@ export function BookingModal({
                   )}
                 </button>
                 <button
-                  onClick={() => onReject(booking.id)}
-                  disabled={isProcessing}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  onClick={async () => {
+                    setIsRejecting(true)
+                    try {
+                      await onReject(booking.id)
+                    } finally {
+                      setIsRejecting(false)
+                    }
+                  }}
+                  disabled={isAnyLoading}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
-                  <XCircle className="w-4 h-4" />
-                  Avslå
+                  {isRejecting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Avslår...
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-4 h-4" />
+                      Avslå
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -500,8 +530,8 @@ export function BookingModal({
             <div className="border-t pt-4 space-y-2">
               <button
                 onClick={handleViewInvoice}
-                disabled={isLoadingPreview}
-                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                disabled={isAnyLoading || isLoadingPreview}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
                 {isLoadingPreview ? (
                   <>
@@ -518,11 +548,28 @@ export function BookingModal({
               {/* Mark as paid button - only for admin when invoice is sent */}
               {isAdmin && booking.invoice.status === "SENT" && onMarkAsPaid && (
                 <button
-                  onClick={() => onMarkAsPaid(booking.id)}
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                  onClick={async () => {
+                    setIsMarkingPaid(true)
+                    try {
+                      await onMarkAsPaid(booking.id)
+                    } finally {
+                      setIsMarkingPaid(false)
+                    }
+                  }}
+                  disabled={isAnyLoading}
+                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Marker som betalt
+                  {isMarkingPaid ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Markerer som betalt...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Marker som betalt
+                    </>
+                  )}
                 </button>
               )}
             </div>
@@ -537,11 +584,28 @@ export function BookingModal({
            onMarkAsPaid && (
             <div className="border-t pt-4">
               <button
-                onClick={() => onMarkAsPaid(booking.id)}
-                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                onClick={async () => {
+                  setIsMarkingPaid(true)
+                  try {
+                    await onMarkAsPaid(booking.id)
+                  } finally {
+                    setIsMarkingPaid(false)
+                  }
+                }}
+                disabled={isAnyLoading}
+                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
-                <CheckCircle2 className="w-4 h-4" />
-                Marker som betalt
+                {isMarkingPaid ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Markerer som betalt...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    Marker som betalt
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -553,7 +617,8 @@ export function BookingModal({
                 {canEdit && onEdit && (
                   <button
                     onClick={() => onEdit(booking)}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                    disabled={isAnyLoading}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                   >
                     <Pencil className="w-4 h-4" />
                     Rediger
@@ -561,16 +626,28 @@ export function BookingModal({
                 )}
                 {canCancel && onCancel && (
                   <button
-                    onClick={() => onCancel(booking.id)}
-                    disabled={isProcessing}
-                    className="flex-1 px-4 py-2 bg-white border border-gray-300 text-red-600 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                    onClick={async () => {
+                      setIsCancelling(true)
+                      try {
+                        await onCancel(booking.id)
+                      } finally {
+                        setIsCancelling(false)
+                      }
+                    }}
+                    disabled={isAnyLoading}
+                    className="flex-1 px-4 py-2 bg-white border border-gray-300 text-red-600 rounded-lg font-medium hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                   >
-                    {isProcessing ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                    {isCancelling ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Kansellerer...
+                      </>
                     ) : (
-                      <Trash2 className="w-4 h-4" />
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        Kanseller
+                      </>
                     )}
-                    Kanseller
                   </button>
                 )}
               </div>
