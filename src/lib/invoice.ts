@@ -1,5 +1,5 @@
 import { prisma } from "./prisma"
-import { sendEmail } from "./email"
+import { sendEmail, formatBookingDateTime } from "./email"
 import { format } from "date-fns"
 import { nb } from "date-fns/locale"
 import { formatInTimeZone } from "date-fns-tz"
@@ -616,8 +616,7 @@ export async function sendInvoiceEmail(
     notes: invoice.notes,
   })
 
-  const date = formatInTimeZone(new Date(booking.startTime), TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb })
-  const time = `${formatInTimeZone(new Date(booking.startTime), TIMEZONE, "HH:mm")} - ${formatInTimeZone(new Date(booking.endTime), TIMEZONE, "HH:mm")}`
+  const { date, time } = formatBookingDateTime(new Date(booking.startTime), new Date(booking.endTime))
   const dueDateFormatted = format(new Date(invoice.dueDate), "d. MMMM yyyy", { locale: nb })
 
   const html = `
@@ -654,7 +653,7 @@ export async function sendInvoiceEmail(
             <p><strong>Arrangement:</strong> ${booking.title}</p>
             <p><strong>Fasilitet:</strong> ${resourceName}</p>
             <p><strong>Dato:</strong> ${date}</p>
-            <p><strong>Tid:</strong> ${time}</p>
+            ${time ? `<p><strong>Tid:</strong> ${time}</p>` : ''}
           </div>
 
           <div class="invoice-details">

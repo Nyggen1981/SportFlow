@@ -1,10 +1,8 @@
 import { prisma } from "./prisma"
 import { format } from "date-fns"
 import { nb } from "date-fns/locale"
-import { formatInTimeZone } from "date-fns-tz"
+import { formatBookingDateTime } from "./email"
 import { sendVippsPaymentEmail } from "./vipps"
-
-const TIMEZONE = "Europe/Oslo"
 
 /**
  * Generer preview av faktura e-post (uten å sende)
@@ -43,8 +41,7 @@ export async function getInvoiceEmailPreview(
     ? `${booking.resource.name} → ${booking.resourcePart.name}`
     : booking.resource.name
 
-  const date = formatInTimeZone(new Date(booking.startTime), TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb })
-  const time = `${formatInTimeZone(new Date(booking.startTime), TIMEZONE, "HH:mm")} - ${formatInTimeZone(new Date(booking.endTime), TIMEZONE, "HH:mm")}`
+  const { date, time } = formatBookingDateTime(new Date(booking.startTime), new Date(booking.endTime))
   const dueDateFormatted = format(new Date(invoice.dueDate), "d. MMMM yyyy", { locale: nb })
 
   const html = `
@@ -81,7 +78,7 @@ export async function getInvoiceEmailPreview(
             <p><strong>Arrangement:</strong> ${booking.title}</p>
             <p><strong>Fasilitet:</strong> ${resourceName}</p>
             <p><strong>Dato:</strong> ${date}</p>
-            <p><strong>Tid:</strong> ${time}</p>
+            ${time ? `<p><strong>Tid:</strong> ${time}</p>` : ''}
           </div>
 
           <div class="invoice-details">
@@ -158,8 +155,7 @@ export async function getVippsPaymentEmailPreview(
     ? `${booking.resource.name} → ${booking.resourcePart.name}`
     : booking.resource.name
 
-  const date = formatInTimeZone(new Date(booking.startTime), TIMEZONE, "EEEE d. MMMM yyyy", { locale: nb })
-  const time = `${formatInTimeZone(new Date(booking.startTime), TIMEZONE, "HH:mm")} - ${formatInTimeZone(new Date(booking.endTime), TIMEZONE, "HH:mm")}`
+  const { date, time } = formatBookingDateTime(new Date(booking.startTime), new Date(booking.endTime))
 
   const billingEmail = booking.contactEmail || booking.user.email
   if (!billingEmail) {
@@ -200,7 +196,7 @@ export async function getVippsPaymentEmailPreview(
             <p><strong>Arrangement:</strong> ${booking.title}</p>
             <p><strong>Fasilitet:</strong> ${resourceName}</p>
             <p><strong>Dato:</strong> ${date}</p>
-            <p><strong>Tid:</strong> ${time}</p>
+            ${time ? `<p><strong>Tid:</strong> ${time}</p>` : ''}
             <p><strong>Beløp:</strong> ${amount.toFixed(2)} kr</p>
           </div>
 
