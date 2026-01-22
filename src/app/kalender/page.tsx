@@ -643,7 +643,50 @@ export default function CalendarPage() {
       }
     })
     
-    return slots
+    // Merge overlapping slots to avoid visual clutter
+    if (slots.length <= 1) return slots
+    
+    // Sort by start time
+    slots.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+    
+    const mergedSlots: BlockedSlot[] = []
+    let current = { ...slots[0] }
+    const blockedByNames: string[] = [current.blockedBy]
+    
+    for (let i = 1; i < slots.length; i++) {
+      const slot = slots[i]
+      const currentEnd = new Date(current.endTime).getTime()
+      const slotStart = new Date(slot.startTime).getTime()
+      
+      // Check if slots overlap or are adjacent (within 1 minute)
+      if (slotStart <= currentEnd + 60000) {
+        // Extend current slot if this one ends later
+        if (new Date(slot.endTime).getTime() > currentEnd) {
+          current.endTime = slot.endTime
+        }
+        // Collect all blockedBy names
+        if (!blockedByNames.includes(slot.blockedBy)) {
+          blockedByNames.push(slot.blockedBy)
+        }
+      } else {
+        // No overlap, save current and start new
+        current.blockedBy = blockedByNames.length > 1 
+          ? `${blockedByNames.length} bookinger` 
+          : blockedByNames[0]
+        mergedSlots.push(current)
+        current = { ...slot }
+        blockedByNames.length = 0
+        blockedByNames.push(slot.blockedBy)
+      }
+    }
+    
+    // Don't forget the last slot
+    current.blockedBy = blockedByNames.length > 1 
+      ? `${blockedByNames.length} bookinger` 
+      : blockedByNames[0]
+    mergedSlots.push(current)
+    
+    return mergedSlots
   }, [])
 
   // Get blocked slot style (similar to booking style)
