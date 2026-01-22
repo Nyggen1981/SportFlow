@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { sendEmail, getBookingApprovedEmail, getBookingRejectedEmail, formatBookingDateTime } from "@/lib/email"
+import { sendEmail, getBookingApprovedEmail, getBookingRejectedEmail, getBookingCancelledByAdminEmail, formatBookingDateTime } from "@/lib/email"
 import { createInvoiceForMultipleBookings, sendInvoiceEmail } from "@/lib/invoice"
 import { isPricingEnabled } from "@/lib/pricing"
 import { nb } from "date-fns/locale"
@@ -30,7 +30,7 @@ export async function PATCH(request: Request) {
 
   let body: { 
     bookingIds: string[]
-    action: "approve" | "reject"
+    action: "approve" | "reject" | "cancel"
     statusNote?: string
   }
   
@@ -46,7 +46,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "No booking IDs provided" }, { status: 400 })
   }
 
-  if (!action || (action !== "approve" && action !== "reject")) {
+  if (!action || (action !== "approve" && action !== "reject" && action !== "cancel")) {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 })
   }
 
@@ -86,7 +86,7 @@ export async function PATCH(request: Request) {
     }
   }
 
-  const newStatus = action === "approve" ? "approved" : "rejected"
+  const newStatus = action === "approve" ? "approved" : action === "cancel" ? "cancelled" : "rejected"
   const validBookingIds = bookings.map(b => b.id)
 
   // Update all bookings in a single database operation
@@ -167,6 +167,16 @@ export async function PATCH(request: Request) {
               }
             }
           }
+        } else if (action === "cancel") {
+          const emailContent = await getBookingCancelledByAdminEmail(
+            organizationId,
+            firstBooking.title, 
+            resourceName, 
+            count > 1 ? `${date} (og ${count - 1} andre datoer)` : date, 
+            time, 
+            statusNote
+          )
+          await sendEmail(organizationId, { to: email, ...emailContent })
         } else {
           const emailContent = await getBookingRejectedEmail(
             organizationId,

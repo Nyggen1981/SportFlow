@@ -27,7 +27,8 @@ import {
   Send,
   Eye,
   ClipboardList,
-  Pencil
+  Pencil,
+  Ban
 } from "lucide-react"
 import Link from "next/link"
 import { EditBookingModal } from "@/components/EditBookingModal"
@@ -2295,6 +2296,88 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                   : `Avslå (${selectedPendingCount})`}
                             </button>
                           </div>
+                        </div>
+                      )
+                    })()}
+                    
+                    {/* Cancel buttons for approved bookings */}
+                    {(() => {
+                      // Count only APPROVED bookings that are selected (for cancel)
+                      const selectedApprovedIds = approvedBookings
+                        .filter(b => selectedModalBookingIds.has(b.id))
+                        .map(b => b.id)
+                      const selectedApprovedCount = selectedApprovedIds.length
+                      // Only say "alle" if there are multiple approved AND all are selected
+                      const allApprovedSelected = selectedApprovedCount === approvedBookings.length && approvedBookings.length > 1
+                      
+                      if (approvedBookings.length === 0) return null
+                      
+                      return (
+                        <div className="border-t pt-4">
+                          <p className="text-sm text-gray-600 mb-3">
+                            {selectedApprovedCount === 0 
+                              ? "Velg godkjente bookinger for å kansellere"
+                              : allApprovedSelected
+                                ? `Kanseller alle ${selectedApprovedCount} godkjente bookinger:`
+                                : selectedApprovedCount === 1
+                                  ? "Kanseller 1 godkjent booking:"
+                                  : `Kanseller ${selectedApprovedCount} av ${approvedBookings.length} godkjente bookinger:`
+                            }
+                          </p>
+                          <button
+                            onClick={async () => {
+                              if (selectedApprovedCount === 0) return
+                              
+                              const confirmMsg = selectedApprovedCount === 1
+                                ? "Er du sikker på at du vil kansellere denne bookingen?"
+                                : `Er du sikker på at du vil kansellere ${selectedApprovedCount} bookinger?`
+                              
+                              if (!confirm(confirmMsg)) return
+                              
+                              setProcessingId("batch-cancel")
+                              try {
+                                // Use bulk endpoint to cancel approved bookings
+                                const response = await fetch('/api/admin/bookings/bulk', {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    bookingIds: selectedApprovedIds,
+                                    action: 'cancel'
+                                  })
+                                })
+                                if (!response.ok) {
+                                  const error = await response.json()
+                                  throw new Error(error.error || 'Kunne ikke kansellere bookinger')
+                                }
+                                await fetchBookings()
+                                setSelectedRecurringGroup(null)
+                                setSelectedModalBookingIds(new Set())
+                              } catch (error) {
+                                console.error('Bulk cancel failed:', error)
+                                alert(error instanceof Error ? error.message : 'En feil oppstod')
+                              } finally {
+                                setProcessingId(null)
+                              }
+                            }}
+                            disabled={processingId !== null || selectedApprovedCount === 0}
+                            className="w-full px-4 py-2.5 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                          >
+                            {processingId === "batch-cancel" ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Kansellerer...
+                              </>
+                            ) : (
+                              <>
+                                <Ban className="w-4 h-4" />
+                                {allApprovedSelected 
+                                  ? "Kanseller alle" 
+                                  : selectedApprovedCount === 1 
+                                    ? "Kanseller" 
+                                    : `Kanseller (${selectedApprovedCount})`}
+                              </>
+                            )}
+                          </button>
                         </div>
                       )
                     })()}
