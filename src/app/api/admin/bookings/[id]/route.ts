@@ -334,7 +334,9 @@ export async function DELETE(
       organizationId: true,
       resourceId: true,
       isRecurring: true,
-      parentBookingId: true
+      parentBookingId: true,
+      status: true,
+      endTime: true
     }
   })
 
@@ -367,18 +369,38 @@ export async function DELETE(
     }
   }
 
+  // Validate that booking can be deleted - must be cancelled, rejected, or past
+  const isPast = new Date(booking.endTime) < new Date()
+  const isInactive = booking.status === "cancelled" || booking.status === "rejected"
+  
+  if (!isPast && !isInactive) {
+    return NextResponse.json({ 
+      error: "Kan kun slette kansellerte, avslåtte eller passerte bookinger" 
+    }, { status: 400 })
+  }
+
   // If deleteAll and this is a recurring booking, delete all in the series
   if (deleteAll && booking.isRecurring) {
     const groupId = booking.parentBookingId || booking.id
     
-    // Delete all bookings in the series (parent + children)
+    // Delete all bookings in the series that are cancelled, rejected, or past
     await prisma.booking.deleteMany({
       where: {
-        OR: [
-          { id: groupId },
-          { parentBookingId: groupId }
-        ],
-        organizationId: session.user.organizationId
+        AND: [
+          {
+            OR: [
+              { id: groupId },
+              { parentBookingId: groupId }
+            ]
+          },
+          { organizationId: session.user.organizationId },
+          {
+            OR: [
+              { status: { in: ["cancelled", "rejected"] } },
+              { endTime: { lt: new Date() } }
+            ]
+          }
+        ]
       }
     })
     
