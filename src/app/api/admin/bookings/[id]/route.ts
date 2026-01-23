@@ -8,8 +8,9 @@ import { formatInTimeZone } from "date-fns-tz"
 
 const TIMEZONE = "Europe/Oslo"
 import { isPricingEnabled } from "@/lib/pricing"
-import { createInvoiceForBooking, sendInvoiceEmail } from "@/lib/invoice"
+import { createInvoiceForBooking, createInvoiceWithPDF, sendInvoiceEmail } from "@/lib/invoice"
 import { getVippsClient, sendVippsPaymentEmail } from "@/lib/vipps"
+import { format } from "date-fns"
 
 export async function PATCH(
   request: Request,
@@ -134,21 +135,24 @@ export async function PATCH(
   // Determine the new status
   const newStatus = action === "approve" ? "approved" : "rejected"
 
-        // Håndter betaling hvis booking godkjennes og har kostnad (kun hvis pricing er aktivert)
-        const pricingEnabled = await isPricingEnabled()
-        if (action === "approve" && pricingEnabled && booking.totalAmount && Number(booking.totalAmount) > 0) {
+  // Store invoice data for email attachment
+  let invoiceData: { invoiceNumber: string; pdfBuffer: Buffer; dueDate: Date; totalAmount: number } | null = null
+
+  // Håndter betaling hvis booking godkjennes og har kostnad (kun hvis pricing er aktivert)
+  const pricingEnabled = await isPricingEnabled()
+  if (action === "approve" && pricingEnabled && booking.totalAmount && Number(booking.totalAmount) > 0) {
     // Bruk brukerens foretrukne betalingsmetode fra booking, eller faktura som standard
     const method = booking.preferredPaymentMethod || "INVOICE"
     
     try {
       if (method === "INVOICE") {
-        // Opprett faktura for booking (ikke send automatisk - admin kan sende den senere)
-        const { invoiceId, invoiceNumber } = await createInvoiceForBooking(
+        // Opprett faktura og generer PDF for vedlegg i godkjennings-e-post
+        const { invoiceId, invoiceNumber, pdfBuffer, dueDate } = await createInvoiceWithPDF(
           booking.id,
           booking.organizationId
         )
-        console.log(`[Booking Approval] Created invoice ${invoiceNumber} for booking ${booking.id}`)
-        // Faktura sendes ikke automatisk - admin kan sende den manuelt fra booking-detaljer
+        console.log(`[Booking Approval] Created invoice ${invoiceNumber} for booking ${booking.id} with PDF attachment`)
+        invoiceData = { invoiceNumber, pdfBuffer, dueDate, totalAmount: Number(booking.totalAmount) }
       } else if (method === "VIPPS") {
         // Opprett Vipps-betaling
         const organization = await prisma.organization.findUnique({
@@ -254,15 +258,32 @@ export async function PATCH(
       try {
         if (action === "approve") {
           const adminNote = (booking.resourcePart as any)?.adminNote || null
+          
+          // Prepare invoice info if we have invoice data
+          const invoiceInfo = invoiceData ? {
+            invoiceNumber: invoiceData.invoiceNumber,
+            dueDate: format(invoiceData.dueDate, "d. MMMM yyyy", { locale: nb }),
+            totalAmount: invoiceData.totalAmount
+          } : null
+          
           const emailContent = await getBookingApprovedEmail(
             booking.organizationId,
             booking.title, 
             resourceName, 
             count > 1 ? `${date} (og ${count - 1} andre datoer)` : date, 
             time,
-            adminNote
+            adminNote,
+            invoiceInfo
           )
-          await sendEmail(booking.organizationId, { to: userEmail, ...emailContent })
+          
+          // Attach invoice PDF if available
+          const attachments = invoiceData ? [{
+            filename: `Faktura_${invoiceData.invoiceNumber}.pdf`,
+            content: invoiceData.pdfBuffer,
+            contentType: "application/pdf"
+          }] : undefined
+          
+          await sendEmail(booking.organizationId, { to: userEmail, ...emailContent, attachments })
         } else {
           const emailContent = await getBookingRejectedEmail(
             booking.organizationId,

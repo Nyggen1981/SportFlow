@@ -316,34 +316,6 @@ export default function AdminBookingsPage() {
     }
   }, [sendingInvoiceId, invoicePreviewUrl, fetchBookings])
 
-  // Handle marking as paid
-  const handleMarkAsPaid = useCallback(async (bookingId: string) => {
-    setProcessingId(bookingId)
-    try {
-      const response = await fetch(`/api/admin/bookings/${bookingId}/mark-paid`, {
-        method: "POST",
-      })
-      if (response.ok) {
-        await fetchBookings()
-        if (selectedBooking?.id === bookingId) {
-          // Refresh selected booking
-          const updatedBooking = bookings.find(b => b.id === bookingId)
-          if (updatedBooking) {
-            setSelectedBooking(updatedBooking)
-          }
-        }
-      } else {
-        const error = await response.json()
-        alert(error.error || "Kunne ikke markere som betalt")
-      }
-    } catch (error) {
-      console.error("Failed to mark as paid:", error)
-      alert("Kunne ikke markere som betalt")
-    } finally {
-      setProcessingId(null)
-    }
-  }, [bookings, selectedBooking, fetchBookings])
-
   const toggleGroup = useCallback((groupId: string) => {
     setExpandedGroups(prev => {
       const newExpanded = new Set(prev)
@@ -1293,25 +1265,6 @@ export default function AdminBookingsPage() {
                         <>
                           <Eye className="w-4 h-4" />
                           Se faktura
-                        </>
-                      )}
-                    </button>
-                  )}
-                  {selectedBooking.invoice.status === "SENT" && (
-                    <button
-                      onClick={() => handleMarkAsPaid(selectedBooking.id)}
-                      disabled={processingId === selectedBooking.id}
-                      className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {processingId === selectedBooking.id ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Behandler...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="w-4 h-4" />
-                          Betalt
                         </>
                       )}
                     </button>

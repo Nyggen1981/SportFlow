@@ -3,9 +3,10 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { sendEmail, getBookingApprovedEmail, getBookingRejectedEmail, getBookingCancelledByAdminEmail, formatBookingDateTime } from "@/lib/email"
-import { createInvoiceForMultipleBookings, sendInvoiceEmail } from "@/lib/invoice"
+import { createMultipleBookingsInvoiceWithPDF } from "@/lib/invoice"
 import { isPricingEnabled } from "@/lib/pricing"
 import { nb } from "date-fns/locale"
+import { format } from "date-fns"
 import { formatInTimeZone } from "date-fns-tz"
 
 const TIMEZONE = "Europe/Oslo"
@@ -133,17 +134,11 @@ export async function PATCH(request: Request) {
 
         if (action === "approve") {
           const adminNote = (firstBooking.resourcePart as any)?.adminNote || null
-          const emailContent = await getBookingApprovedEmail(
-            organizationId,
-            firstBooking.title, 
-            resourceName, 
-            count > 1 ? `${date} (og ${count - 1} andre datoer)` : date, 
-            time,
-            adminNote
-          )
-          await sendEmail(organizationId, { to: email, ...emailContent })
-
-          // Create combined invoice for approved bookings if pricing is enabled
+          
+          // Check if we need to create invoice and attach to email
+          let invoiceAttachment: { filename: string; content: Buffer; contentType: string } | undefined
+          let invoiceInfo: { invoiceNumber: string; dueDate: string; totalAmount: number } | null = null
+          
           if (pricingEnabled) {
             // Refetch bookings to get updated totalAmount values
             const approvedBookings = await prisma.booking.findMany({
@@ -156,17 +151,41 @@ export async function PATCH(request: Request) {
             
             if (approvedBookings.length > 0) {
               try {
-                const { invoiceId } = await createInvoiceForMultipleBookings(
+                const { invoiceNumber, pdfBuffer, dueDate, totalAmount } = await createMultipleBookingsInvoiceWithPDF(
                   approvedBookings.map(b => b.id),
                   organizationId
                 )
-                // Send combined invoice email
-                await sendInvoiceEmail(invoiceId, organizationId)
+                invoiceAttachment = {
+                  filename: `Faktura_${invoiceNumber}.pdf`,
+                  content: pdfBuffer,
+                  contentType: "application/pdf"
+                }
+                invoiceInfo = {
+                  invoiceNumber,
+                  dueDate: format(dueDate, "d. MMMM yyyy", { locale: nb }),
+                  totalAmount
+                }
+                console.log(`[Bulk Approval] Created invoice ${invoiceNumber} with PDF for ${approvedBookings.length} bookings`)
               } catch (invoiceError) {
-                console.error("Failed to create/send combined invoice:", invoiceError)
+                console.error("Failed to create combined invoice with PDF:", invoiceError)
               }
             }
           }
+          
+          const emailContent = await getBookingApprovedEmail(
+            organizationId,
+            firstBooking.title, 
+            resourceName, 
+            count > 1 ? `${date} (og ${count - 1} andre datoer)` : date, 
+            time,
+            adminNote,
+            invoiceInfo
+          )
+          await sendEmail(organizationId, { 
+            to: email, 
+            ...emailContent,
+            attachments: invoiceAttachment ? [invoiceAttachment] : undefined
+          })
         } else if (action === "cancel") {
           const emailContent = await getBookingCancelledByAdminEmail(
             organizationId,

@@ -274,7 +274,8 @@ export async function getBookingApprovedEmail(
   resourceName: string,
   date: string,
   time: string,
-  adminNote?: string | null
+  adminNote?: string | null,
+  invoiceInfo?: { invoiceNumber: string; dueDate: string; totalAmount: number } | null
 ) {
   const customTemplate = await getEmailTemplate(organizationId, "approved")
   const defaultTemplates = getDefaultEmailTemplates()
@@ -284,7 +285,7 @@ export async function getBookingApprovedEmail(
   }
   const organizationName = await getOrganizationName(organizationId)
 
-  return renderEmailTemplate(template, {
+  let result = renderEmailTemplate(template, {
     bookingTitle,
     resourceName,
     date,
@@ -292,6 +293,30 @@ export async function getBookingApprovedEmail(
     adminNote: adminNote || "",
     organizationName,
   })
+
+  // Hvis faktura er vedlagt, legg til betalingsinformasjon i e-posten
+  if (invoiceInfo) {
+    const paymentInfoHtml = `
+      <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <p style="margin: 0 0 12px 0; font-weight: 600; color: #92400e; font-size: 16px;">💳 Betalingsinformasjon</p>
+        <p style="margin: 0 0 8px 0; color: #78350f;">
+          <strong>Fakturanummer:</strong> ${invoiceInfo.invoiceNumber}<br/>
+          <strong>Beløp:</strong> ${invoiceInfo.totalAmount.toFixed(2)} kr<br/>
+          <strong>Forfallsdato:</strong> ${invoiceInfo.dueDate}
+        </p>
+        <p style="margin: 12px 0 0 0; color: #78350f; font-size: 14px;">
+          📎 Faktura er vedlagt denne e-posten. Vennligst betal innen forfallsdatoen.
+        </p>
+      </div>
+    `
+    // Inject payment info before the closing content div
+    result.html = result.html.replace(
+      /<p>Vi gleder oss til å se deg!<\/p>/,
+      `${paymentInfoHtml}<p>Vi gleder oss til å se deg!</p>`
+    )
+  }
+
+  return result
 }
 
 export async function getBookingRejectedEmail(

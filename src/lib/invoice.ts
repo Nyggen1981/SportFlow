@@ -109,6 +109,129 @@ export async function createInvoiceForBooking(
 }
 
 /**
+ * Oppretter faktura og genererer PDF for en booking - returnerer PDF buffer for vedlegg
+ */
+export async function createInvoiceWithPDF(
+  bookingId: string,
+  organizationId: string
+): Promise<{ invoiceId: string; invoiceNumber: string; pdfBuffer: Buffer; dueDate: Date }> {
+  // Først opprett fakturaen
+  const { invoiceId, invoiceNumber } = await createInvoiceForBooking(bookingId, organizationId)
+  
+  // Hent fakturaen med alle nødvendige data for PDF-generering
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+    include: {
+      organization: {
+        select: {
+          name: true,
+          logo: true,
+          invoiceAddress: true,
+          invoicePhone: true,
+          invoiceEmail: true,
+          invoiceOrgNumber: true,
+          invoiceBankAccount: true,
+          invoiceNotes: true,
+        }
+      },
+      bookings: {
+        include: {
+          resource: true,
+          resourcePart: true,
+          user: true
+        }
+      }
+    }
+  })
+
+  if (!invoice) {
+    throw new Error("Invoice not found after creation")
+  }
+
+  const booking = invoice.bookings[0]
+  if (!booking) {
+    throw new Error("Invoice has no bookings")
+  }
+
+  // Generer PDF
+  const pdfBuffer = await generateInvoicePDF({
+    invoiceNumber: invoice.invoiceNumber,
+    invoiceDate: invoice.createdAt,
+    dueDate: invoice.dueDate,
+    organization: {
+      name: invoice.organization.name,
+      logo: invoice.organization.logo,
+      invoiceAddress: invoice.organization.invoiceAddress,
+      invoicePhone: invoice.organization.invoicePhone,
+      invoiceEmail: invoice.organization.invoiceEmail,
+      invoiceOrgNumber: invoice.organization.invoiceOrgNumber,
+      invoiceBankAccount: invoice.organization.invoiceBankAccount,
+      invoiceNotes: invoice.organization.invoiceNotes,
+    },
+    billing: {
+      name: invoice.billingName,
+      email: invoice.billingEmail,
+      phone: invoice.billingPhone,
+      address: invoice.billingAddress,
+    },
+    items: invoice.bookings.map(b => {
+      const cleanTitle = b.title
+        .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+        .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      
+      const bookingResourceName = b.resourcePart 
+        ? `${b.resource.name} - ${b.resourcePart.name}` 
+        : b.resource.name;
+      
+      const startDate = formatInTimeZone(new Date(b.startTime), TIMEZONE, "d. MMM yyyy", { locale: nb });
+      const endDate = formatInTimeZone(new Date(b.endTime), TIMEZONE, "d. MMM yyyy", { locale: nb });
+      const startTime = formatInTimeZone(new Date(b.startTime), TIMEZONE, "HH:mm", { locale: nb });
+      const endTime = formatInTimeZone(new Date(b.endTime), TIMEZONE, "HH:mm", { locale: nb });
+      
+      const dateTime = startDate === endDate 
+        ? `${startDate} ${startTime} - ${endTime}`
+        : `${startDate} ${startTime} - ${endDate} ${endTime}`;
+      
+      return {
+        description: cleanTitle,
+        resourceName: bookingResourceName,
+        dateTime: dateTime,
+        quantity: 1,
+        unitPrice: Number(b.totalAmount || 0) / (1 + Number(invoice.taxRate)),
+        total: Number(b.totalAmount || 0) / (1 + Number(invoice.taxRate)),
+      };
+    }),
+    subtotal: Number(invoice.subtotal),
+    taxRate: Number(invoice.taxRate),
+    taxAmount: Number(invoice.taxAmount),
+    totalAmount: Number(invoice.totalAmount),
+    notes: invoice.notes,
+  })
+
+  // Marker fakturaen som sendt siden den blir vedlagt godkjennings-epost
+  await prisma.invoice.update({
+    where: { id: invoiceId },
+    data: { status: "SENT" }
+  })
+
+  return {
+    invoiceId,
+    invoiceNumber,
+    pdfBuffer,
+    dueDate: invoice.dueDate
+  }
+}
+
+/**
  * Oppretter en samlet faktura for flere bookinger (f.eks. recurring bookings)
  */
 export async function createInvoiceForMultipleBookings(
@@ -221,6 +344,129 @@ export async function createInvoiceForMultipleBookings(
   return {
     invoiceId: invoice.id,
     invoiceNumber: invoice.invoiceNumber
+  }
+}
+
+/**
+ * Oppretter en samlet faktura med PDF for flere bookinger - returnerer PDF buffer for vedlegg
+ */
+export async function createMultipleBookingsInvoiceWithPDF(
+  bookingIds: string[],
+  organizationId: string
+): Promise<{ invoiceId: string; invoiceNumber: string; pdfBuffer: Buffer; dueDate: Date; totalAmount: number }> {
+  // Først opprett fakturaen
+  const { invoiceId, invoiceNumber } = await createInvoiceForMultipleBookings(bookingIds, organizationId)
+  
+  // Hent fakturaen med alle nødvendige data for PDF-generering
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+    include: {
+      organization: {
+        select: {
+          name: true,
+          logo: true,
+          invoiceAddress: true,
+          invoicePhone: true,
+          invoiceEmail: true,
+          invoiceOrgNumber: true,
+          invoiceBankAccount: true,
+          invoiceNotes: true,
+        }
+      },
+      bookings: {
+        include: {
+          resource: true,
+          resourcePart: true,
+          user: true
+        }
+      }
+    }
+  })
+
+  if (!invoice) {
+    throw new Error("Invoice not found after creation")
+  }
+
+  if (invoice.bookings.length === 0) {
+    throw new Error("Invoice has no bookings")
+  }
+
+  // Generer PDF
+  const pdfBuffer = await generateInvoicePDF({
+    invoiceNumber: invoice.invoiceNumber,
+    invoiceDate: invoice.createdAt,
+    dueDate: invoice.dueDate,
+    organization: {
+      name: invoice.organization.name,
+      logo: invoice.organization.logo,
+      invoiceAddress: invoice.organization.invoiceAddress,
+      invoicePhone: invoice.organization.invoicePhone,
+      invoiceEmail: invoice.organization.invoiceEmail,
+      invoiceOrgNumber: invoice.organization.invoiceOrgNumber,
+      invoiceBankAccount: invoice.organization.invoiceBankAccount,
+      invoiceNotes: invoice.organization.invoiceNotes,
+    },
+    billing: {
+      name: invoice.billingName,
+      email: invoice.billingEmail,
+      phone: invoice.billingPhone,
+      address: invoice.billingAddress,
+    },
+    items: invoice.bookings.map(b => {
+      const cleanTitle = b.title
+        .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+        .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      
+      const bookingResourceName = b.resourcePart 
+        ? `${b.resource.name} - ${b.resourcePart.name}` 
+        : b.resource.name;
+      
+      const startDate = formatInTimeZone(new Date(b.startTime), TIMEZONE, "d. MMM yyyy", { locale: nb });
+      const endDate = formatInTimeZone(new Date(b.endTime), TIMEZONE, "d. MMM yyyy", { locale: nb });
+      const startTime = formatInTimeZone(new Date(b.startTime), TIMEZONE, "HH:mm", { locale: nb });
+      const endTime = formatInTimeZone(new Date(b.endTime), TIMEZONE, "HH:mm", { locale: nb });
+      
+      const dateTime = startDate === endDate 
+        ? `${startDate} ${startTime} - ${endTime}`
+        : `${startDate} ${startTime} - ${endDate} ${endTime}`;
+      
+      return {
+        description: cleanTitle,
+        resourceName: bookingResourceName,
+        dateTime: dateTime,
+        quantity: 1,
+        unitPrice: Number(b.totalAmount || 0) / (1 + Number(invoice.taxRate)),
+        total: Number(b.totalAmount || 0) / (1 + Number(invoice.taxRate)),
+      };
+    }),
+    subtotal: Number(invoice.subtotal),
+    taxRate: Number(invoice.taxRate),
+    taxAmount: Number(invoice.taxAmount),
+    totalAmount: Number(invoice.totalAmount),
+    notes: invoice.notes,
+  })
+
+  // Marker fakturaen som sendt siden den blir vedlagt godkjennings-epost
+  await prisma.invoice.update({
+    where: { id: invoiceId },
+    data: { status: "SENT" }
+  })
+
+  return {
+    invoiceId,
+    invoiceNumber,
+    pdfBuffer,
+    dueDate: invoice.dueDate,
+    totalAmount: Number(invoice.totalAmount)
   }
 }
 

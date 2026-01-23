@@ -60,7 +60,6 @@ interface BookingModalProps {
   onApprove?: (bookingId: string) => Promise<void>
   onReject?: (bookingId: string, reason?: string) => void
   onCancel?: (bookingId: string) => Promise<void>
-  onMarkAsPaid?: (bookingId: string) => Promise<void>
   onViewInvoice?: (invoiceId: string) => void
   isProcessing?: boolean
 }
@@ -164,7 +163,6 @@ export function BookingModal({
   onApprove,
   onReject,
   onCancel,
-  onMarkAsPaid,
   onViewInvoice,
   isProcessing = false
 }: BookingModalProps) {
@@ -173,10 +171,9 @@ export function BookingModal({
   const [isApproving, setIsApproving] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
-  const [isMarkingPaid, setIsMarkingPaid] = useState(false)
   
   // Combined loading state
-  const isAnyLoading = isProcessing || isApproving || isRejecting || isCancelling || isMarkingPaid
+  const isAnyLoading = isProcessing || isApproving || isRejecting || isCancelling
   
   // Check if user is logged in
   const isLoggedIn = !!session?.user?.email
@@ -194,9 +191,6 @@ export function BookingModal({
   
   // Only admin can approve/reject
   const canApproveReject = isAdmin && booking.status === "pending"
-  // Only admin can mark as paid
-  const canMarkAsPaid = isAdmin && pricingEnabled && booking.status === "approved" && 
-                        booking.totalAmount && booking.totalAmount > 0
   // Payment info only visible to admin or booking owner
   const canSeePaymentInfo = pricingEnabled && (isAdmin || isOwner)
   
@@ -214,17 +208,6 @@ export function BookingModal({
     
     const durationHours = Math.round((durationMs / (1000 * 60 * 60)) * 10) / 10
     return `${durationHours} timer`
-  }
-
-  // Get payment status
-  const getPaymentStatus = () => {
-    if (booking.payments && booking.payments.some(p => p.status === "COMPLETED")) {
-      return "paid"
-    }
-    if (booking.invoice?.status === "PAID") {
-      return "paid"
-    }
-    return "unpaid"
   }
 
   const handleViewInvoice = async () => {
@@ -527,7 +510,7 @@ export function BookingModal({
            booking.preferredPaymentMethod === "INVOICE" && 
            booking.invoice && 
            onViewInvoice && (
-            <div className="border-t pt-4 space-y-2">
+            <div className="border-t pt-4">
               <button
                 onClick={handleViewInvoice}
                 disabled={isAnyLoading || isLoadingPreview}
@@ -542,68 +525,6 @@ export function BookingModal({
                   <>
                     <Eye className="w-4 h-4" />
                     Se faktura
-                  </>
-                )}
-              </button>
-              {/* Mark as paid button - only for admin when invoice is sent */}
-              {isAdmin && booking.invoice.status === "SENT" && onMarkAsPaid && (
-                <button
-                  onClick={async () => {
-                    setIsMarkingPaid(true)
-                    try {
-                      await onMarkAsPaid(booking.id)
-                    } finally {
-                      setIsMarkingPaid(false)
-                    }
-                  }}
-                  disabled={isAnyLoading}
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                >
-                  {isMarkingPaid ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Markerer som betalt...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      Marker som betalt
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Mark as paid for non-invoice bookings (admin only) */}
-          {isAdmin && 
-           booking.status === "approved" && 
-           booking.preferredPaymentMethod !== "INVOICE" &&
-           canMarkAsPaid && 
-           getPaymentStatus() !== "paid" &&
-           onMarkAsPaid && (
-            <div className="border-t pt-4">
-              <button
-                onClick={async () => {
-                  setIsMarkingPaid(true)
-                  try {
-                    await onMarkAsPaid(booking.id)
-                  } finally {
-                    setIsMarkingPaid(false)
-                  }
-                }}
-                disabled={isAnyLoading}
-                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-              >
-                {isMarkingPaid ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Markerer som betalt...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    Marker som betalt
                   </>
                 )}
               </button>
