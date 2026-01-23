@@ -18,11 +18,10 @@ import {
   X,
   AlertCircle,
   Edit3,
-  ChevronRight,
-  ChevronDown,
-  Calendar
+  ChevronRight
 } from "lucide-react"
 import Link from "next/link"
+import { BookingModal, BookingModalData } from "@/components/BookingModal"
 
 interface Invoice {
   id: string
@@ -64,8 +63,9 @@ export function InvoiceManagement() {
   // Status change submenu
   const [showStatusSubmenu, setShowStatusSubmenu] = useState(false)
   
-  // Expanded invoice row
-  const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null)
+  // Booking modal state
+  const [selectedBooking, setSelectedBooking] = useState<BookingModalData | null>(null)
+  const [isLoadingBooking, setIsLoadingBooking] = useState(false)
 
   useEffect(() => {
     fetchInvoices()
@@ -171,6 +171,72 @@ export function InvoiceManagement() {
     }
     setPreviewInvoice(null)
     setPreviewError(null)
+  }
+
+  // Handle clicking on invoice row to show booking details
+  const handleInvoiceClick = async (invoice: Invoice) => {
+    if (!invoice.bookings || invoice.bookings.length === 0) {
+      return
+    }
+    
+    // Get the first booking ID
+    const bookingId = invoice.bookings[0].id
+    setIsLoadingBooking(true)
+    
+    try {
+      // Fetch full booking details
+      const response = await fetch(`/api/bookings/${bookingId}`)
+      if (response.ok) {
+        const data = await response.json()
+        const booking = data.booking
+        
+        // Transform to BookingModalData format
+        const bookingData: BookingModalData = {
+          id: booking.id,
+          title: booking.title,
+          description: booking.description,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          status: booking.status,
+          statusNote: booking.statusNote,
+          contactName: booking.contactName,
+          contactEmail: booking.contactEmail,
+          contactPhone: booking.contactPhone,
+          totalAmount: booking.totalAmount ? Number(booking.totalAmount) : null,
+          invoiceId: booking.invoiceId,
+          invoice: booking.invoice ? {
+            id: booking.invoice.id,
+            status: booking.invoice.status,
+            invoiceNumber: booking.invoice.invoiceNumber
+          } : null,
+          preferredPaymentMethod: booking.preferredPaymentMethod,
+          isRecurring: booking.isRecurring,
+          parentBookingId: booking.parentBookingId,
+          resource: {
+            id: booking.resource.id,
+            name: booking.resource.name,
+            color: booking.resource.color
+          },
+          resourcePart: booking.resourcePart ? {
+            id: booking.resourcePart.id,
+            name: booking.resourcePart.name
+          } : null,
+          user: {
+            name: booking.user?.name || null,
+            email: booking.user?.email || invoice.billingEmail
+          },
+          payments: booking.payments
+        }
+        
+        setSelectedBooking(bookingData)
+      } else {
+        console.error("Failed to fetch booking details")
+      }
+    } catch (error) {
+      console.error("Error fetching booking:", error)
+    } finally {
+      setIsLoadingBooking(false)
+    }
   }
 
   const fetchInvoices = async () => {
@@ -301,17 +367,16 @@ export function InvoiceManagement() {
             </thead>
             <tbody>
               {invoices.map((invoice) => (
-                <>
                 <tr 
                   key={invoice.id} 
-                  className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${expandedInvoiceId === invoice.id ? 'bg-blue-50' : ''}`}
-                  onClick={() => setExpandedInvoiceId(expandedInvoiceId === invoice.id ? null : invoice.id)}
+                  className={`border-b border-gray-100 hover:bg-blue-50 cursor-pointer transition-colors ${isLoadingBooking ? 'opacity-50' : ''}`}
+                  onClick={() => handleInvoiceClick(invoice)}
                 >
                   <td className="py-3 px-4">
-                    <div className="flex items-center gap-2">
-                      <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expandedInvoiceId === invoice.id ? 'rotate-180' : ''}`} />
-                      <span className="font-medium text-gray-900">{invoice.invoiceNumber}</span>
-                    </div>
+                    <span className="font-medium text-gray-900">{invoice.invoiceNumber}</span>
+                    {invoice.bookings && invoice.bookings.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-0.5">{invoice.bookings[0].title}</p>
+                    )}
                   </td>
                   <td className="py-3 px-4">
                     <div>
@@ -472,53 +537,6 @@ export function InvoiceManagement() {
                     </div>
                   </td>
                 </tr>
-                {/* Expanded booking details */}
-                {expandedInvoiceId === invoice.id && invoice.bookings && invoice.bookings.length > 0 && (
-                  <tr key={`${invoice.id}-details`} className="bg-gray-50">
-                    <td colSpan={7} className="px-4 py-4">
-                      <div className="pl-6">
-                        <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                          <Calendar className="w-4 h-4" />
-                          Tilhørende bookinger ({invoice.bookings.length})
-                        </h4>
-                        <div className="space-y-2">
-                          {invoice.bookings.map((booking) => {
-                            const startDate = new Date(booking.startTime)
-                            const endDate = new Date(booking.endTime)
-                            const isSameDay = format(startDate, "yyyy-MM-dd") === format(endDate, "yyyy-MM-dd")
-                            
-                            return (
-                              <div 
-                                key={booking.id} 
-                                className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
-                              >
-                                <div>
-                                  <p className="font-medium text-gray-900">{booking.title}</p>
-                                  <p className="text-sm text-gray-500">
-                                    {isSameDay ? (
-                                      <>
-                                        {format(startDate, "EEEE d. MMMM yyyy", { locale: nb })}
-                                        {" • "}
-                                        {format(startDate, "HH:mm")} - {format(endDate, "HH:mm")}
-                                      </>
-                                    ) : (
-                                      <>
-                                        {format(startDate, "d. MMM yyyy HH:mm", { locale: nb })}
-                                        {" → "}
-                                        {format(endDate, "d. MMM yyyy HH:mm", { locale: nb })}
-                                      </>
-                                    )}
-                                  </p>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                </>
               ))}
             </tbody>
           </table>
@@ -588,6 +606,24 @@ export function InvoiceManagement() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Booking Details Modal */}
+      {selectedBooking && (
+        <BookingModal
+          booking={selectedBooking}
+          isOpen={true}
+          onClose={() => setSelectedBooking(null)}
+          userRole="admin"
+          pricingEnabled={true}
+          onViewInvoice={(invoiceId) => {
+            // Find the invoice and show preview
+            const invoice = invoices.find(inv => inv.id === invoiceId)
+            if (invoice) {
+              handlePreview(invoice)
+            }
+          }}
+        />
       )}
     </div>
   )

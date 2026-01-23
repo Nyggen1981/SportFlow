@@ -243,47 +243,8 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
       return
     }
 
-    // For approve, check if booking has cost and show preview
-    if (action === "approve" && pricingEnabled) {
-      const booking = bookings.find(b => b.id === bookingId)
-      if (booking && booking.totalAmount && booking.totalAmount > 0) {
-        // Booking har kostnad - hent preview først
-        setIsLoadingPreview(true)
-        setPreviewError(null)
-        setPreviewBookingId(bookingId)
-        
-        try {
-          const response = await fetch(`/api/admin/bookings/${bookingId}/preview-email`)
-          
-          if (!response.ok) {
-            const errorData = await response.json()
-            
-            // Hvis Vipps ikke er konfigurert, vis feilmelding
-            if (errorData.requiresConfiguration) {
-              setPreviewError("Vipps er ikke konfigurert. Gå til Innstillinger for å legge inn Vipps-opplysninger, eller velg en annen betalingsmetode.")
-              setEmailPreviewModalOpen(true)
-              setIsLoadingPreview(false)
-              return
-            }
-            
-            throw new Error(errorData.error || "Kunne ikke hente e-post preview")
-          }
-          
-          const previewData = await response.json()
-          setEmailPreview(previewData)
-          setEmailPreviewModalOpen(true)
-        } catch (error) {
-          console.error("Failed to fetch email preview:", error)
-          setPreviewError(error instanceof Error ? error.message : "Kunne ikke hente e-post preview")
-          setEmailPreviewModalOpen(true)
-        } finally {
-          setIsLoadingPreview(false)
-        }
-        return
-      }
-    }
-
-    // Ingen kostnad eller ikke approve - fortsett direkte
+    // For approve with cost, invoice preview is now handled in BookingModal
+    // So we just execute the action directly - invoice is attached to approval email automatically
     await executeAction(bookingId, action)
   }
 

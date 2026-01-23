@@ -125,7 +125,7 @@ export async function GET(
 
   // Generate PDF
   const pdfBuffer = await generateInvoicePDF({
-    invoiceNumber: `${invoiceNumber} (FORHÅNDSVISNING)`,
+    invoiceNumber: invoiceNumber,
     invoiceDate: new Date(),
     dueDate,
     organization: {
