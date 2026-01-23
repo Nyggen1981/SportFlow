@@ -187,8 +187,7 @@ export function InvoiceManagement() {
       // Fetch full booking details
       const response = await fetch(`/api/bookings/${bookingId}`)
       if (response.ok) {
-        const data = await response.json()
-        const booking = data.booking
+        const booking = await response.json()
         
         // Transform to BookingModalData format
         const bookingData: BookingModalData = {

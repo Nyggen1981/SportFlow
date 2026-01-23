@@ -361,18 +361,6 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Buffer> {
     doc.text(splitNotes, margin, totalsY)
   }
 
-  // === FOOTER ===
-  const footerY = pageHeight - 15
-  doc.setFontSize(8)
-  doc.setTextColor(...lightGray)
-  doc.setFont("helvetica", "normal")
-  doc.text(
-    `Generert ${format(new Date(), "d. MMMM yyyy 'kl.' HH:mm", { locale: nb })}`,
-    pageWidth / 2,
-    footerY,
-    { align: "center" }
-  )
-
   // Convert to buffer
   const pdfOutput = doc.output("arraybuffer")
   return Buffer.from(pdfOutput)

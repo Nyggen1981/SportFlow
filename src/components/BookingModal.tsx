@@ -180,6 +180,7 @@ export function BookingModal({
   const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null)
   const [isLoadingInvoicePreview, setIsLoadingInvoicePreview] = useState(false)
   const [invoicePreviewError, setInvoicePreviewError] = useState<string | null>(null)
+  const [invoicePreviewMode, setInvoicePreviewMode] = useState<"approval" | "view">("approval")
   
   // Combined loading state
   const isAnyLoading = isProcessing || isApproving || isRejecting || isCancelling || isLoadingInvoicePreview
@@ -221,12 +222,24 @@ export function BookingModal({
 
   const handleViewInvoice = async () => {
     if (!booking.invoice?.id) return
-    setIsLoadingPreview(true)
+    setInvoicePreviewMode("view")
+    setIsLoadingInvoicePreview(true)
+    setInvoicePreviewError(null)
+    setShowInvoicePreview(true)
+    
     try {
-      // Open the invoice PDF in a new tab for viewing
-      window.open(`/api/invoices/${booking.invoice.id}/pdf`, '_blank')
+      const response = await fetch(`/api/invoices/${booking.invoice.id}/pdf`)
+      if (!response.ok) {
+        throw new Error("Kunne ikke hente fakturaen")
+      }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      setInvoicePreviewUrl(url)
+    } catch (error) {
+      console.error("Error fetching invoice:", error)
+      setInvoicePreviewError("Kunne ikke laste fakturaen")
     } finally {
-      setIsLoadingPreview(false)
+      setIsLoadingInvoicePreview(false)
     }
   }
 
@@ -247,6 +260,7 @@ export function BookingModal({
     }
     
     // Load invoice preview
+    setInvoicePreviewMode("approval")
     setIsLoadingInvoicePreview(true)
     setInvoicePreviewError(null)
     
@@ -586,33 +600,23 @@ export function BookingModal({
            booking.invoice && 
            (isAdmin || isOwner) && (
             <div className="border-t pt-4">
-              <div className="flex gap-2">
-                <button
-                  onClick={handleViewInvoice}
-                  disabled={isAnyLoading || isLoadingPreview}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                >
-                  {isLoadingPreview ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Laster...
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="w-4 h-4" />
-                      Se faktura
-                    </>
-                  )}
-                </button>
-                <a
-                  href={`/api/invoices/${booking.invoice.id}/pdf`}
-                  download={`Faktura_${booking.invoice.invoiceNumber}.pdf`}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  Last ned
-                </a>
-              </div>
+              <button
+                onClick={handleViewInvoice}
+                disabled={isAnyLoading || isLoadingPreview}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                {isLoadingPreview ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Laster...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-4 h-4" />
+                    Se faktura
+                  </>
+                )}
+              </button>
             </div>
           )}
 
@@ -673,20 +677,26 @@ export function BookingModal({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-6 border-b border-gray-200 bg-amber-50">
+            <div className={`p-6 border-b border-gray-200 ${invoicePreviewMode === "approval" ? "bg-amber-50" : "bg-blue-50"}`}>
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-amber-600" />
-                    Forhåndsvisning av faktura
+                    <FileText className={`w-5 h-5 ${invoicePreviewMode === "approval" ? "text-amber-600" : "text-blue-600"}`} />
+                    {invoicePreviewMode === "approval" ? "Forhåndsvisning av faktura" : "Faktura"}
                   </h3>
-                  <p className="text-sm text-amber-700 mt-1">
-                    Kontroller at fakturaen er korrekt før du godkjenner bookingen
-                  </p>
+                  {invoicePreviewMode === "approval" ? (
+                    <p className="text-sm text-amber-700 mt-1">
+                      Kontroller at fakturaen er korrekt før du godkjenner bookingen
+                    </p>
+                  ) : booking.invoice?.invoiceNumber && (
+                    <p className="text-sm text-blue-700 mt-1">
+                      Fakturanummer: {booking.invoice.invoiceNumber}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={closeInvoicePreview}
-                  className="p-1 rounded-full hover:bg-amber-100 transition-colors"
+                  className={`p-1 rounded-full transition-colors ${invoicePreviewMode === "approval" ? "hover:bg-amber-100" : "hover:bg-blue-100"}`}
                 >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
@@ -701,15 +711,17 @@ export function BookingModal({
                 </div>
               ) : invoicePreviewError ? (
                 <div className="text-center py-8">
-                  <AlertCircle className="w-12 h-12 text-amber-400 mx-auto mb-2" />
-                  <p className="text-amber-600 mb-2">{invoicePreviewError}</p>
-                  <p className="text-sm text-gray-500">Du kan fortsatt godkjenne bookingen, men fakturaen kunne ikke forhåndsvises.</p>
+                  <AlertCircle className={`w-12 h-12 mx-auto mb-2 ${invoicePreviewMode === "approval" ? "text-amber-400" : "text-red-400"}`} />
+                  <p className={`mb-2 ${invoicePreviewMode === "approval" ? "text-amber-600" : "text-red-600"}`}>{invoicePreviewError}</p>
+                  {invoicePreviewMode === "approval" && (
+                    <p className="text-sm text-gray-500">Du kan fortsatt godkjenne bookingen, men fakturaen kunne ikke forhåndsvises.</p>
+                  )}
                 </div>
               ) : invoicePreviewUrl ? (
                 <iframe
                   src={invoicePreviewUrl}
                   className="w-full h-full min-h-[500px] border border-gray-200 rounded-lg bg-white"
-                  title="Faktura forhåndsvisning"
+                  title="Faktura"
                 />
               ) : null}
             </div>
@@ -721,25 +733,36 @@ export function BookingModal({
                 disabled={isApproving}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
               >
-                Avbryt
+                {invoicePreviewMode === "approval" ? "Avbryt" : "Lukk"}
               </button>
-              <button
-                onClick={handleConfirmApproval}
-                disabled={isApproving}
-                className="px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-              >
-                {isApproving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Godkjenner og sender...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    Godkjenn og send faktura
-                  </>
-                )}
-              </button>
+              {invoicePreviewMode === "approval" ? (
+                <button
+                  onClick={handleConfirmApproval}
+                  disabled={isApproving}
+                  className="px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isApproving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Godkjenner og sender...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Godkjenn og send faktura
+                    </>
+                  )}
+                </button>
+              ) : booking.invoice && (
+                <a
+                  href={`/api/invoices/${booking.invoice.id}/pdf`}
+                  download={`Faktura_${booking.invoice.invoiceNumber}.pdf`}
+                  className="px-6 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Last ned PDF
+                </a>
+              )}
             </div>
           </div>
         </div>
