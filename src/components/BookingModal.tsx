@@ -13,7 +13,9 @@ import {
   XCircle,
   Pencil,
   Trash2,
-  Eye
+  Eye,
+  FileText,
+  AlertCircle
 } from "lucide-react"
 
 // Booking type that matches the data structure used across the app
@@ -172,8 +174,14 @@ export function BookingModal({
   const [isRejecting, setIsRejecting] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
   
+  // Invoice preview modal state
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false)
+  const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null)
+  const [isLoadingInvoicePreview, setIsLoadingInvoicePreview] = useState(false)
+  const [invoicePreviewError, setInvoicePreviewError] = useState<string | null>(null)
+  
   // Combined loading state
-  const isAnyLoading = isProcessing || isApproving || isRejecting || isCancelling
+  const isAnyLoading = isProcessing || isApproving || isRejecting || isCancelling || isLoadingInvoicePreview
   
   // Check if user is logged in
   const isLoggedIn = !!session?.user?.email
@@ -218,6 +226,72 @@ export function BookingModal({
     } finally {
       setIsLoadingPreview(false)
     }
+  }
+
+  // Check if booking has a price that requires invoice preview
+  const bookingHasPrice = pricingEnabled && booking.totalAmount && booking.totalAmount > 0
+  
+  // Open invoice preview before approval
+  const handleApproveWithPreview = async () => {
+    if (!bookingHasPrice) {
+      // No price, approve directly
+      setIsApproving(true)
+      try {
+        await onApprove?.(booking.id)
+      } finally {
+        setIsApproving(false)
+      }
+      return
+    }
+    
+    // Load invoice preview
+    setIsLoadingInvoicePreview(true)
+    setInvoicePreviewError(null)
+    
+    try {
+      const response = await fetch(`/api/admin/bookings/${booking.id}/invoice-preview`)
+      if (!response.ok) {
+        throw new Error("Kunne ikke laste faktura-forhåndsvisning")
+      }
+      
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      setInvoicePreviewUrl(url)
+      setShowInvoicePreview(true)
+    } catch (error) {
+      console.error("Error loading invoice preview:", error)
+      setInvoicePreviewError(error instanceof Error ? error.message : "Kunne ikke laste forhåndsvisning")
+      // Still allow approval even if preview fails
+      setShowInvoicePreview(true)
+    } finally {
+      setIsLoadingInvoicePreview(false)
+    }
+  }
+  
+  // Confirm approval after preview
+  const handleConfirmApproval = async () => {
+    setIsApproving(true)
+    try {
+      await onApprove?.(booking.id)
+      // Close preview modal
+      if (invoicePreviewUrl) {
+        URL.revokeObjectURL(invoicePreviewUrl)
+        setInvoicePreviewUrl(null)
+      }
+      setShowInvoicePreview(false)
+    } finally {
+      setIsApproving(false)
+    }
+  }
+  
+  // Close invoice preview modal
+  const closeInvoicePreview = () => {
+    if (invoicePreviewUrl) {
+      URL.revokeObjectURL(invoicePreviewUrl)
+      setInvoicePreviewUrl(null)
+    }
+    setShowInvoicePreview(false)
+    setInvoicePreviewError(null)
   }
 
   return (
@@ -452,28 +526,28 @@ export function BookingModal({
           {/* Approve/Reject for admin on pending bookings */}
           {canApproveReject && onApprove && onReject && (
             <div className="border-t pt-4">
+              {/* Show hint about invoice preview if booking has price */}
+              {bookingHasPrice && (
+                <p className="text-xs text-blue-600 mb-2 flex items-center gap-1">
+                  <FileText className="w-3 h-3" />
+                  Faktura vil vises for gjennomgang før godkjenning
+                </p>
+              )}
               <div className="flex gap-2">
                 <button
-                  onClick={async () => {
-                    setIsApproving(true)
-                    try {
-                      await onApprove(booking.id)
-                    } finally {
-                      setIsApproving(false)
-                    }
-                  }}
+                  onClick={handleApproveWithPreview}
                   disabled={isAnyLoading}
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
-                  {isApproving ? (
+                  {isApproving || isLoadingInvoicePreview ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Godkjenner...
+                      {isLoadingInvoicePreview ? "Laster faktura..." : "Godkjenner..."}
                     </>
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
-                      Godkjenn
+                      {bookingHasPrice ? "Se faktura og godkjenn" : "Godkjenn"}
                     </>
                   )}
                 </button>
@@ -576,6 +650,89 @@ export function BookingModal({
           )}
         </div>
       </div>
+      
+      {/* Invoice Preview Modal */}
+      {showInvoicePreview && (
+        <div 
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4"
+          onClick={closeInvoicePreview}
+        >
+          <div 
+            className="bg-white rounded-xl max-w-4xl w-full shadow-2xl max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-gray-200 bg-amber-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-amber-600" />
+                    Forhåndsvisning av faktura
+                  </h3>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Kontroller at fakturaen er korrekt før du godkjenner bookingen
+                  </p>
+                </div>
+                <button
+                  onClick={closeInvoicePreview}
+                  className="p-1 rounded-full hover:bg-amber-100 transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            {/* PDF Preview */}
+            <div className="flex-1 overflow-auto p-6 bg-gray-50">
+              {isLoadingInvoicePreview ? (
+                <div className="flex items-center justify-center h-64">
+                  <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                </div>
+              ) : invoicePreviewError ? (
+                <div className="text-center py-8">
+                  <AlertCircle className="w-12 h-12 text-amber-400 mx-auto mb-2" />
+                  <p className="text-amber-600 mb-2">{invoicePreviewError}</p>
+                  <p className="text-sm text-gray-500">Du kan fortsatt godkjenne bookingen, men fakturaen kunne ikke forhåndsvises.</p>
+                </div>
+              ) : invoicePreviewUrl ? (
+                <iframe
+                  src={invoicePreviewUrl}
+                  className="w-full h-full min-h-[500px] border border-gray-200 rounded-lg bg-white"
+                  title="Faktura forhåndsvisning"
+                />
+              ) : null}
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-200 flex items-center justify-between bg-white">
+              <button
+                onClick={closeInvoicePreview}
+                disabled={isApproving}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={handleConfirmApproval}
+                disabled={isApproving}
+                className="px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isApproving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Godkjenner og sender...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    Godkjenn og send faktura
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
