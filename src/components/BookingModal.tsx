@@ -15,7 +15,8 @@ import {
   Trash2,
   Eye,
   FileText,
-  AlertCircle
+  AlertCircle,
+  Download
 } from "lucide-react"
 
 // Booking type that matches the data structure used across the app
@@ -219,10 +220,11 @@ export function BookingModal({
   }
 
   const handleViewInvoice = async () => {
-    if (!booking.invoiceId || !onViewInvoice) return
+    if (!booking.invoice?.id) return
     setIsLoadingPreview(true)
     try {
-      onViewInvoice(booking.invoiceId)
+      // Open the invoice PDF in a new tab for viewing
+      window.open(`/api/invoices/${booking.invoice.id}/pdf`, '_blank')
     } finally {
       setIsLoadingPreview(false)
     }
@@ -581,27 +583,36 @@ export function BookingModal({
 
           {/* Invoice button for approved bookings with invoice */}
           {booking.status === "approved" && 
-           booking.preferredPaymentMethod === "INVOICE" && 
            booking.invoice && 
-           onViewInvoice && (
+           (isAdmin || isOwner) && (
             <div className="border-t pt-4">
-              <button
-                onClick={handleViewInvoice}
-                disabled={isAnyLoading || isLoadingPreview}
-                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-              >
-                {isLoadingPreview ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Laster...
-                  </>
-                ) : (
-                  <>
-                    <Eye className="w-4 h-4" />
-                    Se faktura
-                  </>
-                )}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleViewInvoice}
+                  disabled={isAnyLoading || isLoadingPreview}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  {isLoadingPreview ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Laster...
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-4 h-4" />
+                      Se faktura
+                    </>
+                  )}
+                </button>
+                <a
+                  href={`/api/invoices/${booking.invoice.id}/pdf`}
+                  download={`Faktura_${booking.invoice.invoiceNumber}.pdf`}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Last ned
+                </a>
+              </div>
             </div>
           )}
 

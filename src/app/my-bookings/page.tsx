@@ -1567,9 +1567,6 @@ export default function MyBookingsPage() {
             setCancellingId(bookingId)
             setSelectedBooking(null)
           }}
-          onViewInvoice={selectedBooking.invoiceId ? (invoiceId) => {
-            window.open(`/api/invoices/${invoiceId}/pdf`, '_blank')
-          } : undefined}
         />
       )}
     </PageLayout>
