@@ -107,6 +107,9 @@ export async function PATCH(
       data: {
         ...(status && { status: status as any }),
         ...(notes !== undefined && { notes }),
+        // Set paidAt when status changes to PAID, clear it otherwise
+        ...(status === "PAID" && { paidAt: new Date() }),
+        ...(status && status !== "PAID" && { paidAt: null }),
       },
       include: {
         bookings: {

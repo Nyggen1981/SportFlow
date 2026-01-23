@@ -16,7 +16,9 @@ import {
   RotateCcw,
   MoreVertical,
   X,
-  AlertCircle
+  AlertCircle,
+  Edit3,
+  ChevronRight
 } from "lucide-react"
 import Link from "next/link"
 
@@ -56,23 +58,36 @@ export function InvoiceManagement() {
   // Dropdown menu position
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
   const menuButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
+  
+  // Status change submenu
+  const [showStatusSubmenu, setShowStatusSubmenu] = useState(false)
 
   useEffect(() => {
     fetchInvoices()
   }, [filter])
 
-  const handleMarkAsRefunded = async (invoice: Invoice) => {
-    if (!confirm(`Er du sikker på at du vil markere faktura ${invoice.invoiceNumber} som refundert?`)) {
+  const handleChangeStatus = async (invoice: Invoice, newStatus: Invoice["status"]) => {
+    const statusLabels: Record<Invoice["status"], string> = {
+      DRAFT: "kladd",
+      SENT: "sendt",
+      PAID: "betalt",
+      OVERDUE: "forfalt",
+      CANCELLED: "kansellert",
+      REFUNDED: "refundert"
+    }
+    
+    if (!confirm(`Er du sikker på at du vil endre status på faktura ${invoice.invoiceNumber} til "${statusLabels[newStatus]}"?`)) {
       return
     }
 
     setUpdatingId(invoice.id)
     setOpenMenuId(null)
+    setShowStatusSubmenu(false)
     try {
       const response = await fetch(`/api/invoices/${invoice.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "REFUNDED" })
+        body: JSON.stringify({ status: newStatus })
       })
 
       if (!response.ok) {
@@ -83,7 +98,7 @@ export function InvoiceManagement() {
 
       // Oppdater fakturaen i listen
       setInvoices(prev => prev.map(inv => 
-        inv.id === invoice.id ? { ...inv, status: "REFUNDED" as const } : inv
+        inv.id === invoice.id ? { ...inv, status: newStatus, paidAt: newStatus === "PAID" ? new Date().toISOString() : inv.paidAt } : inv
       ))
     } catch (error) {
       console.error("Error updating invoice:", error)
@@ -372,25 +387,64 @@ export function InvoiceManagement() {
                               onClick={() => {
                                 setOpenMenuId(null)
                                 setMenuPosition(null)
+                                setShowStatusSubmenu(false)
                               }} 
                             />
                             <div 
-                              className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-[101] min-w-[160px] py-1"
+                              className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-[101] min-w-[180px] py-1"
                               style={{ top: menuPosition.top, left: menuPosition.left }}
                             >
-                              {invoice.status === "PAID" && (
+                              {/* Change status submenu */}
+                              <div className="relative">
                                 <button
-                                  onClick={() => handleMarkAsRefunded(invoice)}
-                                  className="w-full px-4 py-2 text-left text-sm text-purple-600 hover:bg-purple-50 flex items-center gap-2"
+                                  onClick={() => setShowStatusSubmenu(!showStatusSubmenu)}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
                                 >
-                                  <RotateCcw className="w-4 h-4" />
-                                  Marker som refundert
+                                  <span className="flex items-center gap-2">
+                                    <Edit3 className="w-4 h-4" />
+                                    Endre status
+                                  </span>
+                                  <ChevronRight className={`w-4 h-4 transition-transform ${showStatusSubmenu ? 'rotate-90' : ''}`} />
                                 </button>
-                              )}
+                                
+                                {showStatusSubmenu && (
+                                  <div className="absolute left-full top-0 ml-1 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[140px] py-1">
+                                    {(["DRAFT", "SENT", "PAID", "OVERDUE", "CANCELLED", "REFUNDED"] as const).map((status) => (
+                                      <button
+                                        key={status}
+                                        onClick={() => handleChangeStatus(invoice, status)}
+                                        disabled={invoice.status === status}
+                                        className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 ${
+                                          invoice.status === status 
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                                            : 'hover:bg-gray-50 text-gray-700'
+                                        }`}
+                                      >
+                                        <span className={`w-2 h-2 rounded-full ${
+                                          status === "DRAFT" ? "bg-gray-400" :
+                                          status === "SENT" ? "bg-blue-500" :
+                                          status === "PAID" ? "bg-green-500" :
+                                          status === "OVERDUE" ? "bg-red-500" :
+                                          status === "CANCELLED" ? "bg-gray-400" :
+                                          "bg-purple-500"
+                                        }`} />
+                                        {getStatusLabel(status)}
+                                        {invoice.status === status && (
+                                          <CheckCircle2 className="w-3 h-3 ml-auto text-gray-400" />
+                                        )}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="border-t border-gray-100 my-1" />
+                              
                               <button
                                 onClick={() => {
                                   setOpenMenuId(null)
                                   setMenuPosition(null)
+                                  setShowStatusSubmenu(false)
                                   handleDelete(invoice)
                                 }}
                                 className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
