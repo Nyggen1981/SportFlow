@@ -561,6 +561,10 @@ export async function POST(request: Request) {
           
           const allRecipients = [...new Set([...adminEmails, ...moderatorEmails])]
 
+          if (allRecipients.length === 0) {
+            console.warn("[Booking] No admin/moderator emails to notify for org:", orgId)
+          }
+
           const { date, time } = formatBookingDateTime(new Date(firstBooking.startTime), new Date(firstBooking.endTime))
           
           let resourceName = resource.name
@@ -589,8 +593,9 @@ export async function POST(request: Request) {
           console.error("Failed to send booking notification emails:", error)
         }
       }
-      
-      void sendEmailsAsync()
+
+      // Await so emails are sent before response (avoids serverless killing fire-and-forget)
+      await sendEmailsAsync()
     }
 
     return NextResponse.json(

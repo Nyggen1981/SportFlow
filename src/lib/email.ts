@@ -124,12 +124,16 @@ export async function sendEmail(
   const smtpConfig = await getSMTPConfig(organizationId)
   
   if (!smtpConfig) {
-    // Email not configured - log instead
-    console.log("=== EMAIL (not configured - logging only) ===")
-    console.log("Organization:", organizationId)
-    console.log("To:", options.to)
-    console.log("Subject:", options.subject)
-    console.log("==========================")
+    // Email not configured - log so admins can see why notifications are missing
+    console.warn(
+      "[Email] Not configured for org:",
+      organizationId,
+      "- no mail sent to:",
+      options.to,
+      "Subject:",
+      options.subject,
+      "- set org SMTP or env SMTP_HOST/SMTP_USER/SMTP_PASS"
+    )
     return false
   }
 

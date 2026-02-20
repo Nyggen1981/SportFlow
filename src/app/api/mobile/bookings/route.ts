@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import { sendEmail, getNewBookingRequestEmail, formatBookingDateTime } from "@/lib/email"
 
 // GET - Fetch user's bookings
 export async function GET(request: Request) {
@@ -154,10 +155,64 @@ export async function POST(request: Request) {
       },
     })
 
+    // Send email notification to admins when booking requires approval (same as web API)
+    if (resource.requiresApproval) {
+      const orgId = resource.organizationId
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true, email: true }
+      })
+      const userName = user?.name || contactName || "Ukjent"
+      const userEmail = user?.email || contactEmail || ""
+
+      const sendEmailsAsync = async () => {
+        try {
+          const admins = await prisma.user.findMany({
+            where: { organizationId: orgId, role: "admin" },
+            select: { email: true }
+          })
+          const resourceModerators = await prisma.resourceModerator.findMany({
+            where: { resourceId },
+            include: {
+              user: {
+                select: { email: true, role: true }
+              }
+            }
+          })
+          const adminEmails = admins.map(a => a.email)
+          const moderatorEmails = resourceModerators
+            .filter(rm => rm.user.role === "moderator")
+            .map(rm => rm.user.email)
+          const allRecipients = [...new Set([...adminEmails, ...moderatorEmails])]
+
+          if (allRecipients.length === 0) {
+            console.warn("[Mobile booking] No admin/moderator emails to notify for org:", orgId)
+            return
+          }
+
+          const { date, time } = formatBookingDateTime(new Date(booking.startTime), new Date(booking.endTime))
+          const resourceName = booking.resourcePart
+            ? `${booking.resource.name} → ${booking.resourcePart.name}`
+            : booking.resource.name
+
+          await Promise.all(allRecipients.map(async (email) => {
+            const emailContent = await getNewBookingRequestEmail(
+              orgId, title, resourceName, date, time, userName, userEmail, description, undefined
+            )
+            await sendEmail(orgId, { to: email, ...emailContent })
+          }))
+        } catch (error) {
+          console.error("[Mobile booking] Failed to send admin notification emails:", error)
+        }
+      }
+
+      await sendEmailsAsync()
+    }
+
     return NextResponse.json({
       bookings: [booking],
       count: 1,
-      message: resource.requiresApproval 
+      message: resource.requiresApproval
         ? 'Booking sendt til godkjenning'
         : 'Booking opprettet',
     })
