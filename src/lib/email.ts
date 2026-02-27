@@ -349,6 +349,32 @@ export async function getBookingRejectedEmail(
   })
 }
 
+export async function getNewUserRegistrationEmail(
+  organizationId: string,
+  userName: string,
+  userEmail: string,
+  userPhone?: string,
+  claimsMembership?: boolean,
+  needsApproval?: boolean
+) {
+  const customTemplate = await getEmailTemplate(organizationId, "new_user_registration")
+  const defaultTemplates = getDefaultEmailTemplates()
+  const template = customTemplate || {
+    subject: defaultTemplates.new_user_registration.subject,
+    htmlBody: defaultTemplates.new_user_registration.htmlBody,
+  }
+  const organizationName = await getOrganizationName(organizationId)
+
+  return renderEmailTemplate(template, {
+    userName,
+    userEmail,
+    userPhone,
+    claimsMembership: claimsMembership ? "Ja" : undefined,
+    needsApproval: needsApproval ? "true" : undefined,
+    organizationName,
+  })
+}
+
 export async function getBookingPaidEmail(
   organizationId: string,
   bookingTitle: string,

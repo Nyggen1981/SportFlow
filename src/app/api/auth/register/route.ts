@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { canCreateUser } from "@/lib/license"
 import { sendVerificationEmail } from "@/lib/email-verification"
+import { sendEmail, getNewUserRegistrationEmail } from "@/lib/email"
 
 export async function POST(request: Request) {
   try {
@@ -107,7 +108,30 @@ export async function POST(request: Request) {
       await sendVerificationEmail(user.id, user.email, organization.name)
     } catch (emailError) {
       console.error("Failed to send verification email:", emailError)
-      // Don't fail registration if email fails, but log it
+    }
+
+    // Notify admins about new user registration (non-blocking)
+    try {
+      const admins = await prisma.user.findMany({
+        where: { organizationId: organization.id, role: "admin" },
+        select: { email: true }
+      })
+
+      if (admins.length > 0) {
+        await Promise.all(admins.map(async (admin) => {
+          const emailContent = await getNewUserRegistrationEmail(
+            organization.id,
+            name || "Ikke oppgitt",
+            email,
+            phone,
+            claimsMembership === true,
+            needsApproval
+          )
+          await sendEmail(organization.id, { to: admin.email, ...emailContent })
+        }))
+      }
+    } catch (notifyError) {
+      console.error("Failed to send admin notification emails:", notifyError)
     }
 
     return NextResponse.json({
