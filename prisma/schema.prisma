@@ -130,6 +130,7 @@ model User {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   emailVerificationToken EmailVerificationToken?
+  passwordResetToken     PasswordResetToken?
 
   bookings           Booking[]
   approvedBookings   Booking[]           @relation("ApprovedBy")
@@ -152,6 +153,18 @@ model User {
 
 // Email verification token for verifying user email addresses
 model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+model PasswordResetToken {
   id        String   @id @default(cuid())
   token     String   @unique
   userId    String   @unique
