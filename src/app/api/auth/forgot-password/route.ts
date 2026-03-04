@@ -4,14 +4,16 @@ import { sendPasswordResetEmail } from "@/lib/password-reset"
 
 export async function POST(request: Request) {
   try {
-    const { email } = await request.json()
+    const { email: rawEmail } = await request.json()
 
-    if (!email) {
+    if (!rawEmail) {
       return NextResponse.json(
         { error: "E-post er påkrevd" },
         { status: 400 }
       )
     }
+
+    const email = rawEmail.toLowerCase().trim()
 
     // Always return success to prevent email enumeration
     const successResponse = NextResponse.json({

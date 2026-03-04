@@ -164,18 +164,19 @@ export async function POST(request: Request) {
     // Import users (without passwords - they'll need to reset)
     if (users && Array.isArray(users)) {
       for (const user of users) {
+        const normalizedImportEmail = user.email?.toLowerCase().trim()
         // Skip if same email as current user
-        if (user.email === session.user.email) continue
+        if (normalizedImportEmail === session.user.email?.toLowerCase()) continue
         
         const existing = await prisma.user.findUnique({
-          where: { email: user.email }
+          where: { email: normalizedImportEmail }
         })
         if (!existing) {
           // Create with a random password (user needs to reset)
           const tempPassword = await bcrypt.hash(Math.random().toString(36), 10)
           await prisma.user.create({
             data: {
-              email: user.email,
+              email: normalizedImportEmail,
               name: user.name,
               password: tempPassword,
               role: user.role || "user",

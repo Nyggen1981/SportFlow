@@ -4,15 +4,17 @@ import bcrypt from "bcryptjs"
 
 export async function POST(request: Request) {
   try {
-    const { name, email, phone, password, orgName, orgSlug } = await request.json()
+    const { name, email: rawEmail, phone, password, orgName, orgSlug } = await request.json()
 
     // Validate required fields
-    if (!email || !password || !orgName || !orgSlug) {
+    if (!rawEmail || !password || !orgName || !orgSlug) {
       return NextResponse.json(
         { error: "Alle felt markert med * er påkrevd" },
         { status: 400 }
       )
     }
+
+    const email = rawEmail.toLowerCase().trim()
 
     // Validate slug format
     if (!/^[a-z0-9-]+$/.test(orgSlug)) {

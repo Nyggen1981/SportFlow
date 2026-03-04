@@ -67,7 +67,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { email, name, password, systemRole, customRoleId, phone } = await request.json()
+  const { email: rawEmail, name, password, systemRole, customRoleId, phone } = await request.json()
+  const email = rawEmail?.toLowerCase().trim()
 
   // Check if email already exists
   const existing = await prisma.user.findUnique({ where: { email } })

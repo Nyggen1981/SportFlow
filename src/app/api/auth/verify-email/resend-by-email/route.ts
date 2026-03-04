@@ -8,14 +8,16 @@ import { sendVerificationEmail } from "@/lib/email-verification"
  */
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json()
+    const { email: rawEmail } = await request.json()
 
-    if (!email) {
+    if (!rawEmail) {
       return NextResponse.json(
         { error: "E-postadresse er påkrevd" },
         { status: 400 }
       )
     }
+
+    const email = rawEmail.toLowerCase().trim()
 
     // Find user by email
     const user = await prisma.user.findUnique({

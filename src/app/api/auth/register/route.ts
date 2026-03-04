@@ -7,15 +7,17 @@ import { sendEmail, getNewUserRegistrationEmail } from "@/lib/email"
 
 export async function POST(request: Request) {
   try {
-    const { name, email, phone, password, orgSlug, claimsMembership } = await request.json()
+    const { name, email: rawEmail, phone, password, orgSlug, claimsMembership } = await request.json()
 
     // Validate required fields (orgSlug is now optional - will auto-detect)
-    if (!email || !password) {
+    if (!rawEmail || !password) {
       return NextResponse.json(
         { error: "E-post og passord er påkrevd" },
         { status: 400 }
       )
     }
+
+    const email = rawEmail.toLowerCase().trim()
 
     // Sjekk lisensgrenser for brukerantall
     const licenseCheck = await canCreateUser()
