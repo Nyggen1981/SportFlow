@@ -76,6 +76,9 @@ function RegisterForm() {
   const [consentGiven, setConsentGiven] = useState(false)
   const [claimsMembership, setClaimsMembership] = useState(false)
 
+  // Honeypot (anti-bot)
+  const [website, setWebsite] = useState("")
+
   // Organization form (for new clubs)
   const [orgName, setOrgName] = useState("")
   const [orgSlugInput, setOrgSlugInput] = useState("")
@@ -112,8 +115,8 @@ function RegisterForm() {
         : "/api/auth/register"
 
       const body = step === "create" 
-        ? { name, email, phone, password, orgName, orgSlug: orgSlugInput }
-        : { name, email, phone, password, claimsMembership: orgAllowsSelfMembership ? claimsMembership : false }
+        ? { name, email, phone, password, orgName, orgSlug: orgSlugInput, website }
+        : { name, email, phone, password, claimsMembership: orgAllowsSelfMembership ? claimsMembership : false, website }
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -322,6 +325,20 @@ function RegisterForm() {
                   placeholder="Skriv passordet på nytt"
                   required
                   autoComplete="new-password"
+                />
+              </div>
+
+              {/* Anti-bot honeypot */}
+              <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", top: "-9999px", height: 0, overflow: "hidden" }}>
+                <label htmlFor="website">Website</label>
+                <input
+                  type="text"
+                  id="website"
+                  name="website"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  tabIndex={-1}
+                  autoComplete="off"
                 />
               </div>
 
@@ -564,7 +581,19 @@ function RegisterForm() {
                 </div>
               </div>
 
-              {/* Membership status */}
+              {/* Anti-bot honeypot */}
+              <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", top: "-9999px", height: 0, overflow: "hidden" }}>
+                <label htmlFor="website-create">Website</label>
+                <input
+                  type="text"
+                  id="website-create"
+                  name="website"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  tabIndex={-1}
+                  autoComplete="off"
+                />
+              </div>
 
               {/* Consent checkbox */}
               <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">

@@ -4,7 +4,13 @@ import bcrypt from "bcryptjs"
 
 export async function POST(request: Request) {
   try {
-    const { name, email: rawEmail, phone, password, orgName, orgSlug } = await request.json()
+    const { name, email: rawEmail, phone, password, orgName, orgSlug, website } = await request.json()
+
+    // Honeypot anti-bot check
+    if (website) {
+      console.log("[Register-with-org] Bot detected via honeypot, email:", rawEmail)
+      return NextResponse.json({ success: true, user: { id: "ok" }, organization: { name: "ok", slug: "ok" }, message: "Registrering fullført." }, { status: 201 })
+    }
 
     // Validate required fields
     if (!rawEmail || !password || !orgName || !orgSlug) {

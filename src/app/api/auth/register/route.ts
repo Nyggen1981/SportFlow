@@ -7,7 +7,13 @@ import { sendEmail, getNewUserRegistrationEmail } from "@/lib/email"
 
 export async function POST(request: Request) {
   try {
-    const { name, email: rawEmail, phone, password, orgSlug, claimsMembership } = await request.json()
+    const { name, email: rawEmail, phone, password, orgSlug, claimsMembership, website } = await request.json()
+
+    // Honeypot anti-bot check
+    if (website) {
+      console.log("[Register] Bot detected via honeypot, email:", rawEmail)
+      return NextResponse.json({ success: true, user: { id: "ok" }, needsApproval: true, emailVerificationSent: true, message: "Registrering fullført." }, { status: 201 })
+    }
 
     // Validate required fields (orgSlug is now optional - will auto-detect)
     if (!rawEmail || !password) {
