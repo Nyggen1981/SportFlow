@@ -3,6 +3,9 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { sendEmail, getNewBookingRequestEmail } from "@/lib/email"
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz"
+
+const TIMEZONE = "Europe/Oslo"
 
 /**
  * Bulk edit bookings - update multiple bookings at once
@@ -156,18 +159,15 @@ export async function PATCH(request: Request) {
       updateData.endTime = endTime
     } else if (newStartTime && newEndTime) {
       // Set absolute time (keep original date, change time)
-      const [startHours, startMinutes] = newStartTime.split(':').map(Number)
-      const [endHours, endMinutes] = newEndTime.split(':').map(Number)
+      // Use timezone-aware conversion so 18:00 Oslo = correct UTC value
+      const originalDate = formatInTimeZone(booking.startTime, TIMEZONE, "yyyy-MM-dd")
       
-      const startTime = new Date(booking.startTime)
-      const endTime = new Date(booking.startTime) // Use start date for end time too
-      
-      startTime.setHours(startHours, startMinutes, 0, 0)
-      endTime.setHours(endHours, endMinutes, 0, 0)
+      const startTime = fromZonedTime(`${originalDate}T${newStartTime}:00`, TIMEZONE)
+      let endTime = fromZonedTime(`${originalDate}T${newEndTime}:00`, TIMEZONE)
       
       // If end time is before start time, assume it's next day
       if (endTime <= startTime) {
-        endTime.setDate(endTime.getDate() + 1)
+        endTime = new Date(endTime.getTime() + 24 * 60 * 60 * 1000)
       }
       
       updateData.startTime = startTime
