@@ -86,12 +86,15 @@ export default function MyBookingsPage() {
   
   // Recurring group modal state
   const [selectedRecurringGroup, setSelectedRecurringGroup] = useState<{ groupId: string; bookings: Booking[] } | null>(null)
+  const [selectedModalBookingIds, setSelectedModalBookingIds] = useState<Set<string>>(new Set())
   const [bulkEditMode, setBulkEditMode] = useState(false)
-  const [bulkEditData, setBulkEditData] = useState<{ title: string; resourceId: string; resourcePartId: string | null }>({ title: "", resourceId: "", resourcePartId: null })
+  const [bulkEditSelectedOnly, setBulkEditSelectedOnly] = useState(false)
+  const [bulkEditData, setBulkEditData] = useState<{ title: string; resourceId: string; resourcePartId: string | null; newStartTime: string; newEndTime: string }>({ title: "", resourceId: "", resourcePartId: null, newStartTime: "", newEndTime: "" })
   const [availableResources, setAvailableResources] = useState<Array<{ id: string; name: string; parts: Array<{ id: string; name: string }> }>>([])
   const [isLoadingResources, setIsLoadingResources] = useState(false)
   const [isBulkUpdating, setIsBulkUpdating] = useState(false)
-  const [showCancelAllModal, setShowCancelAllModal] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [cancelSelectedOnly, setCancelSelectedOnly] = useState(false)
   const [cancelAllReason, setCancelAllReason] = useState("")
   const [isCancellingAll, setIsCancellingAll] = useState(false)
 
@@ -180,40 +183,44 @@ export default function MyBookingsPage() {
     }
   }, [cancelReason])
 
-  const handleCancelAll = useCallback(async () => {
+  const handleBulkCancel = useCallback(async () => {
     if (!selectedRecurringGroup) return
     
     setIsCancellingAll(true)
     try {
-      // Get all non-cancelled bookings in the group
-      const bookingsToCancel = selectedRecurringGroup.bookings.filter(
-        b => b.status !== "cancelled" && b.status !== "rejected"
-      )
+      const bookingsToCancel = cancelSelectedOnly
+        ? selectedRecurringGroup.bookings.filter(b => selectedModalBookingIds.has(b.id) && b.status !== "cancelled" && b.status !== "rejected")
+        : selectedRecurringGroup.bookings.filter(b => b.status !== "cancelled" && b.status !== "rejected")
       
-      // Cancel all bookings
-      await Promise.all(bookingsToCancel.map(async (booking) => {
-        await fetch(`/api/bookings/${booking.id}/cancel`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reason: cancelAllReason || undefined })
-        })
-      }))
-      
-      // Update local state
-      const cancelledIds = new Set(bookingsToCancel.map(b => b.id))
-      setBookings(prev => prev.map(b => 
-        cancelledIds.has(b.id) ? { ...b, status: "cancelled" } : b
-      ))
+      if (bookingsToCancel.length === 0) return
+
+      const response = await fetch("/api/bookings/bulk-cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingIds: bookingsToCancel.map(b => b.id),
+          reason: cancelAllReason || undefined,
+        }),
+      })
+
+      if (response.ok) {
+        const cancelledIds = new Set(bookingsToCancel.map(b => b.id))
+        setBookings(prev => prev.map(b => 
+          cancelledIds.has(b.id) ? { ...b, status: "cancelled" } : b
+        ))
+      }
       
       setCancelAllReason("")
-      setShowCancelAllModal(false)
+      setShowCancelModal(false)
+      setCancelSelectedOnly(false)
       setSelectedRecurringGroup(null)
+      setSelectedModalBookingIds(new Set())
     } catch (error) {
-      console.error("Failed to cancel all bookings:", error)
+      console.error("Failed to cancel bookings:", error)
     } finally {
       setIsCancellingAll(false)
     }
-  }, [selectedRecurringGroup, cancelAllReason])
+  }, [selectedRecurringGroup, cancelAllReason, cancelSelectedOnly, selectedModalBookingIds])
 
   const handleDelete = useCallback(async (bookingId: string) => {
     setIsProcessing(true)
@@ -468,35 +475,48 @@ export default function MyBookingsPage() {
     }
   }, [availableResources.length])
 
-  // Handle bulk update of all bookings in a recurring group
   const handleBulkUpdate = useCallback(async () => {
     if (!selectedRecurringGroup) return
     
+    const bookingsToUpdate = bulkEditSelectedOnly
+      ? selectedRecurringGroup.bookings.filter(b => selectedModalBookingIds.has(b.id))
+      : selectedRecurringGroup.bookings
+
+    if (bookingsToUpdate.length === 0) return
+    
     setIsBulkUpdating(true)
     try {
-      const updatePromises = selectedRecurringGroup.bookings.map(booking =>
-        fetch(`/api/bookings/${booking.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: bulkEditData.title || undefined,
-            resourceId: bulkEditData.resourceId || undefined,
-            resourcePartId: bulkEditData.resourcePartId
-          })
-        })
-      )
+      const response = await fetch("/api/bookings/bulk-edit", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingIds: bookingsToUpdate.map(b => b.id),
+          title: bulkEditData.title || undefined,
+          resourceId: bulkEditData.resourceId || undefined,
+          resourcePartId: bulkEditData.resourcePartId,
+          newStartTime: bulkEditData.newStartTime || undefined,
+          newEndTime: bulkEditData.newEndTime || undefined,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Kunne ikke oppdatere bookinger")
+      }
       
-      await Promise.all(updatePromises)
       await fetchBookings()
       setSelectedRecurringGroup(null)
       setBulkEditMode(false)
-      setBulkEditData({ title: "", resourceId: "", resourcePartId: null })
+      setBulkEditSelectedOnly(false)
+      setBulkEditData({ title: "", resourceId: "", resourcePartId: null, newStartTime: "", newEndTime: "" })
+      setSelectedModalBookingIds(new Set())
     } catch (error) {
       console.error("Failed to bulk update bookings:", error)
+      alert(error instanceof Error ? error.message : "En feil oppstod")
     } finally {
       setIsBulkUpdating(false)
     }
-  }, [selectedRecurringGroup, bulkEditData, fetchBookings])
+  }, [selectedRecurringGroup, bulkEditData, bulkEditSelectedOnly, selectedModalBookingIds, fetchBookings])
 
   if (status === "loading" || isLoading) {
     return (
@@ -1195,59 +1215,70 @@ export default function MyBookingsPage() {
         </div>
       )}
 
-      {/* Cancel All Recurring Bookings Modal */}
-      {showCancelAllModal && selectedRecurringGroup && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full shadow-2xl p-6 animate-fadeIn">
-            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-              <AlertCircle className="w-6 h-6 text-red-600" />
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
-              Kanseller alle bookinger?
-            </h3>
-            <p className="text-gray-600 text-center mb-4">
-              Er du sikker på at du vil kansellere alle {selectedRecurringGroup.bookings.filter(b => b.status !== "cancelled" && b.status !== "rejected").length} bookinger i denne serien? Administrator vil bli varslet.
-            </p>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Grunn for kansellering (valgfritt)
-              </label>
-              <textarea
-                value={cancelAllReason}
-                onChange={(e) => setCancelAllReason(e.target.value)}
-                placeholder="Forklar hvorfor du kansellerer bookingene..."
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
-              />
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowCancelAllModal(false)
-                  setCancelAllReason("")
-                }}
-                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-              >
-                Avbryt
-              </button>
-              <button
-                onClick={handleCancelAll}
-                disabled={isCancellingAll}
-                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-              >
-                {isCancellingAll ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <Trash2 className="w-4 h-4" />
-                    Ja, kanseller alle
-                  </>
-                )}
-              </button>
+      {/* Cancel Recurring Bookings Modal */}
+      {showCancelModal && selectedRecurringGroup && (() => {
+        const activeInGroup = selectedRecurringGroup.bookings.filter(b => b.status !== "cancelled" && b.status !== "rejected")
+        const cancelCount = cancelSelectedOnly
+          ? activeInGroup.filter(b => selectedModalBookingIds.has(b.id)).length
+          : activeInGroup.length
+
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-md w-full shadow-2xl p-6 animate-fadeIn">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
+                {cancelSelectedOnly 
+                  ? `Kanseller ${cancelCount} valgte bookinger?`
+                  : `Kanseller alle ${cancelCount} bookinger?`
+                }
+              </h3>
+              <p className="text-gray-600 text-center mb-4">
+                Er du sikker? Administrator vil bli varslet.
+              </p>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Grunn for kansellering (valgfritt)
+                </label>
+                <textarea
+                  value={cancelAllReason}
+                  onChange={(e) => setCancelAllReason(e.target.value)}
+                  placeholder="Forklar hvorfor du kansellerer bookingene..."
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowCancelModal(false)
+                    setCancelSelectedOnly(false)
+                    setCancelAllReason("")
+                  }}
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Avbryt
+                </button>
+                <button
+                  onClick={handleBulkCancel}
+                  disabled={isCancellingAll}
+                  className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  {isCancellingAll ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Ja, kanseller
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Edit Booking Modal */}
       {editingBooking && (
@@ -1282,7 +1313,9 @@ export default function MyBookingsPage() {
             onClick={() => {
               setSelectedRecurringGroup(null)
               setBulkEditMode(false)
-              setBulkEditData({ title: "", resourceId: "", resourcePartId: null })
+              setBulkEditSelectedOnly(false)
+              setBulkEditData({ title: "", resourceId: "", resourcePartId: null, newStartTime: "", newEndTime: "" })
+              setSelectedModalBookingIds(new Set())
             }}
           >
             <div 
@@ -1307,7 +1340,9 @@ export default function MyBookingsPage() {
                     onClick={() => {
                       setSelectedRecurringGroup(null)
                       setBulkEditMode(false)
-                      setBulkEditData({ title: "", resourceId: "", resourcePartId: null })
+                      setBulkEditSelectedOnly(false)
+                      setBulkEditData({ title: "", resourceId: "", resourcePartId: null, newStartTime: "", newEndTime: "" })
+                      setSelectedModalBookingIds(new Set())
                     }}
                     className="p-1 rounded-full hover:bg-gray-100 transition-colors"
                   >
@@ -1321,13 +1356,19 @@ export default function MyBookingsPage() {
                 {bulkEditMode ? (
                   /* Bulk Edit Form */
                   <div className="space-y-4">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <h4 className="text-sm font-semibold text-blue-800">
+                        {bulkEditSelectedOnly 
+                          ? `Rediger ${selectedModalBookingIds.size} valgte bookinger`
+                          : `Rediger alle ${selectedRecurringGroup.bookings.length} bookinger`
+                        }
+                      </h4>
+                    </div>
                     <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                       <p className="text-sm text-amber-800">
                         Endringer krever ny godkjenning fra administrator
                       </p>
                     </div>
-                    
-                    <h4 className="text-sm font-semibold text-gray-700">Rediger alle {selectedRecurringGroup.bookings.length} bookinger</h4>
                     
                     {/* Title */}
                     <div>
@@ -1396,12 +1437,33 @@ export default function MyBookingsPage() {
                       )}
                     </div>
 
+                    {/* Time */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tidspunkt</label>
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="time"
+                          value={bulkEditData.newStartTime}
+                          onChange={(e) => setBulkEditData(prev => ({ ...prev, newStartTime: e.target.value }))}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <span className="text-gray-500">&ndash;</span>
+                        <input
+                          type="time"
+                          value={bulkEditData.newEndTime}
+                          onChange={(e) => setBulkEditData(prev => ({ ...prev, newEndTime: e.target.value }))}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+
                     {/* Action buttons */}
                     <div className="flex gap-2 pt-2">
                       <button
                         onClick={() => {
                           setBulkEditMode(false)
-                          setBulkEditData({ title: "", resourceId: "", resourcePartId: null })
+                          setBulkEditSelectedOnly(false)
+                          setBulkEditData({ title: "", resourceId: "", resourcePartId: null, newStartTime: "", newEndTime: "" })
                         }}
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
                       >
@@ -1409,7 +1471,7 @@ export default function MyBookingsPage() {
                       </button>
                       <button
                         onClick={handleBulkUpdate}
-                        disabled={isBulkUpdating || (!bulkEditData.title && !bulkEditData.resourceId)}
+                        disabled={isBulkUpdating || (!bulkEditData.title && !bulkEditData.resourceId && !(bulkEditData.newStartTime && bulkEditData.newEndTime))}
                         className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                       >
                         {isBulkUpdating ? (
@@ -1420,7 +1482,7 @@ export default function MyBookingsPage() {
                         ) : (
                           <>
                             <Pencil className="w-4 h-4" />
-                            Oppdater alle
+                            Oppdater
                           </>
                         )}
                       </button>
@@ -1444,75 +1506,158 @@ export default function MyBookingsPage() {
                       </div>
                     </div>
 
-                    {/* Booking list */}
+                    {/* Booking list with checkboxes */}
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Alle bookinger i serien</h4>
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {selectedRecurringGroup.bookings.map((booking) => (
-                          <div 
-                            key={booking.id}
-                            className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-semibold text-gray-700">Alle bookinger i serien</h4>
+                        <div className="flex items-center gap-2">
+                          <button
                             onClick={() => {
-                              setSelectedRecurringGroup(null)
-                              setSelectedBooking(booking)
+                              const allIds = selectedRecurringGroup.bookings.map(b => b.id)
+                              setSelectedModalBookingIds(new Set(allIds))
                             }}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
                           >
-                            <div className="flex items-center gap-3">
-                              <div className="text-sm">
-                                <p className="font-medium text-gray-900">
-                                  {format(parseISO(booking.startTime), "EEEE d. MMM", { locale: nb })}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {format(parseISO(booking.startTime), "HH:mm")} - {format(parseISO(booking.endTime), "HH:mm")}
-                                </p>
+                            Velg alle
+                          </button>
+                          <span className="text-gray-300">|</span>
+                          <button
+                            onClick={() => setSelectedModalBookingIds(new Set())}
+                            className="text-xs text-gray-500 hover:text-gray-700 font-medium"
+                          >
+                            Fjern valg
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {selectedRecurringGroup.bookings.map((booking) => {
+                          const isSelected = selectedModalBookingIds.has(booking.id)
+                          const isPast = new Date(booking.endTime) < new Date()
+                          
+                          return (
+                            <div 
+                              key={booking.id}
+                              className={`flex items-center justify-between p-2 rounded-lg transition-colors cursor-pointer ${
+                                isSelected 
+                                  ? "bg-blue-100 border border-blue-300" 
+                                  : isPast 
+                                    ? "bg-gray-100 opacity-60" 
+                                    : "bg-gray-50 hover:bg-gray-100"
+                              }`}
+                              onClick={(e) => {
+                                const target = e.target as HTMLElement
+                                if (target.tagName === "INPUT" || target.closest("input")) return
+                                setSelectedRecurringGroup(null)
+                                setSelectedModalBookingIds(new Set())
+                                setSelectedBooking(booking)
+                              }}
+                            >
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    e.stopPropagation()
+                                    const newSet = new Set(selectedModalBookingIds)
+                                    if (e.target.checked) {
+                                      newSet.add(booking.id)
+                                    } else {
+                                      newSet.delete(booking.id)
+                                    }
+                                    setSelectedModalBookingIds(newSet)
+                                  }}
+                                  className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                />
+                                <div className="text-sm">
+                                  <p className={`font-medium ${isPast ? "text-gray-500" : "text-gray-900"}`}>
+                                    {format(parseISO(booking.startTime), "EEEE d. MMM", { locale: nb })}
+                                  </p>
+                                  <p className={`text-xs ${isPast ? "text-gray-400" : "text-gray-500"}`}>
+                                    {format(parseISO(booking.startTime), "HH:mm")} - {format(parseISO(booking.endTime), "HH:mm")}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {isPast && (
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 text-gray-500">Passert</span>
+                                )}
+                                {!isPast && booking.status === "pending" && (
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>
+                                )}
+                                {!isPast && booking.status === "approved" && (
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Godkjent</span>
+                                )}
+                                {!isPast && booking.status === "rejected" && (
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Avslått</span>
+                                )}
+                                {!isPast && booking.status === "cancelled" && (
+                                  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Kansellert</span>
+                                )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              {booking.status === "pending" && (
-                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Venter</span>
-                              )}
-                              {booking.status === "approved" && (
-                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Godkjent</span>
-                              )}
-                              {booking.status === "rejected" && (
-                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Avslått</span>
-                              )}
-                              {booking.status === "cancelled" && (
-                                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Kansellert</span>
-                              )}
-                              <ChevronRight className="w-4 h-4 text-gray-400" />
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                     
-                    {/* Action buttons - at bottom like single booking modal */}
-                    <div className="border-t pt-4 mt-4">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            fetchResourcesForBulkEdit()
-                            setBulkEditMode(true)
-                            setBulkEditData({
-                              title: "",
-                              resourceId: "",
-                              resourcePartId: null
-                            })
-                          }}
-                          className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Pencil className="w-4 h-4" />
-                          Rediger
-                        </button>
-                        <button
-                          onClick={() => setShowCancelAllModal(true)}
-                          className="flex-1 px-4 py-2.5 border border-red-300 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Kanseller
-                        </button>
-                      </div>
+                    {/* Action buttons - edit and cancel */}
+                    <div className="border-t pt-4 mt-4 space-y-2">
+                      {(() => {
+                        const selectedCount = selectedModalBookingIds.size
+                        const allSelected = selectedCount === selectedRecurringGroup.bookings.length && selectedCount > 0
+                        const editSelectedOnly = selectedCount > 0 && !allSelected
+                        const activeBookingsInGroup = selectedRecurringGroup.bookings.filter(b => b.status !== "cancelled" && b.status !== "rejected")
+                        const selectedActiveCount = activeBookingsInGroup.filter(b => selectedModalBookingIds.has(b.id)).length
+                        
+                        return (
+                          <>
+                            <button
+                              onClick={() => {
+                                fetchResourcesForBulkEdit()
+                                setBulkEditMode(true)
+                                setBulkEditSelectedOnly(editSelectedOnly)
+                                const refBooking = selectedRecurringGroup.bookings[0]
+                                const startTime = new Date(refBooking.startTime)
+                                const endTime = new Date(refBooking.endTime)
+                                setBulkEditData({
+                                  title: refBooking.title,
+                                  resourceId: refBooking.resource.id,
+                                  resourcePartId: refBooking.resourcePart?.id || null,
+                                  newStartTime: `${String(startTime.getHours()).padStart(2, "0")}:${String(startTime.getMinutes()).padStart(2, "0")}`,
+                                  newEndTime: `${String(endTime.getHours()).padStart(2, "0")}:${String(endTime.getMinutes()).padStart(2, "0")}`,
+                                })
+                              }}
+                              className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Pencil className="w-4 h-4" />
+                              {allSelected || selectedCount === 0 
+                                ? "Rediger alle" 
+                                : `Rediger (${selectedCount})`
+                              }
+                            </button>
+                            
+                            {activeBookingsInGroup.length > 0 && (
+                              <button
+                                onClick={() => {
+                                  if (selectedActiveCount > 0 && selectedActiveCount < activeBookingsInGroup.length) {
+                                    setCancelSelectedOnly(true)
+                                  } else {
+                                    setCancelSelectedOnly(false)
+                                  }
+                                  setShowCancelModal(true)
+                                }}
+                                className="w-full px-4 py-2.5 border border-red-300 text-red-600 rounded-lg font-medium hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                {selectedActiveCount > 0 && selectedActiveCount < activeBookingsInGroup.length
+                                  ? `Kanseller (${selectedActiveCount})`
+                                  : "Kanseller alle"
+                                }
+                              </button>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
                   </>
                 )}
