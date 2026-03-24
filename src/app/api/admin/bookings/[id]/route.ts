@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { sendEmail, getBookingApprovedEmail, getBookingRejectedEmail, formatBookingDateTime } from "@/lib/email"
+import { sendEmail, getBookingApprovedEmail, getBookingRejectedEmail, getBookingCancelledByAdminEmail, formatBookingDateTime } from "@/lib/email"
 import { nb } from "date-fns/locale"
 import { formatInTimeZone } from "date-fns-tz"
 
@@ -243,6 +243,90 @@ export async function PATCH(
       approvedById: action === "approve" ? session.user.id : null
     }
   })
+
+  // If approving an overlap booking, cancel conflicting bookings and notify their owners
+  if (action === "approve" && booking.isOverlapBooking) {
+    const cancelOverlappingAsync = async () => {
+      try {
+        const bookingsToCancel = await prisma.booking.findMany({
+          where: {
+            id: { in: bookingIdsToUpdate },
+          },
+          select: { id: true, startTime: true, endTime: true, resourceId: true, resourcePartId: true }
+        })
+
+        for (const approvedBooking of bookingsToCancel) {
+          const timeOverlap = [
+            { AND: [{ startTime: { lte: approvedBooking.startTime } }, { endTime: { gt: approvedBooking.startTime } }] },
+            { AND: [{ startTime: { lt: approvedBooking.endTime } }, { endTime: { gte: approvedBooking.endTime } }] },
+            { AND: [{ startTime: { gte: approvedBooking.startTime } }, { endTime: { lte: approvedBooking.endTime } }] },
+          ]
+
+          let conflictWhere: any
+          if (approvedBooking.resourcePartId) {
+            const part = await prisma.resourcePart.findUnique({
+              where: { id: approvedBooking.resourcePartId },
+              include: { parent: true, children: true }
+            })
+            const partIdsToCheck = [approvedBooking.resourcePartId]
+            if (part?.children) partIdsToCheck.push(...part.children.map(c => c.id))
+            if (part?.parentId) partIdsToCheck.push(part.parentId)
+
+            conflictWhere = {
+              resourceId: approvedBooking.resourceId,
+              id: { notIn: bookingIdsToUpdate },
+              status: { in: ["pending", "approved"] },
+              OR: [
+                { resourcePartId: { in: partIdsToCheck }, AND: { OR: timeOverlap } },
+                { resourcePartId: null, AND: { OR: timeOverlap } },
+              ],
+            }
+          } else {
+            conflictWhere = {
+              resourceId: approvedBooking.resourceId,
+              id: { notIn: bookingIdsToUpdate },
+              status: { in: ["pending", "approved"] },
+              OR: timeOverlap,
+            }
+          }
+
+          const overlapping = await prisma.booking.findMany({
+            where: conflictWhere,
+            include: { user: true, resource: true, resourcePart: true },
+          })
+
+          if (overlapping.length > 0) {
+            await prisma.booking.updateMany({
+              where: { id: { in: overlapping.map(b => b.id) } },
+              data: { status: "cancelled", statusNote: "Kansellert fordi en overlappende booking ble prioritert" },
+            })
+
+            for (const cancelled of overlapping) {
+              const cancelledEmail = cancelled.contactEmail || cancelled.user.email
+              if (cancelledEmail) {
+                const { date, time } = formatBookingDateTime(new Date(cancelled.startTime), new Date(cancelled.endTime))
+                const resName = cancelled.resourcePart
+                  ? `${cancelled.resource.name} → ${cancelled.resourcePart.name}`
+                  : cancelled.resource.name
+                const emailContent = await getBookingCancelledByAdminEmail(
+                  cancelled.organizationId,
+                  cancelled.title,
+                  resName,
+                  date,
+                  time,
+                  "En annen booking ble prioritert for dette tidsrommet"
+                )
+                await sendEmail(cancelled.organizationId, { to: cancelledEmail, ...emailContent })
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to cancel overlapping bookings:", err)
+      }
+    }
+    void cancelOverlappingAsync()
+  }
 
   // Send email notification (non-blocking - don't await)
   const userEmail = booking.contactEmail || booking.user.email

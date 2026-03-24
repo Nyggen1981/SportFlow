@@ -51,6 +51,7 @@ interface Booking {
   preferredPaymentMethod: string | null
   isRecurring?: boolean
   parentBookingId?: string | null
+  isOverlapBooking?: boolean
   resource: {
     id: string
     name: string
@@ -1234,8 +1235,12 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                         style={{ backgroundColor: booking.resource.color || "#3b82f6" }}
                       />
                       <div className="flex-1 min-w-0">
-                        <span className="font-medium text-gray-900">{booking.title}</span>
-                        {/* Show status badge under title when pricing is enabled */}
+                        <span className="font-medium text-gray-900">
+                          {booking.title}
+                          {booking.isOverlapBooking && booking.status === "pending" && (
+                            <span className="ml-2 px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">Overlapp</span>
+                          )}
+                        </span>
                         {pricingEnabled && (
                           <div className="flex items-center gap-1 flex-wrap mt-0.5">
                             {booking.status === "pending" && (

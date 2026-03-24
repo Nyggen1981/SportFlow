@@ -66,6 +66,9 @@ model Organization {
   invoiceBankAccount String? // Kontonummer for betaling
   invoiceNotes       String? // Standard notater på faktura
   isMvaRegistered    Boolean @default(false) // Er organisasjonen MVA-registrert?
+
+  // Booking overlap settings
+  allowOverlappingBookings Boolean @default(false) // Tillat brukere å booke tider som allerede er opptatt (krever admin-godkjenning)
 }
 
 // Egendefinerte roller per organisasjon
@@ -381,6 +384,9 @@ model Booking {
   recurringPattern String? // weekly, biweekly, monthly
   recurringEndDate DateTime?
   parentBookingId  String?
+
+  // Overlap booking support
+  isOverlapBooking Boolean @default(false) // Booking opprettet med kjent overlapp
 
   // When the user has seen a status change (approved/rejected) in the UI
   userSeenAt DateTime?

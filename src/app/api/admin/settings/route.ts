@@ -50,6 +50,7 @@ export async function GET() {
           invoiceBankAccount: true,
           invoiceNotes: true,
           isMvaRegistered: true,
+          allowOverlappingBookings: true,
           createdAt: true,
           updatedAt: true,
           isActive: true,
@@ -58,8 +59,7 @@ export async function GET() {
         }
       })
     } catch (selectError: any) {
-      // isMvaRegistered might not exist in DB yet, try without it
-      console.warn("Full select failed, trying without isMvaRegistered:", selectError.message)
+      console.warn("Full select failed, trying without newer fields:", selectError.message)
       try {
         org = await prisma.organization.findUnique({
           where: { id: session.user.organizationId },
@@ -169,7 +169,8 @@ export async function PUT(request: Request) {
       invoiceOrgNumber,
       invoiceBankAccount,
       invoiceNotes,
-      isMvaRegistered
+      isMvaRegistered,
+      allowOverlappingBookings
     } = await request.json()
 
     // Check if slug is already taken by another org
@@ -221,6 +222,7 @@ export async function PUT(request: Request) {
         data: {
           ...baseData,
           isMvaRegistered: isMvaRegistered === true,
+          allowOverlappingBookings: allowOverlappingBookings === true,
         }
       })
     } catch (updateError: any) {

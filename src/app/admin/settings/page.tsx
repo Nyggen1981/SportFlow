@@ -39,6 +39,7 @@ interface Organization {
   primaryColor: string
   secondaryColor: string
   requireUserApproval?: boolean
+  allowOverlappingBookings?: boolean
   smtpHost?: string | null
   smtpPort?: number | null
   smtpUser?: string | null
@@ -102,6 +103,7 @@ export default function AdminSettingsPage() {
   const [secondaryColor, setSecondaryColor] = useState("#1e40af")
   const [requireUserApproval, setRequireUserApproval] = useState(true)
   const [allowSelfMembershipClaim, setAllowSelfMembershipClaim] = useState(false)
+  const [allowOverlappingBookings, setAllowOverlappingBookings] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // SMTP settings state
@@ -178,8 +180,9 @@ export default function AdminSettingsPage() {
           setTagline(orgData.tagline || "Kalender")
           setPrimaryColor(orgData.primaryColor || "#2563eb")
           setSecondaryColor(orgData.secondaryColor || "#1e40af")
-          setRequireUserApproval(orgData.requireUserApproval !== false) // Default to true
-          setAllowSelfMembershipClaim(orgData.allowSelfMembershipClaim === true) // Default to false
+          setRequireUserApproval(orgData.requireUserApproval !== false)
+          setAllowSelfMembershipClaim(orgData.allowSelfMembershipClaim === true)
+          setAllowOverlappingBookings(orgData.allowOverlappingBookings === true)
           
           // Load SMTP settings
           setSmtpHost(orgData.smtpHost || "")
@@ -457,6 +460,7 @@ export default function AdminSettingsPage() {
           secondaryColor,
           requireUserApproval,
           allowSelfMembershipClaim,
+          allowOverlappingBookings,
           smtpHost: smtpHost || null,
           smtpPort: smtpPort || null,
           smtpUser: smtpUser || null,
@@ -865,6 +869,42 @@ export default function AdminSettingsPage() {
                   <div
                     className={`absolute top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white shadow-md border border-gray-200 transition-all duration-200 ${
                       allowSelfMembershipClaim ? 'left-6' : 'left-0'
+                    }`}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Booking Settings */}
+            <div className="space-y-4">
+              <h2 className="font-semibold text-gray-900 border-b pb-2 flex items-center gap-2">
+                <Settings className="w-5 h-5 text-gray-400" />
+                Bookinginnstillinger
+              </h2>
+              
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div className="flex-1 mr-4">
+                  <h3 className="font-medium text-gray-900">Tillat overlappende bookinger</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {allowOverlappingBookings 
+                      ? "Brukere kan sende inn booking selv om tiden allerede er opptatt. Admin avgjor hvem som far tiden."
+                      : "Brukere kan ikke booke tider som allerede er opptatt"
+                    }
+                  </p>
+                </div>
+                <div
+                  onClick={() => setAllowOverlappingBookings(!allowOverlappingBookings)}
+                  className="relative cursor-pointer"
+                  style={{ width: '44px', height: '24px' }}
+                >
+                  <div 
+                    className={`absolute top-1/2 -translate-y-1/2 left-0 right-0 h-3 rounded-full transition-colors duration-200 ${
+                      allowOverlappingBookings ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}
+                  />
+                  <div
+                    className={`absolute top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white shadow-md border border-gray-200 transition-all duration-200 ${
+                      allowOverlappingBookings ? 'left-6' : 'left-0'
                     }`}
                   />
                 </div>

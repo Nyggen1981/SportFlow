@@ -62,9 +62,9 @@ export async function GET(request: Request) {
         contactPhone: true,
         totalAmount: true,
         invoiceId: true,
-        // Recurring booking fields for grouping
         isRecurring: true,
         parentBookingId: true,
+        isOverlapBooking: true,
         invoice: {
           select: {
             id: true,

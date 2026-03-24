@@ -79,8 +79,9 @@ export async function POST(request: Request) {
       isRecurring,
       recurringType,
       recurringEndDate,
-      preferredPaymentMethod, // Brukerens foretrukne betalingsmetode (kun hvis pricing er aktivert)
-      fixedPricePackageId // ID til fastprispakke hvis bruker har valgt en
+      preferredPaymentMethod,
+      fixedPricePackageId,
+      allowOverlap // Client sends this after user confirms overlap warning
     } = body
 
     // Normalize to array: use resourcePartIds if provided, otherwise use resourcePartId as single-item array
@@ -105,6 +106,13 @@ export async function POST(request: Request) {
         { status: 404 }
       )
     }
+
+    // Check if organization allows overlapping bookings
+    const organization = await prisma.organization.findUnique({
+      where: { id: session.user.organizationId },
+      select: { allowOverlappingBookings: true }
+    })
+    const overlapEnabled = organization?.allowOverlappingBookings === true
 
     // Validate booking duration
     const start = new Date(startTime)
@@ -283,10 +291,26 @@ export async function POST(request: Request) {
           ? `"${conflict.resourcePart.name}"` 
           : "hele fasiliteten"
         
-        return NextResponse.json(
-          { error: `Konflikt ${conflictDate}: ${conflictInfo} er allerede booket i dette tidsrommet` },
-          { status: 409 }
-        )
+        if (overlapEnabled && allowOverlap) {
+          // User confirmed overlap - skip booking conflict, but still check competitions below
+        } else if (overlapEnabled) {
+          return NextResponse.json(
+            { 
+              error: `Konflikt ${conflictDate}: ${conflictInfo} er allerede booket i dette tidsrommet`,
+              canOverride: true,
+              conflictInfo: {
+                date: conflictDate,
+                description: conflictInfo
+              }
+            },
+            { status: 409 }
+          )
+        } else {
+          return NextResponse.json(
+            { error: `Konflikt ${conflictDate}: ${conflictInfo} er allerede booket i dette tidsrommet` },
+            { status: 409 }
+          )
+        }
       }
 
       // Sjekk også for konkurranser som blokkerer denne fasiliteten (kun hvis kampoppsett-modulen er aktivert)
@@ -450,9 +474,12 @@ export async function POST(request: Request) {
         bookingData.preferredPaymentMethod = preferredPaymentMethod
       }
       
-      // Legg til fixedPricePackageId hvis det er definert
       if (fixedPricePackageId) {
         bookingData.fixedPricePackageId = fixedPricePackageId
+      }
+      
+      if (overlapEnabled && allowOverlap) {
+        bookingData.isOverlapBooking = true
       }
       
       const parentBooking = await prisma.booking.create({
@@ -511,9 +538,12 @@ export async function POST(request: Request) {
               childBookingData.preferredPaymentMethod = preferredPaymentMethod
             }
             
-            // Legg til fixedPricePackageId hvis det er definert
             if (fixedPricePackageId) {
               childBookingData.fixedPricePackageId = fixedPricePackageId
+            }
+            
+            if (overlapEnabled && allowOverlap) {
+              childBookingData.isOverlapBooking = true
             }
             
             return prisma.booking.create({

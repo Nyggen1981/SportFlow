@@ -37,6 +37,7 @@ export interface BookingModalData {
   preferredPaymentMethod: string | null
   isRecurring?: boolean
   parentBookingId?: string | null
+  isOverlapBooking?: boolean
   resource: {
     id: string
     name: string
@@ -65,6 +66,82 @@ interface BookingModalProps {
   onCancel?: (bookingId: string) => Promise<void>
   onViewInvoice?: (invoiceId: string) => void
   isProcessing?: boolean
+}
+
+function OverlapInfoSection({ bookingId }: { bookingId: string }) {
+  const [overlapping, setOverlapping] = useState<Array<{
+    id: string
+    title: string
+    startTime: string
+    endTime: string
+    status: string
+    user: { name: string | null; email: string }
+    resourcePart: { name: string } | null
+  }>>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchOverlapping = async () => {
+      try {
+        const res = await fetch(`/api/admin/bookings/${bookingId}/overlapping`)
+        if (res.ok) {
+          const data = await res.json()
+          setOverlapping(data)
+        }
+      } catch (error) {
+        console.error("Failed to fetch overlapping bookings:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchOverlapping()
+  }, [bookingId])
+
+  if (isLoading) {
+    return (
+      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2">
+        <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
+        <span className="text-sm text-amber-700">Sjekker overlappende bookinger...</span>
+      </div>
+    )
+  }
+
+  if (overlapping.length === 0) {
+    return (
+      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+        <p className="text-sm text-green-700 font-medium">Ingen aktive overlappende bookinger funnet</p>
+        <p className="text-xs text-green-600 mt-1">Eksisterende bookinger kan allerede ha blitt kansellert</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+      <p className="text-sm font-semibold text-amber-800 flex items-center gap-1">
+        <AlertCircle className="w-4 h-4" />
+        Overlapper med {overlapping.length} eksisterende booking{overlapping.length > 1 ? "er" : ""}
+      </p>
+      <p className="text-xs text-amber-700">
+        Ved godkjenning vil disse bookingene automatisk bli kansellert:
+      </p>
+      <div className="space-y-1">
+        {overlapping.map((b) => (
+          <div key={b.id} className="bg-white/70 rounded p-2 text-sm">
+            <p className="font-medium text-gray-900">{b.title}</p>
+            <p className="text-xs text-gray-600">
+              {b.user.name || b.user.email} &middot; {format(new Date(b.startTime), "d. MMM HH:mm", { locale: nb })} - {format(new Date(b.endTime), "HH:mm")}
+              {b.resourcePart && ` (${b.resourcePart.name})`}
+            </p>
+            <span className={`inline-block mt-1 px-1.5 py-0.5 text-xs font-medium rounded ${
+              b.status === "approved" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+            }`}>
+              {b.status === "approved" ? "Godkjent" : "Venter"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // Admin note component that fetches and saves notes
@@ -377,6 +454,11 @@ export function BookingModal({
               <h4 className="text-sm font-semibold text-gray-700 mb-2">Beskrivelse</h4>
               <p className="text-gray-600 whitespace-pre-wrap">{booking.description}</p>
             </div>
+          )}
+
+          {/* Overlap info for admin on pending overlap bookings */}
+          {isAdmin && booking.isOverlapBooking && booking.status === "pending" && (
+            <OverlapInfoSection bookingId={booking.id} />
           )}
 
           {/* Date and time */}

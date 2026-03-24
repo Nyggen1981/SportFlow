@@ -113,6 +113,7 @@ export default function BookResourcePage({ params }: Props) {
   const [success, setSuccess] = useState(false)
   const [bookingCount, setBookingCount] = useState(1)
   const [error, setError] = useState("")
+  const [overlapWarning, setOverlapWarning] = useState<{ message: string; conflictInfo: { date: string; description: string } } | null>(null)
 
   // Form state
   const [title, setTitle] = useState("")
@@ -432,18 +433,13 @@ export default function BookResourcePage({ params }: Props) {
   // Ref to prevent race condition with double-clicks
   const isSubmittingRef = useRef(false)
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    // Prevent double-submit with ref (handles race condition)
-    if (isSubmittingRef.current) {
-      return
-    }
+  const submitBooking = useCallback(async (forceOverlap: boolean = false) => {
+    if (isSubmittingRef.current) return
     isSubmittingRef.current = true
     setIsSubmitting(true)
     setError("")
+    setOverlapWarning(null)
 
-    // Validate part selection if whole booking is not allowed
     if (resource && !resource.allowWholeBooking && resource.parts.length > 0 && selectedParts.length === 0) {
       setError("Du må velge minst en del for denne fasiliteten")
       setIsSubmitting(false)
@@ -451,7 +447,6 @@ export default function BookResourcePage({ params }: Props) {
       return
     }
 
-    // Validate that end date/time is after start date/time
     if (!startDate || !startTime || !endDate || !endTime) {
       setError("Du må fylle ut både start- og sluttidspunkt")
       setIsSubmitting(false)
@@ -463,7 +458,6 @@ export default function BookResourcePage({ params }: Props) {
       const startDateTime = new Date(`${startDate}T${startTime}`)
       const endDateTime = new Date(`${endDate}T${endTime}`)
       
-      // Validate dates
       if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
         setError("Ugyldig dato eller tid")
         setIsSubmitting(false)
@@ -471,7 +465,6 @@ export default function BookResourcePage({ params }: Props) {
         return
       }
       
-      // Validate that end is after start
       if (endDateTime <= startDateTime) {
         setError("Sluttidspunkt må være etter starttidspunkt")
         setIsSubmitting(false)
@@ -495,20 +488,26 @@ export default function BookResourcePage({ params }: Props) {
           isRecurring,
           recurringType: isRecurring ? recurringType : undefined,
           recurringEndDate: isRecurring ? recurringEndDate : undefined,
-          // Legg til betalingsmetode KUN hvis pricing er aktivert, det er valgt, og bookingen IKKE er gratis
           ...(pricingEnabled && preferredPaymentMethod && calculatedPrice && !calculatedPrice.isFree && calculatedPrice.price > 0 ? {
             preferredPaymentMethod
           } : {}),
-          // Legg til fastprispakke hvis valgt
           ...(usePackage && selectedPackageId ? {
             fixedPricePackageId: selectedPackageId
-          } : {})
+          } : {}),
+          ...(forceOverlap ? { allowOverlap: true } : {})
         })
       })
 
       const data = await response.json()
       
       if (!response.ok) {
+        if (response.status === 409 && data.canOverride) {
+          setOverlapWarning({
+            message: data.error,
+            conflictInfo: data.conflictInfo
+          })
+          return
+        }
         throw new Error(data.error || "Kunne ikke opprette booking")
       }
 
@@ -522,6 +521,15 @@ export default function BookResourcePage({ params }: Props) {
       isSubmittingRef.current = false
     }
   }, [resource, selectedParts, id, startDate, startTime, endDate, endTime, title, description, contactName, contactEmail, contactPhone, isRecurring, recurringType, recurringEndDate, pricingEnabled, calculatedPrice, preferredPaymentMethod, usePackage, selectedPackageId])
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault()
+    await submitBooking(false)
+  }, [submitBooking])
+
+  const handleOverlapConfirm = useCallback(async () => {
+    await submitBooking(true)
+  }, [submitBooking])
 
   if (status === "loading" || isLoading) {
     return (
@@ -1193,6 +1201,46 @@ export default function BookResourcePage({ params }: Props) {
               </p>
             )}
           </form>
+
+          {/* Overlap warning modal */}
+          {overlapWarning && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl max-w-md w-full shadow-2xl p-6 animate-in slide-in-from-bottom-4">
+                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="w-6 h-6 text-amber-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 text-center mb-2">Tiden er allerede opptatt</h3>
+                <p className="text-gray-600 text-center mb-4">
+                  {overlapWarning.message}
+                </p>
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+                  <p className="text-sm text-amber-800">
+                    Du kan fortsatt sende inn bookingen. Admin vil se begge bookingene og avgjore hvem som far tiden. 
+                    Hvis din booking godkjennes, vil den eksisterende bookingen bli kansellert.
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setOverlapWarning(null)}
+                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    Avbryt
+                  </button>
+                  <button
+                    onClick={handleOverlapConfirm}
+                    disabled={isSubmitting}
+                    className="flex-1 px-4 py-2.5 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Send likevel"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
