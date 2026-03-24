@@ -61,6 +61,7 @@ export async function POST(request: Request) {
       contactName,
       contactEmail,
       contactPhone,
+      allowOverlap,
     } = body
 
     if (!userId || !resourceId || !title || !startTime || !endTime) {
@@ -86,27 +87,84 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check for conflicts - optimized query using time range overlap
-    // Time ranges overlap if: start1 < end2 && start2 < end1
+    // Conflict check matching the web API logic (parts hierarchy + overlap setting)
     const bookingStart = new Date(startTime)
     const bookingEnd = new Date(endTime)
-    
-    const conflictingBookings = await prisma.booking.findMany({
-      where: {
-        resourceId,
-        status: { in: ['approved', 'pending'] },
-        // Optimized overlap check: bookings that start before our end AND end after our start
-        startTime: { lt: bookingEnd },
-        endTime: { gt: bookingStart },
-      },
-      select: { id: true } // Only need to know if conflict exists
-    })
+
+    const timeOverlapConditions = [
+      { AND: [{ startTime: { lte: bookingStart } }, { endTime: { gt: bookingStart } }] },
+      { AND: [{ startTime: { lt: bookingEnd } }, { endTime: { gte: bookingEnd } }] },
+      { AND: [{ startTime: { gte: bookingStart } }, { endTime: { lte: bookingEnd } }] },
+    ]
+
+    const baseFilter = {
+      resourceId,
+      status: { notIn: ["cancelled", "rejected"] },
+      OR: timeOverlapConditions,
+    }
+
+    let conflictingBookings
+
+    if (!resourcePartId) {
+      conflictingBookings = await prisma.booking.findMany({
+        where: baseFilter,
+        select: { id: true, resourcePart: { select: { name: true } } },
+      })
+    } else {
+      const bookingPart = await prisma.resourcePart.findUnique({
+        where: { id: resourcePartId },
+        include: { parent: true, children: true },
+      })
+
+      const partIdsToCheck: string[] = [resourcePartId]
+      if (bookingPart?.children && bookingPart.children.length > 0) {
+        partIdsToCheck.push(...bookingPart.children.map(c => c.id))
+      }
+      if (bookingPart?.parentId) {
+        partIdsToCheck.push(bookingPart.parentId)
+      }
+
+      conflictingBookings = await prisma.booking.findMany({
+        where: {
+          resourceId,
+          status: { notIn: ["cancelled", "rejected"] },
+          OR: [
+            { resourcePartId: { in: partIdsToCheck }, AND: { OR: timeOverlapConditions } },
+            { resourcePartId: null, AND: { OR: timeOverlapConditions } },
+          ],
+        },
+        select: { id: true, resourcePart: { select: { name: true } } },
+      })
+    }
 
     if (conflictingBookings.length > 0) {
-      return NextResponse.json(
-        { error: "Det finnes allerede en booking i dette tidsrommet" },
-        { status: 409 }
-      )
+      const conflict = conflictingBookings[0]
+      const conflictInfo = conflict.resourcePart
+        ? `"${conflict.resourcePart.name}"`
+        : "hele fasiliteten"
+
+      const organization = await prisma.organization.findUnique({
+        where: { id: resource.organizationId },
+        select: { allowOverlappingBookings: true },
+      })
+      const overlapEnabled = organization?.allowOverlappingBookings === true
+
+      if (overlapEnabled && allowOverlap) {
+        // User confirmed overlap - continue to create booking
+      } else if (overlapEnabled) {
+        return NextResponse.json(
+          {
+            error: `${conflictInfo} er allerede booket i dette tidsrommet`,
+            canOverride: true,
+          },
+          { status: 409 }
+        )
+      } else {
+        return NextResponse.json(
+          { error: `${conflictInfo} er allerede booket i dette tidsrommet` },
+          { status: 409 }
+        )
+      }
     }
 
     // Beregn pris for booking (kun hvis prising er aktivert)
@@ -124,6 +182,8 @@ export async function POST(request: Request) {
       totalAmount = priceCalculation.price > 0 ? priceCalculation.price : null
     }
 
+    const isOverlapBooking = !!(allowOverlap && conflictingBookings.length > 0)
+
     // Create booking
     const booking = await prisma.booking.create({
       data: {
@@ -140,6 +200,7 @@ export async function POST(request: Request) {
         resourcePartId: resourcePartId || null,
         userId,
         totalAmount,
+        isOverlapBooking,
       },
       include: {
         resource: true,

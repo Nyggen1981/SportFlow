@@ -456,8 +456,8 @@ export function BookingModal({
             </div>
           )}
 
-          {/* Overlap info for admin on pending overlap bookings */}
-          {isAdmin && booking.isOverlapBooking && booking.status === "pending" && (
+          {/* Overlap info for admin on pending bookings */}
+          {isAdmin && booking.status === "pending" && (
             <OverlapInfoSection bookingId={booking.id} />
           )}
 

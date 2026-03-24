@@ -101,6 +101,15 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
   
+  // Overlap confirmation state
+  const [overlapConfirmOpen, setOverlapConfirmOpen] = useState(false)
+  const [overlapConfirmBookingId, setOverlapConfirmBookingId] = useState<string | null>(null)
+  const [overlapConfirmApplyToAll, setOverlapConfirmApplyToAll] = useState(false)
+  const [overlapConfirmBookings, setOverlapConfirmBookings] = useState<Array<{
+    id: string; title: string; startTime: string; endTime: string; status: string;
+    user: { name: string | null; email: string }; resourcePart: { name: string } | null;
+  }>>([])
+  
   // Invoice PDF preview state
   const [invoicePreviewModalOpen, setInvoicePreviewModalOpen] = useState(false)
   const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null)
@@ -249,7 +258,7 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
     await executeAction(bookingId, action)
   }
 
-  const executeAction = async (bookingId: string, action: "approve" | "reject" | "cancel", applyToAll: boolean = false) => {
+  const executeAction = async (bookingId: string, action: "approve" | "reject" | "cancel", applyToAll: boolean = false, forceApproveOverlap: boolean = false) => {
     setProcessingId(bookingId)
     try {
       const booking = bookings.find(b => b.id === bookingId)
@@ -261,19 +270,28 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
         body: JSON.stringify({ 
           action: action === "cancel" ? "reject" : action,
           statusNote: action === "cancel" ? "Kansellert av administrator" : undefined,
-          applyToAll: shouldApplyToAll
+          applyToAll: shouldApplyToAll,
+          forceApproveOverlap
         })
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Kunne ikke utføre handling")
+        throw new Error(data.error || "Kunne ikke utføre handling")
       }
 
-        // Refresh bookings
-        await fetchBookings()
+      if (data.requiresOverlapConfirmation) {
+        setOverlapConfirmBookingId(bookingId)
+        setOverlapConfirmApplyToAll(shouldApplyToAll || false)
+        setOverlapConfirmBookings(data.overlappingBookings || [])
+        setOverlapConfirmOpen(true)
+        setProcessingId(null)
+        return
+      }
+
+      await fetchBookings()
       
-      // Close preview modal if open
       if (emailPreviewModalOpen) {
         setEmailPreviewModalOpen(false)
         setEmailPreview(null)
@@ -281,7 +299,6 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
         setPreviewError(null)
       }
       
-      // Close booking details modal
       setSelectedBooking(null)
     } catch (error) {
       console.error("Failed to process booking:", error)
@@ -289,6 +306,14 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
     } finally {
       setProcessingId(null)
     }
+  }
+
+  const confirmOverlapApproval = async () => {
+    if (!overlapConfirmBookingId) return
+    setOverlapConfirmOpen(false)
+    await executeAction(overlapConfirmBookingId, "approve", overlapConfirmApplyToAll, true)
+    setOverlapConfirmBookingId(null)
+    setOverlapConfirmBookings([])
   }
 
   const confirmEmailAndApprove = async () => {
@@ -2299,6 +2324,58 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
           </div>
         )
       })()}
+
+      {/* Overlap Confirmation Modal */}
+      {overlapConfirmOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4" onClick={() => { setOverlapConfirmOpen(false); setOverlapConfirmBookingId(null); setOverlapConfirmBookings([]) }}>
+          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 bg-amber-50 border-b border-amber-200 rounded-t-xl">
+              <h3 className="text-lg font-semibold text-amber-900 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+                Overlappende bookinger funnet
+              </h3>
+              <p className="text-sm text-amber-700 mt-1">
+                Godkjenning av denne bookingen vil automatisk kansellere følgende overlappende booking{overlapConfirmBookings.length > 1 ? "er" : ""}:
+              </p>
+            </div>
+            <div className="p-6 space-y-3">
+              {overlapConfirmBookings.map((b) => (
+                <div key={b.id} className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="font-medium text-gray-900">{b.title}</p>
+                  <p className="text-sm text-gray-600">
+                    {b.user.name || b.user.email}
+                    {b.resourcePart && ` · ${b.resourcePart.name}`}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {format(new Date(b.startTime), "d. MMM yyyy HH:mm", { locale: nb })} - {format(new Date(b.endTime), "HH:mm")}
+                  </p>
+                  <span className={`inline-block mt-1 px-2 py-0.5 text-xs font-medium rounded ${b.status === "approved" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                    {b.status === "approved" ? "Godkjent" : "Venter"}
+                  </span>
+                </div>
+              ))}
+              <p className="text-sm text-red-700 font-medium">
+                De berørte brukerne vil få en e-post om at bookingen deres er kansellert.
+              </p>
+            </div>
+            <div className="p-6 border-t flex gap-3">
+              <button
+                onClick={() => { setOverlapConfirmOpen(false); setOverlapConfirmBookingId(null); setOverlapConfirmBookings([]) }}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={confirmOverlapApproval}
+                className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Godkjenn likevel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
