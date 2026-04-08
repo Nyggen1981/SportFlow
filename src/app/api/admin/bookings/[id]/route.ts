@@ -11,6 +11,7 @@ import { isPricingEnabled } from "@/lib/pricing"
 import { createInvoiceForBooking, createInvoiceWithPDF, sendInvoiceEmail } from "@/lib/invoice"
 import { getVippsClient, sendVippsPaymentEmail } from "@/lib/vipps"
 import { format } from "date-fns"
+import { getBookingNotificationEmails } from "@/lib/booking-notifications"
 
 export async function PATCH(
   request: Request,
@@ -332,22 +333,25 @@ export async function PATCH(
         })
 
         for (const cancelled of overlappingToCancel) {
-          const cancelledEmail = cancelled.contactEmail || cancelled.user.email
-          if (cancelledEmail) {
-            const { date, time } = formatBookingDateTime(new Date(cancelled.startTime), new Date(cancelled.endTime))
-            const resName = cancelled.resourcePart
-              ? `${cancelled.resource.name} → ${cancelled.resourcePart.name}`
-              : cancelled.resource.name
-            const emailContent = await getBookingCancelledByAdminEmail(
-              cancelled.organizationId,
-              cancelled.title,
-              resName,
-              date,
-              time,
-              "En annen booking ble prioritert for dette tidsrommet"
+          const notifyEmails = await getBookingNotificationEmails(cancelled.id)
+          if (notifyEmails.length === 0) continue
+          const { date, time } = formatBookingDateTime(new Date(cancelled.startTime), new Date(cancelled.endTime))
+          const resName = cancelled.resourcePart
+            ? `${cancelled.resource.name} → ${cancelled.resourcePart.name}`
+            : cancelled.resource.name
+          const emailContent = await getBookingCancelledByAdminEmail(
+            cancelled.organizationId,
+            cancelled.title,
+            resName,
+            date,
+            time,
+            "En annen booking ble prioritert for dette tidsrommet"
+          )
+          await Promise.all(
+            notifyEmails.map((to) =>
+              sendEmail(cancelled.organizationId, { to, ...emailContent, category: "booking_overlap_cancelled" })
             )
-            await sendEmail(cancelled.organizationId, { to: cancelledEmail, ...emailContent, category: "booking_overlap_cancelled" })
-          }
+          )
         }
       } catch (err) {
         console.error("Failed to cancel overlapping bookings:", err)
@@ -356,65 +360,69 @@ export async function PATCH(
     void cancelOverlappingAsync()
   }
 
-  // Send email notification (non-blocking - don't await)
-  const userEmail = booking.contactEmail || booking.user.email
-  if (userEmail) {
-    const { date, time } = formatBookingDateTime(new Date(booking.startTime), new Date(booking.endTime))
-    const resourceName = booking.resourcePart 
-      ? `${booking.resource.name} → ${booking.resourcePart.name}`
-      : booking.resource.name
-    const count = bookingIdsToUpdate.length
+  // Send email notification (non-blocking - don't await) til hovedeier, kontakt og medeiere
+  const sendEmailAsync = async () => {
+    try {
+      const notificationEmails = await getBookingNotificationEmails(booking.id)
+      if (notificationEmails.length === 0) return
 
-    // Fire and forget - don't block the response
-    const sendEmailAsync = async () => {
-      try {
-        if (action === "approve") {
-          const adminNote = (booking.resourcePart as any)?.adminNote || null
-          
-          // Prepare invoice info if we have invoice data
-          const invoiceInfo = invoiceData ? {
-            invoiceNumber: invoiceData.invoiceNumber,
-            dueDate: format(invoiceData.dueDate, "d. MMMM yyyy", { locale: nb }),
-            totalAmount: invoiceData.totalAmount
-          } : null
-          
-          const emailContent = await getBookingApprovedEmail(
-            booking.organizationId,
-            booking.title, 
-            resourceName, 
-            count > 1 ? `${date} (og ${count - 1} andre datoer)` : date, 
-            time,
-            adminNote,
-            invoiceInfo
+      const { date, time } = formatBookingDateTime(new Date(booking.startTime), new Date(booking.endTime))
+      const resourceName = booking.resourcePart 
+        ? `${booking.resource.name} → ${booking.resourcePart.name}`
+        : booking.resource.name
+      const count = bookingIdsToUpdate.length
+
+      if (action === "approve") {
+        const adminNote = (booking.resourcePart as any)?.adminNote || null
+        
+        const invoiceInfo = invoiceData ? {
+          invoiceNumber: invoiceData.invoiceNumber,
+          dueDate: format(invoiceData.dueDate, "d. MMMM yyyy", { locale: nb }),
+          totalAmount: invoiceData.totalAmount
+        } : null
+        
+        const emailContent = await getBookingApprovedEmail(
+          booking.organizationId,
+          booking.title, 
+          resourceName, 
+          count > 1 ? `${date} (og ${count - 1} andre datoer)` : date, 
+          time,
+          adminNote,
+          invoiceInfo
+        )
+        
+        const attachments = invoiceData ? [{
+          filename: `Faktura_${invoiceData.invoiceNumber}.pdf`,
+          content: invoiceData.pdfBuffer,
+          contentType: "application/pdf"
+        }] : undefined
+        
+        await Promise.all(
+          notificationEmails.map((to) =>
+            sendEmail(booking.organizationId, { to, ...emailContent, attachments, category: "booking_approved" })
           )
-          
-          // Attach invoice PDF if available
-          const attachments = invoiceData ? [{
-            filename: `Faktura_${invoiceData.invoiceNumber}.pdf`,
-            content: invoiceData.pdfBuffer,
-            contentType: "application/pdf"
-          }] : undefined
-          
-          await sendEmail(booking.organizationId, { to: userEmail, ...emailContent, attachments, category: "booking_approved" })
-        } else {
-          const emailContent = await getBookingRejectedEmail(
-            booking.organizationId,
-            booking.title, 
-            resourceName, 
-            count > 1 ? `${date} (og ${count - 1} andre datoer)` : date, 
-            time, 
-            statusNote
+        )
+      } else {
+        const emailContent = await getBookingRejectedEmail(
+          booking.organizationId,
+          booking.title, 
+          resourceName, 
+          count > 1 ? `${date} (og ${count - 1} andre datoer)` : date, 
+          time, 
+          statusNote
+        )
+        await Promise.all(
+          notificationEmails.map((to) =>
+            sendEmail(booking.organizationId, { to, ...emailContent, category: "booking_rejected" })
           )
-          await sendEmail(booking.organizationId, { to: userEmail, ...emailContent, category: "booking_rejected" })
-        }
-      } catch (error) {
-        console.error("Failed to send email:", error)
+        )
       }
+    } catch (error) {
+      console.error("Failed to send email:", error)
     }
-
-    // Don't await - let it run in background
-    void sendEmailAsync()
   }
+
+  void sendEmailAsync()
 
   return NextResponse.json({ 
     id,

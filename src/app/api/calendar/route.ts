@@ -76,6 +76,9 @@ export async function GET(request: Request) {
             email: true,
           },
         },
+        coOwners: {
+          select: { userId: true },
+        },
       },
       orderBy: {
         startTime: 'asc',

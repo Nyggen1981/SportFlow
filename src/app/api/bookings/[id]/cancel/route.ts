@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { sendEmail, getBookingCancelledByAdminEmail, getBookingCancelledByUserEmail, formatBookingDateTime } from "@/lib/email"
+import { userHasBookingManageAccess } from "@/lib/booking-access"
+import { getBookingNotificationEmails } from "@/lib/booking-notifications"
 import { nb } from "date-fns/locale"
 import { formatInTimeZone } from "date-fns-tz"
 
@@ -42,7 +44,7 @@ export async function POST(
     }
 
     const isAdmin = session.user.role === "admin"
-    const isOwner = booking.userId === session.user.id
+    const isOwner = await userHasBookingManageAccess(session.user.id, booking)
 
     // Check permissions
     if (!isAdmin && !isOwner) {
@@ -74,13 +76,17 @@ export async function POST(
     const sendEmailsAsync = async () => {
       try {
         if (isAdmin) {
-          // Admin cancelled - notify the booker
-          const userEmail = booking.contactEmail || booking.user.email
-          if (userEmail) {
+          // Admin cancelled - notify alle eiere og kontakt-e-post
+          const emails = await getBookingNotificationEmails(booking.id)
+          if (emails.length > 0) {
             const emailContent = await getBookingCancelledByAdminEmail(
               orgId, booking.title, resourceName, date, time, reason
             )
-            await sendEmail(orgId, { to: userEmail, ...emailContent, category: "booking_cancelled_user" })
+            await Promise.all(
+              emails.map((to) =>
+                sendEmail(orgId, { to, ...emailContent, category: "booking_cancelled_user" })
+              )
+            )
           }
         } else {
           // User cancelled - notify admin(s) in parallel

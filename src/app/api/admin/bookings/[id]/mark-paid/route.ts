@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { sendEmail, getBookingPaidEmail, formatBookingDateTime } from "@/lib/email"
 import { isPricingEnabled } from "@/lib/pricing"
+import { getBookingNotificationEmails } from "@/lib/booking-notifications"
 
 export async function POST(
   request: Request,
@@ -108,40 +109,40 @@ export async function POST(
     }
   }
 
-  // Send e-post til kunde
-  const userEmail = booking.contactEmail || booking.user.email
-  if (userEmail) {
-    const { date, time } = formatBookingDateTime(new Date(booking.startTime), new Date(booking.endTime))
-    const resourceName = booking.resourcePart 
-      ? `${booking.resource.name} → ${booking.resourcePart.name}`
-      : booking.resource.name
+  const sendEmailAsync = async () => {
+    try {
+      const recipients = await getBookingNotificationEmails(booking.id)
+      if (recipients.length === 0) return
 
-    // Hent adminNote fra resourcePart hvis useTemplate er true
-    const adminNote = useTemplate && booking.resourcePart?.adminNote 
-      ? booking.resourcePart.adminNote 
-      : null
+      const { date, time } = formatBookingDateTime(new Date(booking.startTime), new Date(booking.endTime))
+      const resourceName = booking.resourcePart 
+        ? `${booking.resource.name} → ${booking.resourcePart.name}`
+        : booking.resource.name
 
-    // Fire and forget - don't block the response
-    const sendEmailAsync = async () => {
-      try {
-        const emailContent = await getBookingPaidEmail(
-          booking.organizationId,
-          booking.title,
-          resourceName,
-          date,
-          time,
-          adminNote,
-          useTemplate ? null : customMessage
+      const adminNote = useTemplate && booking.resourcePart?.adminNote 
+        ? booking.resourcePart.adminNote 
+        : null
+
+      const emailContent = await getBookingPaidEmail(
+        booking.organizationId,
+        booking.title,
+        resourceName,
+        date,
+        time,
+        adminNote,
+        useTemplate ? null : customMessage
+      )
+      await Promise.all(
+        recipients.map((to) =>
+          sendEmail(booking.organizationId, { to, ...emailContent, category: "booking_payment_confirmed" })
         )
-        await sendEmail(booking.organizationId, { to: userEmail, ...emailContent, category: "booking_payment_confirmed" })
-      } catch (error) {
-        console.error("Failed to send payment confirmation email:", error)
-      }
+      )
+    } catch (error) {
+      console.error("Failed to send payment confirmation email:", error)
     }
-
-    // Don't await - let it run in background
-    void sendEmailAsync()
   }
+
+  void sendEmailAsync()
 
   return NextResponse.json({ success: true })
 }

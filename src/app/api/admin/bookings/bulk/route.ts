@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { sendEmail, getBookingApprovedEmail, getBookingRejectedEmail, getBookingCancelledByAdminEmail, formatBookingDateTime } from "@/lib/email"
 import { createMultipleBookingsInvoiceWithPDF } from "@/lib/invoice"
+import { getBookingNotificationEmails } from "@/lib/booking-notifications"
 import { isPricingEnabled } from "@/lib/pricing"
 import { nb } from "date-fns/locale"
 import { format } from "date-fns"
@@ -101,29 +102,35 @@ export async function PATCH(request: Request) {
     }
   })
 
-  // Send email notifications (non-blocking)
-  // Group by user to send one email per user
-  const bookingsByUser = bookings.reduce((acc, booking) => {
-    const email = booking.contactEmail || booking.user.email
-    if (!email) return acc
-    
-    if (!acc[email]) {
-      acc[email] = {
-        email,
-        bookings: [],
-        organizationId: booking.organizationId
-      }
-    }
-    acc[email].bookings.push(booking)
-    return acc
-  }, {} as Record<string, { email: string; bookings: typeof bookings; organizationId: string }>)
-
   // Check if pricing module is enabled (for invoice creation)
   const pricingEnabled = await isPricingEnabled()
 
-  // Fire and forget email sending and invoice creation
+  // Mottakere: hovedeier, kontakt-e-post, medeiere — per mottaker samlet liste bookinger
+  const bookingsByRecipient = new Map<
+    string,
+    { organizationId: string; bookings: typeof bookings }
+  >()
+
+  for (const booking of bookings) {
+    const emails = await getBookingNotificationEmails(booking.id)
+    for (const emailAddr of emails) {
+      const key = emailAddr.toLowerCase()
+      if (!bookingsByRecipient.has(key)) {
+        bookingsByRecipient.set(key, {
+          organizationId: booking.organizationId,
+          bookings: [],
+        })
+      }
+      const entry = bookingsByRecipient.get(key)!
+      if (!entry.bookings.some((b) => b.id === booking.id)) {
+        entry.bookings.push(booking)
+      }
+    }
+  }
+
+  // Fire and forget email sending
   void (async () => {
-    for (const { email, bookings: userBookings, organizationId } of Object.values(bookingsByUser)) {
+    for (const [email, { bookings: userBookings, organizationId }] of bookingsByRecipient) {
       try {
         const firstBooking = userBookings[0]
         const { date, time } = formatBookingDateTime(new Date(firstBooking.startTime), new Date(firstBooking.endTime))
@@ -135,35 +142,33 @@ export async function PATCH(request: Request) {
         if (action === "approve") {
           const adminNote = (firstBooking.resourcePart as any)?.adminNote || null
           
-          // Check if we need to create invoice and attach to email
           let invoiceAttachment: { filename: string; content: Buffer; contentType: string } | undefined
           let invoiceInfo: { invoiceNumber: string; dueDate: string; totalAmount: number } | null = null
-          
+
           if (pricingEnabled) {
-            // Refetch bookings to get updated totalAmount values
             const approvedBookings = await prisma.booking.findMany({
-              where: { 
-                id: { in: userBookings.map(b => b.id) },
+              where: {
+                id: { in: userBookings.map((b) => b.id) },
                 totalAmount: { gt: 0 },
-                invoiceId: null // Only bookings without invoice
-              }
+                invoiceId: null,
+              },
             })
-            
+
             if (approvedBookings.length > 0) {
               try {
                 const { invoiceNumber, pdfBuffer, dueDate, totalAmount } = await createMultipleBookingsInvoiceWithPDF(
-                  approvedBookings.map(b => b.id),
+                  approvedBookings.map((b) => b.id),
                   organizationId
                 )
                 invoiceAttachment = {
                   filename: `Faktura_${invoiceNumber}.pdf`,
                   content: pdfBuffer,
-                  contentType: "application/pdf"
+                  contentType: "application/pdf",
                 }
                 invoiceInfo = {
                   invoiceNumber,
                   dueDate: format(dueDate, "d. MMMM yyyy", { locale: nb }),
-                  totalAmount
+                  totalAmount,
                 }
                 console.log(`[Bulk Approval] Created invoice ${invoiceNumber} with PDF for ${approvedBookings.length} bookings`)
               } catch (invoiceError) {

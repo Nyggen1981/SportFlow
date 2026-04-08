@@ -15,9 +15,14 @@ export async function GET() {
 
   // Get counts of unread bookings (status changed but user hasn't seen it)
   // Approved bookings the user hasn't seen
+  const accessOr = [
+    { userId: session.user.id },
+    { coOwners: { some: { userId: session.user.id } } },
+  ]
+
   const unreadApproved = await prisma.booking.count({
     where: {
-      userId: session.user.id,
+      OR: accessOr,
       status: "approved",
       userSeenAt: null,
       startTime: { gte: now } // Only upcoming bookings
@@ -27,7 +32,7 @@ export async function GET() {
   // Rejected bookings the user hasn't seen
   const unreadRejected = await prisma.booking.count({
     where: {
-      userId: session.user.id,
+      OR: accessOr,
       status: "rejected",
       userSeenAt: null
     }

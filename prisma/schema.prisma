@@ -150,6 +150,9 @@ model User {
   // Konkurransepåmeldinger
   competitionRegistrations CompetitionRegistration[]
 
+  // Medeiere på bookinger (samme rettigheter som oppretter for redigering/varsling)
+  coOwnedBookings BookingCoOwner[]
+
   @@index([organizationId, isApproved])
   @@index([emailVerified])
   @@index([customRoleId])
@@ -422,6 +425,8 @@ model Booking {
   fixedPricePackageId String?
   fixedPricePackage   FixedPricePackage? @relation(fields: [fixedPricePackageId], references: [id])
 
+  coOwners BookingCoOwner[]
+
   // Indexes for faster queries
   @@index([resourceId, status, startTime])
   @@index([userId])
@@ -434,6 +439,20 @@ model Booking {
   @@index([resourceId, status, startTime, endTime]) // For whole facility bookings
   @@index([resourceId, resourcePartId, status, startTime, endTime]) // For part bookings
   @@index([resourceId, status, resourcePartId]) // For filtering by part
+}
+
+// Medeier på booking – samme org-bruker som kan redigere/kansellere og motta varsler
+model BookingCoOwner {
+  id        String   @id @default(cuid())
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([bookingId, userId])
+  @@index([userId])
+  @@index([bookingId])
 }
 
 // Resource Moderator - Links moderators to specific resources they can manage

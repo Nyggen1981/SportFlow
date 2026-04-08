@@ -16,11 +16,16 @@ export async function POST(request: Request) {
 
   const now = new Date()
 
+  const accessOr = [
+    { userId: session.user.id },
+    { coOwners: { some: { userId: session.user.id } } },
+  ]
+
   if (type === "all") {
     // Mark all unread bookings as seen
     await prisma.booking.updateMany({
       where: {
-        userId: session.user.id,
+        OR: accessOr,
         userSeenAt: null,
         status: { in: ["approved", "rejected"] }
       },
@@ -32,7 +37,7 @@ export async function POST(request: Request) {
     // Mark upcoming approved bookings as seen
     await prisma.booking.updateMany({
       where: {
-        userId: session.user.id,
+        OR: accessOr,
         status: "approved",
         userSeenAt: null,
         startTime: { gte: now }
@@ -45,7 +50,7 @@ export async function POST(request: Request) {
     // Mark rejected bookings as seen
     await prisma.booking.updateMany({
       where: {
-        userId: session.user.id,
+        OR: accessOr,
         status: "rejected",
         userSeenAt: null
       },
@@ -58,7 +63,7 @@ export async function POST(request: Request) {
     await prisma.booking.updateMany({
       where: {
         id: type,
-        userId: session.user.id,
+        OR: accessOr,
         userSeenAt: null
       },
       data: {

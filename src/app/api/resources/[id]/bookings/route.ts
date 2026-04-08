@@ -62,7 +62,10 @@ export async function GET(
             name: true,
             email: true
           }
-        }
+        },
+        coOwners: {
+          select: { userId: true },
+        },
       },
       orderBy: { startTime: "asc" }
     })
@@ -189,6 +192,7 @@ export async function GET(
       userId: b.userId,
       userName: b.user?.name || null,
       userEmail: b.user?.email || null,
+      coOwners: b.coOwners,
       isRecurring: b.isRecurring || false,
       parentBookingId: b.parentBookingId
     }))

@@ -34,9 +34,12 @@ export async function POST(request: Request) {
   const bookings = await prisma.booking.findMany({
     where: {
       id: { in: bookingIds },
-      userId: session.user.id,
       organizationId: session.user.organizationId,
       status: { in: ["pending", "approved"] },
+      OR: [
+        { userId: session.user.id },
+        { coOwners: { some: { userId: session.user.id } } },
+      ],
     },
     include: { resource: true },
   })

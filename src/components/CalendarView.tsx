@@ -20,6 +20,7 @@ import {
   isToday
 } from "date-fns"
 import { nb } from "date-fns/locale"
+import { userManagesBooking } from "@/lib/booking-client"
 
 interface Category {
   id: string
@@ -56,6 +57,7 @@ interface Booking {
   isRecurring?: boolean
   parentBookingId?: string | null
   userId?: string
+  coOwners?: { userId: string }[]
 }
 
 interface BlockedSlot {
@@ -893,7 +895,10 @@ export function CalendarView({ categories, resources, bookings: initialBookings 
 
             {/* Actions */}
             {(() => {
-              const isOwner = selectedBooking.userId === session?.user?.id
+              const isOwner = userManagesBooking(session?.user?.id, null, {
+                user: { id: selectedBooking.userId },
+                coOwners: selectedBooking.coOwners,
+              })
               const canCancel = isOwner && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
               const canEdit = (isOwner || canManageBookings) && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
               const isPast = new Date(selectedBooking.startTime) < new Date()

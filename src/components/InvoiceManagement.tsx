@@ -221,9 +221,11 @@ export function InvoiceManagement() {
             name: booking.resourcePart.name
           } : null,
           user: {
+            id: booking.user?.id,
             name: booking.user?.name || null,
             email: booking.user?.email || invoice.billingEmail
           },
+          coOwners: booking.coOwners,
           payments: booking.payments
         }
         

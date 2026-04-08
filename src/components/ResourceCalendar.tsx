@@ -39,6 +39,7 @@ interface Booking {
   userId?: string | null
   userName?: string | null
   userEmail?: string | null
+  coOwners?: { userId: string }[]
   isRecurring?: boolean
   parentBookingId?: string | null
   isCompetition?: boolean // For competition matches
@@ -159,7 +160,10 @@ export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3
             color: resourceColor
           },
           resourcePart: data.resourcePart,
-          user: data.user || { name: null, email: "" },
+          user: data.user
+            ? { id: data.user.id, name: data.user.name, email: data.user.email }
+            : { name: null, email: "" },
+          coOwners: data.coOwners,
           payments: data.payments
         })
       } else {
@@ -187,7 +191,8 @@ export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3
             color: resourceColor
           },
           resourcePart: booking.resourcePartId ? { id: booking.resourcePartId, name: booking.resourcePartName || "" } : null,
-          user: { name: booking.userName || null, email: booking.userEmail || "" },
+          user: { id: booking.userId || undefined, name: booking.userName || null, email: booking.userEmail || "" },
+          coOwners: booking.coOwners,
           payments: []
         })
       }
@@ -217,7 +222,8 @@ export function ResourceCalendar({ resourceId, resourceName, resourceColor = "#3
           color: resourceColor
         },
         resourcePart: booking.resourcePartId ? { id: booking.resourcePartId, name: booking.resourcePartName || "" } : null,
-        user: { name: booking.userName || null, email: booking.userEmail || "" },
+        user: { id: booking.userId || undefined, name: booking.userName || null, email: booking.userEmail || "" },
+        coOwners: booking.coOwners,
         payments: []
       })
     } finally {

@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth"
 import { format } from "date-fns"
 import { nb } from "date-fns/locale"
 import { sendEmail, getNewBookingRequestEmail } from "@/lib/email"
+import { userHasBookingManageAccess } from "@/lib/booking-access"
 
 // GET single booking
 export async function GET(
@@ -39,7 +40,15 @@ export async function GET(
       },
       payments: {
         select: { id: true, status: true, paymentMethod: true, amount: true }
-      }
+      },
+      coOwners: {
+        select: {
+          id: true,
+          userId: true,
+          createdAt: true,
+          user: { select: { id: true, name: true, email: true } },
+        },
+      },
     }
   })
 
@@ -49,7 +58,7 @@ export async function GET(
 
   // Check if user owns the booking or is admin
   const isAdmin = session.user.role === "admin"
-  const isOwner = booking.userId === session.user.id
+  const isOwner = await userHasBookingManageAccess(session.user.id, booking)
 
   if (!isAdmin && !isOwner) {
     return NextResponse.json({ error: "Ikke tilgang" }, { status: 403 })
@@ -99,7 +108,7 @@ export async function PATCH(
     }
 
     const isAdmin = session.user.role === "admin"
-    const isOwner = booking.userId === session.user.id
+    const isOwner = await userHasBookingManageAccess(session.user.id, booking)
 
     // Check permissions
     if (!isAdmin && !isOwner) {
@@ -383,9 +392,13 @@ export async function DELETE(
 
     const booking = await prisma.booking.findUnique({
       where: { id },
-      include: {
-        resource: true
-      }
+      select: {
+        id: true,
+        userId: true,
+        startTime: true,
+        status: true,
+        resource: true,
+      },
     })
 
     if (!booking) {
@@ -393,7 +406,7 @@ export async function DELETE(
     }
 
     const isAdmin = session.user.role === "admin"
-    const isOwner = booking.userId === session.user.id
+    const isOwner = await userHasBookingManageAccess(session.user.id, booking)
     const isPast = new Date(booking.startTime) < new Date()
     const isInactive = booking.status === "cancelled" || booking.status === "rejected"
 

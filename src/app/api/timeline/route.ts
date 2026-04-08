@@ -105,6 +105,9 @@ export async function GET(request: Request) {
         }
       },
       // GDPR: Only include user info for admins/moderators
+      coOwners: {
+        select: { userId: true },
+      },
       ...(canSeeUserInfo ? {
         user: {
           select: {

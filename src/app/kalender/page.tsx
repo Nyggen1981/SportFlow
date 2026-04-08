@@ -18,6 +18,7 @@ interface Booking {
   endTime: string
   status: "approved" | "pending" | "competition"
   userId: string
+  coOwners?: { userId: string }[]
   isRecurring?: boolean
   isCompetition?: boolean
   competitionName?: string
@@ -273,7 +274,10 @@ export default function CalendarPage() {
             color: data.resource?.color || booking.resource.color
           },
           resourcePart: data.resourcePart,
-          user: data.user || { name: null, email: "" },
+          user: data.user
+            ? { id: data.user.id, name: data.user.name, email: data.user.email }
+            : { name: null, email: "" },
+          coOwners: data.coOwners,
           payments: data.payments
         })
       } else {
@@ -301,7 +305,10 @@ export default function CalendarPage() {
             color: booking.resource.color
           },
           resourcePart: booking.resourcePart,
-          user: booking.user || { name: null, email: "" },
+          user: booking.user
+            ? { id: booking.user.id, name: booking.user.name, email: booking.user.email }
+            : { name: null, email: "" },
+          coOwners: booking.coOwners,
           payments: []
         })
       }
@@ -331,7 +338,10 @@ export default function CalendarPage() {
           color: booking.resource.color
         },
         resourcePart: booking.resourcePart,
-        user: booking.user || { name: null, email: "" },
+        user: booking.user
+          ? { id: booking.user.id, name: booking.user.name, email: booking.user.email }
+          : { name: null, email: "" },
+        coOwners: booking.coOwners,
         payments: []
       })
     } finally {

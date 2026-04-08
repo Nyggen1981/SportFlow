@@ -660,7 +660,10 @@ export async function GET() {
 
   const bookings = await prisma.booking.findMany({
     where: {
-      userId: session.user.id
+      OR: [
+        { userId: session.user.id },
+        { coOwners: { some: { userId: session.user.id } } },
+      ],
     },
     select: {
       id: true,
@@ -718,7 +721,16 @@ export async function GET() {
           durationMinutes: true,
           price: true
         }
-      }
+      },
+      coOwners: {
+        select: {
+          userId: true,
+          user: { select: { id: true, name: true, email: true } },
+        },
+      },
+      user: {
+        select: { id: true, name: true, email: true },
+      },
     },
     orderBy: { startTime: "desc" }
   })

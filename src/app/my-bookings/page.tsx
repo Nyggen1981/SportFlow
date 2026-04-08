@@ -58,6 +58,11 @@ interface Booking {
   }
   resourcePart: { id: string; name: string } | null
   payments?: Array<{ id: string; status: string; paymentMethod: string; amount: number }>
+  user: { id: string; name: string | null; email: string }
+  coOwners?: Array<{
+    userId: string
+    user: { id: string; name: string | null; email: string }
+  }>
 }
 
 type Tab = "upcoming" | "history"
@@ -1694,9 +1699,11 @@ export default function MyBookingsPage() {
             },
             resourcePart: selectedBooking.resourcePart,
             user: {
-              name: session?.user?.name || null,
-              email: session?.user?.email || ""
+              id: selectedBooking.user.id,
+              name: selectedBooking.user.name,
+              email: selectedBooking.user.email
             },
+            coOwners: selectedBooking.coOwners,
             payments: selectedBooking.payments
           }}
           isOpen={true}

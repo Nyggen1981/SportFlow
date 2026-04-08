@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react"
 import { useEffect, useState, useMemo, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/Navbar"
+import { userManagesBooking } from "@/lib/booking-client"
 import { Footer } from "@/components/Footer"
 import { format, parseISO, startOfDay, addDays, setHours, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameWeek, isSameMonth, addWeeks, subWeeks, addMonths, subMonths, isToday, getWeek } from "date-fns"
 import { nb } from "date-fns/locale"
@@ -17,6 +18,7 @@ interface Booking {
   endTime: string
   status: "approved" | "pending"
   userId: string
+  coOwners?: { userId: string }[]
   isRecurring?: boolean
   resource: {
     id: string
@@ -1481,7 +1483,10 @@ export default function CalendarPage() {
                 return null
               }
 
-              const isOwner = selectedBooking.userId === session?.user?.id
+              const isOwner = userManagesBooking(session?.user?.id, null, {
+                user: { id: selectedBooking.userId },
+                coOwners: selectedBooking.coOwners,
+              })
               const canCancel = isOwner && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
               const canEdit = (isOwner || canManageBookings) && (selectedBooking.status === "pending" || selectedBooking.status === "approved")
               const isPast = new Date(selectedBooking.startTime) < new Date()

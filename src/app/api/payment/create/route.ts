@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getVippsClient } from "@/lib/vipps"
+import { userHasBookingManageAccessById } from "@/lib/booking-access"
 
 /**
  * Create a payment for a booking
@@ -40,8 +41,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 })
     }
 
-    // Check if user owns the booking
-    if (booking.userId !== session.user.id) {
+    const canPay = await userHasBookingManageAccessById(session.user.id, bookingId)
+    if (!canPay) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
