@@ -58,7 +58,12 @@ export function LicenseGuard({ children }: LicenseGuardProps) {
     fetch("/api/license/status")
       .then(res => res.json())
       .then(data => {
-        const isValid = data.status === "active" || data.status === "grace"
+        // Bruk serverens `valid` (kilde: validateLicense). Tidligere sjekket vi bare status —
+        // da ble appen låst når lisensserveren var utilgjengelig (status "error" men valid true).
+        const isValid =
+          data.valid === true ||
+          data.status === "active" ||
+          data.status === "grace"
         setLicenseStatus({
           valid: isValid,
           status: data.status || "active",

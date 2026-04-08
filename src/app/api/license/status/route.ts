@@ -18,7 +18,21 @@ export async function GET() {
     return NextResponse.json(licenseInfo)
   } catch (error) {
     console.error("Error getting license status:", error)
-    return NextResponse.json({ showWarning: false })
+    // Ikke returner tomt svar — da tolker klienten det som ugyldig lisens og låser alle ute
+    return NextResponse.json({
+      valid: true,
+      status: "error" as const,
+      organization: "Ukjent",
+      expiresAt: null,
+      daysRemaining: null,
+      licenseType: null,
+      licenseTypeName: null,
+      modules: undefined,
+      pricing: undefined,
+      showWarning: true,
+      warningMessage: "Kunne ikke hente lisensstatus. Prøv igjen om litt.",
+      limits: undefined,
+    })
   }
 }
 
