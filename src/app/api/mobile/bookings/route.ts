@@ -260,7 +260,7 @@ export async function POST(request: Request) {
             const emailContent = await getNewBookingRequestEmail(
               orgId, title, resourceName, date, time, userName, userEmail, description, undefined
             )
-            await sendEmail(orgId, { to: email, ...emailContent })
+            await sendEmail(orgId, { to: email, ...emailContent, category: "new_booking_admin" })
           }))
         } catch (error) {
           console.error("[Mobile booking] Failed to send admin notification emails:", error)

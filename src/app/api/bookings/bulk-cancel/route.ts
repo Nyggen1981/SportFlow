@@ -85,7 +85,7 @@ export async function POST(request: Request) {
           session.user.email || "",
           reason
         )
-        await sendEmail(orgId, { to: admin.email, ...emailContent })
+        await sendEmail(orgId, { to: admin.email, ...emailContent, category: "booking_bulk_cancel_admin" })
       }
     } catch (error) {
       console.error("Failed to send cancellation notification emails:", error)

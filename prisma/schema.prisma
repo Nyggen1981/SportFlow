@@ -51,6 +51,7 @@ model Organization {
   customRoles    CustomRole[] // Egendefinerte roller
   competitions   Competition[] // Kampoppsett-modul
   assets         Asset[] // Anleggsregister-modul
+  emailSendLogs  EmailSendLog[]
 
   // Vipps API settings
   vippsClientId        String? // Vipps API client ID
@@ -465,6 +466,22 @@ model EmailTemplate {
 
   @@unique([organizationId, templateType])
   @@index([organizationId])
+}
+
+// Log of outbound emails (for admin overview; last N shown in UI)
+model EmailSendLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  toAddress      String
+  subject        String
+  category       String? // e.g. booking_approved, optional hint from caller
+  success        Boolean
+  errorMessage   String?
+  hasAttachments Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
 }
 
 // Invoice - Faktura for betalinger

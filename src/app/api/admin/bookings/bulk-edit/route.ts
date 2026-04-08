@@ -218,7 +218,7 @@ export async function PATCH(request: Request) {
             firstBooking.user.name || "Ukjent",
             firstBooking.user.email || ""
           )
-          await sendEmail(firstBooking.organizationId, { to: admin.email, ...emailContent })
+          await sendEmail(firstBooking.organizationId, { to: admin.email, ...emailContent, category: "booking_bulk_edit_admin" })
         }
       } catch (error) {
         console.error("Failed to send notification email:", error)

@@ -80,7 +80,7 @@ export async function POST(
             const emailContent = await getBookingCancelledByAdminEmail(
               orgId, booking.title, resourceName, date, time, reason
             )
-            await sendEmail(orgId, { to: userEmail, ...emailContent })
+            await sendEmail(orgId, { to: userEmail, ...emailContent, category: "booking_cancelled_user" })
           }
         } else {
           // User cancelled - notify admin(s) in parallel
@@ -94,7 +94,7 @@ export async function POST(
             const emailContent = await getBookingCancelledByUserEmail(
               orgId, booking.title, resourceName, date, time, userName, booking.user.email, reason
             )
-            await sendEmail(orgId, { to: admin.email, ...emailContent })
+            await sendEmail(orgId, { to: admin.email, ...emailContent, category: "booking_cancelled_notify_admin" })
           }))
         }
       } catch (error) {

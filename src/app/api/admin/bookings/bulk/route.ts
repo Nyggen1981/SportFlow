@@ -184,7 +184,8 @@ export async function PATCH(request: Request) {
           await sendEmail(organizationId, { 
             to: email, 
             ...emailContent,
-            attachments: invoiceAttachment ? [invoiceAttachment] : undefined
+            attachments: invoiceAttachment ? [invoiceAttachment] : undefined,
+            category: "booking_approved",
           })
         } else if (action === "cancel") {
           const emailContent = await getBookingCancelledByAdminEmail(
@@ -195,7 +196,7 @@ export async function PATCH(request: Request) {
             time, 
             statusNote
           )
-          await sendEmail(organizationId, { to: email, ...emailContent })
+          await sendEmail(organizationId, { to: email, ...emailContent, category: "booking_cancelled_admin" })
         } else {
           const emailContent = await getBookingRejectedEmail(
             organizationId,
@@ -205,7 +206,7 @@ export async function PATCH(request: Request) {
             time, 
             statusNote
           )
-          await sendEmail(organizationId, { to: email, ...emailContent })
+          await sendEmail(organizationId, { to: email, ...emailContent, category: "booking_rejected" })
         }
       } catch (error) {
         console.error("Failed to send bulk email:", error)

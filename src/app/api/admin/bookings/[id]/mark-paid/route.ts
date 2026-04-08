@@ -133,7 +133,7 @@ export async function POST(
           adminNote,
           useTemplate ? null : customMessage
         )
-        await sendEmail(booking.organizationId, { to: userEmail, ...emailContent })
+        await sendEmail(booking.organizationId, { to: userEmail, ...emailContent, category: "booking_payment_confirmed" })
       } catch (error) {
         console.error("Failed to send payment confirmation email:", error)
       }

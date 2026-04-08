@@ -350,7 +350,7 @@ export async function PATCH(
           session.user.email || contactEmail || "",
           description || undefined
         )
-        await sendEmail(session.user.organizationId, { to: email, ...emailContent })
+        await sendEmail(session.user.organizationId, { to: email, ...emailContent, category: "booking_changed_reapproval" })
       }
     }
 

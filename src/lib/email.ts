@@ -40,6 +40,8 @@ interface EmailOptions {
   to: string
   subject: string
   html: string
+  /** Valgfri merkelapp for admin e-postlogg (f.eks. booking_approved) */
+  category?: string
   attachments?: Array<{
     filename: string
     content: Buffer
@@ -117,14 +119,42 @@ function createTransporter(config: SMTPConfig) {
   })
 }
 
+async function persistEmailSendLog(params: {
+  organizationId: string
+  toAddress: string
+  subject: string
+  category: string | null
+  success: boolean
+  errorMessage: string | null
+  hasAttachments: boolean
+}) {
+  try {
+    await prisma.emailSendLog.create({
+      data: {
+        organizationId: params.organizationId,
+        toAddress: params.toAddress.slice(0, 500),
+        subject: params.subject.slice(0, 500),
+        category: params.category ? params.category.slice(0, 120) : null,
+        success: params.success,
+        errorMessage: params.errorMessage ? params.errorMessage.slice(0, 2000) : null,
+        hasAttachments: params.hasAttachments,
+      },
+    })
+  } catch (e) {
+    console.error("[Email] Failed to persist send log:", e)
+  }
+}
+
 export async function sendEmail(
   organizationId: string,
   options: EmailOptions
 ): Promise<boolean> {
+  const category = options.category ?? null
+  const hasAttachments = !!(options.attachments && options.attachments.length > 0)
+
   const smtpConfig = await getSMTPConfig(organizationId)
   
   if (!smtpConfig) {
-    // Email not configured - log so admins can see why notifications are missing
     console.warn(
       "[Email] Not configured for org:",
       organizationId,
@@ -134,6 +164,15 @@ export async function sendEmail(
       options.subject,
       "- set org SMTP or env SMTP_HOST/SMTP_USER/SMTP_PASS"
     )
+    await persistEmailSendLog({
+      organizationId,
+      toAddress: options.to,
+      subject: options.subject,
+      category,
+      success: false,
+      errorMessage: "SMTP ikke konfigurert (organisasjon eller miljøvariabler)",
+      hasAttachments,
+    })
     return false
   }
 
@@ -152,9 +191,28 @@ export async function sendEmail(
     })
     
     console.log("Email sent successfully to:", options.to, "from organization:", organizationId)
+    await persistEmailSendLog({
+      organizationId,
+      toAddress: options.to,
+      subject: options.subject,
+      category,
+      success: true,
+      errorMessage: null,
+      hasAttachments,
+    })
     return true
   } catch (error) {
     console.error("Failed to send email:", error)
+    const msg = error instanceof Error ? error.message : String(error)
+    await persistEmailSendLog({
+      organizationId,
+      toAddress: options.to,
+      subject: options.subject,
+      category,
+      success: false,
+      errorMessage: msg,
+      hasAttachments,
+    })
     return false
   }
 }

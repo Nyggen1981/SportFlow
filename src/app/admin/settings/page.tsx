@@ -1113,6 +1113,15 @@ export default function AdminSettingsPage() {
                   </button>
                 </div>
               )}
+
+              <p className="text-sm text-gray-500 mt-4">
+                <Link
+                  href="/admin/email-log"
+                  className="text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Se e-postlogg (siste 30 utsendelser)
+                </Link>
+              </p>
             </div>
           </div>
         </div>

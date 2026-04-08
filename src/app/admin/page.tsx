@@ -12,7 +12,8 @@ import {
   Layers,
   Shield,
   Trophy,
-  ArrowLeft
+  ArrowLeft,
+  Mail
 } from "lucide-react"
 import { BookingManagement } from "@/components/BookingManagement"
 import { LicenseStatusCard } from "@/components/LicenseStatusCard"
@@ -209,6 +210,20 @@ export default async function AdminPage() {
                     </div>
                   </div>
                 </Link>
+              <Link 
+                href="/admin/email-log" 
+                className="card p-4 hover:shadow-md transition-shadow group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center group-hover:bg-sky-200 transition-colors">
+                    <Mail className="w-5 h-5 text-sky-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">E-postlogg</p>
+                    <p className="text-sm text-gray-500">Siste 30 utsendelser</p>
+                  </div>
+                </div>
+              </Link>
               {pricingEnabled && (
                 <Link 
                   href="/admin/invoices" 

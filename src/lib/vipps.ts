@@ -376,7 +376,8 @@ export async function sendVippsPaymentEmail(
   return await sendEmail(organizationId, {
     to: billingEmail,
     subject: `Betal booking: ${booking.title}`,
-    html
+    html,
+    category: "vipps_payment_request",
   })
 }
 

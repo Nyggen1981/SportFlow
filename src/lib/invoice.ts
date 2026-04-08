@@ -729,6 +729,7 @@ export async function sendRegistrationInvoiceEmail(
     to: invoice.billingEmail,
     subject: `Faktura ${invoice.invoiceNumber} - Påmelding til ${registration.competition.name}`,
     html,
+    category: "invoice_registration",
     attachments: [
       {
         filename: `Faktura_${invoice.invoiceNumber}.pdf`,
@@ -944,6 +945,7 @@ export async function sendInvoiceEmail(
     to: invoice.billingEmail,
     subject: `Faktura ${invoice.invoiceNumber} - ${booking.title}`,
     html,
+    category: "invoice_booking",
     attachments: [
       {
         filename: `Faktura_${invoice.invoiceNumber}.pdf`,

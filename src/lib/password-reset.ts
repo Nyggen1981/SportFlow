@@ -104,6 +104,7 @@ export async function sendPasswordResetEmail(userId: string, email: string, orga
       to: email,
       subject: `Tilbakestill passord - ${organizationName}`,
       html: emailHtml,
+      category: "password_reset",
     })
   }
 }

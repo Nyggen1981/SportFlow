@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     const result = await sendEmail(session.user.organizationId, {
       to: testEmail,
       subject: "Test fra Sportflow Booking",
+      category: "test_email",
       html: `
         <!DOCTYPE html>
         <html>

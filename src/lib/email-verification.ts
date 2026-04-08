@@ -138,6 +138,7 @@ export async function sendVerificationEmail(userId: string, email: string, organ
       to: email,
       subject: `Verifiser din e-post - ${organizationName}`,
       html: emailHtml,
+      category: "email_verification",
     })
   }
 }

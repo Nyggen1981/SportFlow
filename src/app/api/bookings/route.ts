@@ -617,7 +617,7 @@ export async function POST(request: Request) {
             const emailContent = await getNewBookingRequestEmail(
               orgId, title, resourceName, date, time, userName, userEmail, description, recurringInfo
             )
-            await sendEmail(orgId, { to: email, ...emailContent })
+            await sendEmail(orgId, { to: email, ...emailContent, category: "new_booking_admin" })
           }))
         } catch (error) {
           console.error("Failed to send booking notification emails:", error)

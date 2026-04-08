@@ -187,7 +187,8 @@ export async function PATCH(
             await sendEmail(session.user.organizationId, {
               to: registration.contactEmail,
               subject: `✅ Påmelding godkjent - ${registration.competition.name}`,
-              html
+              html,
+              category: "competition_registration_approved",
             })
           }
         } catch (error) {
@@ -260,7 +261,8 @@ export async function PATCH(
           await sendEmail(session.user.organizationId, {
             to: registration.contactEmail,
             subject: `Påmelding ikke godkjent - ${registration.competition.name}`,
-            html
+            html,
+            category: "competition_registration_rejected",
           })
         } catch (error) {
           console.error("[Registration] Failed to send rejection email:", error)

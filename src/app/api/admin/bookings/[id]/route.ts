@@ -346,7 +346,7 @@ export async function PATCH(
               time,
               "En annen booking ble prioritert for dette tidsrommet"
             )
-            await sendEmail(cancelled.organizationId, { to: cancelledEmail, ...emailContent })
+            await sendEmail(cancelled.organizationId, { to: cancelledEmail, ...emailContent, category: "booking_overlap_cancelled" })
           }
         }
       } catch (err) {
@@ -395,7 +395,7 @@ export async function PATCH(
             contentType: "application/pdf"
           }] : undefined
           
-          await sendEmail(booking.organizationId, { to: userEmail, ...emailContent, attachments })
+          await sendEmail(booking.organizationId, { to: userEmail, ...emailContent, attachments, category: "booking_approved" })
         } else {
           const emailContent = await getBookingRejectedEmail(
             booking.organizationId,
@@ -405,7 +405,7 @@ export async function PATCH(
             time, 
             statusNote
           )
-          await sendEmail(booking.organizationId, { to: userEmail, ...emailContent })
+          await sendEmail(booking.organizationId, { to: userEmail, ...emailContent, category: "booking_rejected" })
         }
       } catch (error) {
         console.error("Failed to send email:", error)

@@ -135,7 +135,7 @@ export async function POST(request: Request) {
             claimsMembership === true,
             needsApproval
           )
-          await sendEmail(organization.id, { to: admin.email, ...emailContent })
+          await sendEmail(organization.id, { to: admin.email, ...emailContent, category: "new_user_admin" })
         }))
       }
     } catch (notifyError) {
