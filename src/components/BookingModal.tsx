@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { format, isSameDay } from "date-fns"
 import { nb } from "date-fns/locale"
@@ -17,9 +17,9 @@ import {
   FileText,
   AlertCircle,
   Download,
-  Users,
 } from "lucide-react"
 import { userManagesBooking } from "@/lib/booking-client"
+import { BookingCoOwnersPanel } from "@/components/BookingCoOwnersPanel"
 
 // Booking type that matches the data structure used across the app
 export interface BookingModalData {
@@ -259,30 +259,12 @@ export function BookingModal({
   const [isRejecting, setIsRejecting] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
 
-  const [coOwnerRows, setCoOwnerRows] = useState<
-    Array<{ userId: string; name: string | null; email: string }>
-  >([])
-  const [primaryUserId, setPrimaryUserId] = useState<string | null>(null)
-  const [addCoEmail, setAddCoEmail] = useState("")
-  const [coOwnerBusy, setCoOwnerBusy] = useState(false)
-  const [coOwnerErr, setCoOwnerErr] = useState<string | null>(null)
+  const [rosterCoUserIds, setRosterCoUserIds] = useState<string[]>(
+    () => booking.coOwners?.map((c) => c.userId) ?? []
+  )
 
-  const refreshCoOwners = useCallback(async () => {
-    try {
-      const r = await fetch(`/api/bookings/${booking.id}/co-owners`)
-      if (!r.ok) return
-      const d = await r.json()
-      setPrimaryUserId(d.primaryUserId ?? null)
-      setCoOwnerRows(
-        (d.coOwners || []).map((c: { userId: string; name: string | null; email: string }) => ({
-          userId: c.userId,
-          name: c.name,
-          email: c.email,
-        }))
-      )
-    } catch {
-      /* ignore */
-    }
+  useEffect(() => {
+    setRosterCoUserIds(booking.coOwners?.map((c) => c.userId) ?? [])
   }, [booking.id])
   
   // Invoice preview modal state
@@ -301,16 +283,10 @@ export function BookingModal({
   const isAdmin = userRole === "admin" || userRole === "moderator"
   const isOwner =
     isLoggedIn &&
-    (userManagesBooking(session?.user?.id, session?.user?.email ?? null, {
+    userManagesBooking(session?.user?.id, session?.user?.email ?? null, {
       user: booking.user,
-      coOwners: booking.coOwners,
-    }) ||
-      (!!session?.user?.id && coOwnerRows.some((r) => r.userId === session.user.id)))
-
-  useEffect(() => {
-    if (!isOpen) return
-    void refreshCoOwners()
-  }, [isOpen, refreshCoOwners])
+      coOwners: rosterCoUserIds.map((userId) => ({ userId })),
+    })
   
   // Users can only edit/cancel their own bookings, admins can edit/cancel any
   // Must be logged in to do anything
@@ -591,106 +567,12 @@ export function BookingModal({
             </div>
           )}
 
-          {(isAdmin || isOwner) && isEditableStatus && (
-            <div className="border-t pt-4">
-              <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                <Users className="w-4 h-4 text-gray-500" />
-                Medeiere
-              </h4>
-              <p className="text-xs text-gray-500 mb-3">
-                Medeiere ser bookingen under «Mine bookinger», kan redigere/kansellere og mottar e-postvarsler.
-              </p>
-              {coOwnerErr && (
-                <p className="text-xs text-red-600 mb-2">{coOwnerErr}</p>
-              )}
-              <ul className="space-y-2 mb-3">
-                {coOwnerRows.map((row) => {
-                  const uid = session?.user?.id
-                  const isPrimary = primaryUserId && uid === primaryUserId
-                  const isSelf = uid === row.userId
-                  const canRemove = isPrimary || isAdmin || isSelf
-                  return (
-                    <li
-                      key={row.userId}
-                      className="flex items-center justify-between gap-2 text-sm bg-gray-50 rounded-lg px-3 py-2"
-                    >
-                      <div>
-                        <span className="font-medium text-gray-900">{row.name || row.email}</span>
-                        <span className="text-gray-500 ml-1">({row.email})</span>
-                        <span className="ml-2 text-[10px] uppercase tracking-wide text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
-                          Medeier
-                        </span>
-                      </div>
-                      {canRemove && (
-                        <button
-                          type="button"
-                          disabled={coOwnerBusy}
-                          onClick={async () => {
-                            setCoOwnerErr(null)
-                            setCoOwnerBusy(true)
-                            try {
-                              const r = await fetch(
-                                `/api/bookings/${booking.id}/co-owners?userId=${encodeURIComponent(row.userId)}`,
-                                { method: "DELETE" }
-                              )
-                              if (!r.ok) {
-                                const e = await r.json().catch(() => ({}))
-                                setCoOwnerErr((e as { error?: string }).error || "Kunne ikke fjerne")
-                                return
-                              }
-                              await refreshCoOwners()
-                            } finally {
-                              setCoOwnerBusy(false)
-                            }
-                          }}
-                          className="text-xs text-red-600 hover:underline disabled:opacity-50"
-                        >
-                          Fjern
-                        </button>
-                      )}
-                    </li>
-                  )
-                })}
-              </ul>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="email"
-                  placeholder="E-post (må være bruker i organisasjonen)"
-                  value={addCoEmail}
-                  onChange={(e) => setAddCoEmail(e.target.value)}
-                  className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2"
-                  disabled={coOwnerBusy}
-                />
-                <button
-                  type="button"
-                  disabled={coOwnerBusy || !addCoEmail.trim()}
-                  onClick={async () => {
-                    setCoOwnerErr(null)
-                    setCoOwnerBusy(true)
-                    try {
-                      const r = await fetch(`/api/bookings/${booking.id}/co-owners`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ email: addCoEmail.trim() }),
-                      })
-                      const data = await r.json().catch(() => ({}))
-                      if (!r.ok) {
-                        setCoOwnerErr((data as { error?: string }).error || "Kunne ikke legge til")
-                        return
-                      }
-                      setAddCoEmail("")
-                      await refreshCoOwners()
-                    } finally {
-                      setCoOwnerBusy(false)
-                    }
-                  }}
-                  className="px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
-                >
-                  Legg til
-                </button>
-              </div>
-            </div>
-          )}
+          <BookingCoOwnersPanel
+            bookingId={booking.id}
+            enabled={isEditableStatus && isNotPastBooking && !!session?.user?.email}
+            isModeratorOrAdmin={isAdmin}
+            onRosterUserIdsChange={setRosterCoUserIds}
+          />
 
           {/* Admin note - only visible to admin/moderator */}
           {isAdmin && <AdminNoteSection bookingId={booking.id} />}

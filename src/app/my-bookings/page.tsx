@@ -28,6 +28,8 @@ import {
 } from "lucide-react"
 import { EditBookingModal } from "@/components/EditBookingModal"
 import { BookingModal, BookingModalData } from "@/components/BookingModal"
+import { BookingCoOwnersPanel } from "@/components/BookingCoOwnersPanel"
+import { userManagesBooking } from "@/lib/booking-client"
 import { format, isToday, isTomorrow, isThisWeek, parseISO } from "date-fns"
 import { nb } from "date-fns/locale"
 
@@ -1311,6 +1313,21 @@ export default function MyBookingsPage() {
         const pendingBookings = selectedRecurringGroup.bookings.filter(b => b.status === "pending")
         const approvedBookings = selectedRecurringGroup.bookings.filter(b => b.status === "approved")
         const firstBooking = selectedRecurringGroup.bookings[0]
+        const now = new Date()
+        const hasEditableInstance = selectedRecurringGroup.bookings.some(
+          (b) =>
+            (b.status === "pending" || b.status === "approved") && new Date(b.endTime) >= now
+        )
+        const isAppAdmin =
+          session?.user?.systemRole === "admin" || session?.user?.role === "admin"
+        const canManageCoOwners =
+          !!session?.user &&
+          firstBooking &&
+          (isAppAdmin ||
+            userManagesBooking(session.user.id, session.user.email ?? null, {
+              user: firstBooking.user,
+              coOwners: firstBooking.coOwners,
+            }))
         
         return (
           <div 
@@ -1510,6 +1527,15 @@ export default function MyBookingsPage() {
                         <p className="text-xs text-green-600">Godkjent</p>
                       </div>
                     </div>
+
+                    {firstBooking && (
+                      <BookingCoOwnersPanel
+                        bookingId={firstBooking.id}
+                        enabled={hasEditableInstance && !!canManageCoOwners}
+                        isModeratorOrAdmin={!!isAppAdmin}
+                        seriesNote="Gjelder hele den gjentakende serien — alle datoer får samme medeiere."
+                      />
+                    )}
 
                     {/* Booking list with checkboxes */}
                     <div>
