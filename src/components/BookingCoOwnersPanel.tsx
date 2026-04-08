@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { Users } from "lucide-react"
 
+type CoOwnerRow = { userId: string; name: string | null; email: string }
+
 export type BookingCoOwnersPanelProps = {
   bookingId: string
   /** Når false rendres ingenting */
@@ -29,9 +31,7 @@ export function BookingCoOwnersPanel({
   const rosterCb = useRef(onRosterUserIdsChange)
   rosterCb.current = onRosterUserIdsChange
 
-  const [coOwnerRows, setCoOwnerRows] = useState<
-    Array<{ userId: string; name: string | null; email: string }>
-  >([])
+  const [coOwnerRows, setCoOwnerRows] = useState<CoOwnerRow[]>([])
   const [primaryUserId, setPrimaryUserId] = useState<string | null>(null)
   const [addCoEmail, setAddCoEmail] = useState("")
   const [coOwnerBusy, setCoOwnerBusy] = useState(false)
@@ -51,13 +51,15 @@ export function BookingCoOwnersPanel({
       setAccessForbidden(false)
       const d = await r.json()
       setPrimaryUserId(d.primaryUserId ?? null)
-      const rows = (d.coOwners || []).map((c: { userId: string; name: string | null; email: string }) => ({
-        userId: c.userId,
-        name: c.name,
-        email: c.email,
-      }))
+      const rows: CoOwnerRow[] = (d.coOwners || []).map(
+        (c: { userId: string; name: string | null; email: string }) => ({
+          userId: c.userId,
+          name: c.name,
+          email: c.email,
+        })
+      )
       setCoOwnerRows(rows)
-      rosterCb.current?.(rows.map((x) => x.userId))
+      rosterCb.current?.(rows.map((row) => row.userId))
     } catch {
       /* ignore */
     }
