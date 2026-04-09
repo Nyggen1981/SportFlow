@@ -36,19 +36,25 @@ export function BookingCoOwnersPanel({
   const [addCoEmail, setAddCoEmail] = useState("")
   const [coOwnerBusy, setCoOwnerBusy] = useState(false)
   const [coOwnerErr, setCoOwnerErr] = useState<string | null>(null)
-  const [accessForbidden, setAccessForbidden] = useState(false)
+  const [accessChecked, setAccessChecked] = useState(false)
+  const [hasAccess, setHasAccess] = useState(false)
 
   const refreshCoOwners = useCallback(async () => {
     if (!bookingId) return
     try {
       const r = await fetch(`/api/bookings/${bookingId}/co-owners`)
       if (r.status === 403) {
-        setAccessForbidden(true)
+        setHasAccess(false)
+        setAccessChecked(true)
         rosterCb.current?.([])
         return
       }
-      if (!r.ok) return
-      setAccessForbidden(false)
+      if (!r.ok) {
+        setAccessChecked(true)
+        return
+      }
+      setHasAccess(true)
+      setAccessChecked(true)
       const d = await r.json()
       setPrimaryUserId(d.primaryUserId ?? null)
       const rows: CoOwnerRow[] = (d.coOwners || []).map(
@@ -61,7 +67,7 @@ export function BookingCoOwnersPanel({
       setCoOwnerRows(rows)
       rosterCb.current?.(rows.map((row) => row.userId))
     } catch {
-      /* ignore */
+      setAccessChecked(true)
     }
   }, [bookingId])
 
@@ -69,14 +75,15 @@ export function BookingCoOwnersPanel({
     if (!enabled) {
       setCoOwnerRows([])
       setPrimaryUserId(null)
-      setAccessForbidden(false)
+      setAccessChecked(false)
+      setHasAccess(false)
       rosterCb.current?.([])
       return
     }
     void refreshCoOwners()
   }, [enabled, bookingId, refreshCoOwners])
 
-  if (!enabled || accessForbidden) return null
+  if (!enabled || !accessChecked || !hasAccess) return null
 
   return (
     <div className={`border-t pt-4 ${className}`}>
