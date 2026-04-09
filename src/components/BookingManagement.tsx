@@ -2073,22 +2073,34 @@ export function BookingManagement({ initialBookings, showTabs = true }: BookingM
                                 if (selectedPendingCount === 0) return
                                 setProcessingId("batch")
                                 try {
-                                  // Use bulk endpoint - only approve pending bookings
-                                  const response = await fetch('/api/admin/bookings/bulk', {
-                                    method: 'PATCH',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      bookingIds: selectedPendingIds,
-                                      action: 'approve'
+                                  const doBulkApprove = async (force: boolean) => {
+                                    const resp = await fetch('/api/admin/bookings/bulk', {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        bookingIds: selectedPendingIds,
+                                        action: 'approve',
+                                        ...(force ? { forceApproveOverlap: true } : {}),
+                                      })
                                     })
-                                  })
-                                  if (!response.ok) {
-                                    const error = await response.json()
-                                    throw new Error(error.error || 'Kunne ikke godkjenne bookinger')
+                                    const data = await resp.json()
+                                    if (data.requiresOverlapConfirmation) {
+                                      const names = (data.overlappingBookings || [])
+                                        .map((b: any) => `${b.title}${b.resourcePart ? ' (' + b.resourcePart.name + ')' : ''}`)
+                                        .join('\n  - ')
+                                      if (confirm(`${data.message}:\n  - ${names}\n\nVil du fortsette og kansellere disse?`)) {
+                                        await doBulkApprove(true)
+                                      }
+                                      return
+                                    }
+                                    if (!resp.ok) {
+                                      throw new Error(data.error || 'Kunne ikke godkjenne bookinger')
+                                    }
+                                    await fetchBookings()
+                                    setSelectedRecurringGroup(null)
+                                    setSelectedModalBookingIds(new Set())
                                   }
-                                  await fetchBookings()
-                                  setSelectedRecurringGroup(null)
-                                  setSelectedModalBookingIds(new Set())
+                                  await doBulkApprove(false)
                                 } catch (error) {
                                   console.error('Bulk approve failed:', error)
                                   alert(error instanceof Error ? error.message : 'En feil oppstod')

@@ -7,6 +7,7 @@ import { nb } from "date-fns/locale"
 import { formatInTimeZone } from "date-fns-tz"
 
 const TIMEZONE = "Europe/Oslo"
+import { getAllRelatedPartIds } from "@/lib/resource-parts"
 import { isPricingEnabled } from "@/lib/pricing"
 import { createInvoiceForBooking, createInvoiceWithPDF, sendInvoiceEmail } from "@/lib/invoice"
 import { getVippsClient, sendVippsPaymentEmail } from "@/lib/vipps"
@@ -258,13 +259,7 @@ export async function PATCH(
 
       let conflictWhere: any
       if (ab.resourcePartId) {
-        const part = await prisma.resourcePart.findUnique({
-          where: { id: ab.resourcePartId },
-          include: { parent: true, children: true },
-        })
-        const partIdsToCheck = [ab.resourcePartId]
-        if (part?.children) partIdsToCheck.push(...part.children.map(c => c.id))
-        if (part?.parentId) partIdsToCheck.push(part.parentId)
+        const partIdsToCheck = await getAllRelatedPartIds(ab.resourcePartId, ab.resourceId)
 
         conflictWhere = {
           resourceId: ab.resourceId,

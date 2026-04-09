@@ -916,7 +916,7 @@ export default function CalendarPage() {
       parts: Array<{
         part: { id: string; name: string; parentId?: string | null } | null
         bookings: Booking[]
-        isChild: boolean
+        depth: number
       }>
     }> = []
 
@@ -944,38 +944,28 @@ export default function CalendarPage() {
         partsMap.get(key)!.push(booking)
       })
 
-      // Sort parts hierarchically: parents first, then their children
+      // Sort parts hierarchically: parents first, then their children recursively
       const sortPartsHierarchically = (parts: typeof resource.parts) => {
-        const partMap = new Map(parts.map(p => [p.id, p]))
-        const roots: typeof parts = []
-        const childrenMap = new Map<string, typeof parts>()
-        
-        // Separate roots and children
+        const childrenMap = new Map<string | null, typeof parts>()
+
         parts.forEach(part => {
-          if (!part.parentId || !partMap.has(part.parentId)) {
-            roots.push(part)
-          } else {
-            if (!childrenMap.has(part.parentId)) {
-              childrenMap.set(part.parentId, [])
-            }
-            childrenMap.get(part.parentId)!.push(part)
-          }
+          const key = part.parentId && parts.some(p => p.id === part.parentId) ? part.parentId : null
+          if (!childrenMap.has(key)) childrenMap.set(key, [])
+          childrenMap.get(key)!.push(part)
         })
-        
-        // Sort each level by name
-        roots.sort((a, b) => a.name.localeCompare(b.name, 'no'))
+
         childrenMap.forEach(children => children.sort((a, b) => a.name.localeCompare(b.name, 'no')))
-        
-        // Flatten: parent followed by its children
-        const result: Array<{ part: typeof parts[0]; isChild: boolean }> = []
-        roots.forEach(root => {
-          result.push({ part: root, isChild: false })
-          const children = childrenMap.get(root.id) || []
+
+        const result: Array<{ part: typeof parts[0]; depth: number }> = []
+        const walk = (parentId: string | null, depth: number) => {
+          const children = childrenMap.get(parentId) || []
           children.forEach(child => {
-            result.push({ part: child, isChild: true })
+            result.push({ part: child, depth })
+            walk(child.id, depth + 1)
           })
-        })
-        
+        }
+        walk(null, 0)
+
         return result
       }
 
@@ -983,7 +973,7 @@ export default function CalendarPage() {
       const parts: Array<{
         part: { id: string; name: string; parentId?: string | null } | null
         bookings: Booking[]
-        isChild: boolean
+        depth: number
       }> = []
 
       // Add whole resource row first (hoveddel) only if allowWholeBooking is true
@@ -991,18 +981,18 @@ export default function CalendarPage() {
         parts.push({
           part: null,
           bookings: partsMap.get("whole") || [],
-          isChild: false
+          depth: 0
         })
       }
 
       // Add part rows in hierarchical order
       const sortedParts = sortPartsHierarchically(resource.parts)
-      sortedParts.forEach(({ part, isChild }) => {
+      sortedParts.forEach(({ part, depth }) => {
         const bookings = partsMap.get(part.id) || []
         parts.push({
           part: { id: part.id, name: part.name, parentId: part.parentId },
           bookings,
-          isChild
+          depth
         })
       })
 
@@ -2183,17 +2173,17 @@ export default function CalendarPage() {
                             </div>
 
                             {/* Part Rows */}
-                            {parts.map(({ part, bookings, isChild }) => (
+                            {parts.map(({ part, bookings, depth }) => (
                               <div
                                 key={part ? part.id : `whole-${resource.id}`}
                                 className="flex border-b border-gray-100 hover:bg-gray-50 transition-colors"
                               >
                                 {/* Part Label */}
                                 <div className="w-36 sm:w-64 flex-shrink-0 p-1 sm:p-3 border-r border-gray-200">
-                                  <div className={`text-[10px] sm:text-sm text-gray-700 ${isChild ? 'pl-2 sm:pl-5' : ''}`}>
+                                  <div className={`text-[10px] sm:text-sm text-gray-700`} style={depth > 0 ? { paddingLeft: `${depth * 10}px` } : undefined}>
                                     {part ? (
-                                      <span className={`truncate block flex items-center gap-1 ${isChild ? 'text-gray-500' : 'text-gray-600'}`}>
-                                        {isChild && <span className="text-gray-300 text-[8px] sm:text-base">└</span>}
+                                      <span className={`truncate block flex items-center gap-1 ${depth > 0 ? 'text-gray-500' : 'text-gray-600'}`}>
+                                        {depth > 0 && <span className="text-gray-300 text-[8px] sm:text-base">└</span>}
                                         {part.name}
                                       </span>
                                     ) : (

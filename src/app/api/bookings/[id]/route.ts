@@ -6,6 +6,7 @@ import { format } from "date-fns"
 import { nb } from "date-fns/locale"
 import { sendEmail, getNewBookingRequestEmail } from "@/lib/email"
 import { userHasBookingManageAccess } from "@/lib/booking-access"
+import { getAllRelatedPartIds } from "@/lib/resource-parts"
 
 // GET single booking
 export async function GET(
@@ -181,19 +182,30 @@ export async function PATCH(
         }
       ]
 
+      let partConflictFilter: any
+      if (newResourcePartId) {
+        const partIdsToCheck = await getAllRelatedPartIds(newResourcePartId, newResourceId)
+        partConflictFilter = {
+          OR: [
+            { resourcePartId: { in: partIdsToCheck } },
+            { resourcePartId: null },
+          ],
+        }
+      } else {
+        // Whole facility — conflicts with everything
+        partConflictFilter = {}
+      }
+
       const conflictingBookings = await prisma.booking.findMany({
         where: {
-          id: { not: id }, // Exclude current booking
+          id: { not: id },
           resourceId: newResourceId,
           ...activeStatusFilter,
-          OR: [
-            { resourcePartId: newResourcePartId },
-            { resourcePartId: null }
-          ],
+          ...partConflictFilter,
           AND: {
-            OR: getTimeOverlapConditions(newStartTime, newEndTime)
-          }
-        }
+            OR: getTimeOverlapConditions(newStartTime, newEndTime),
+          },
+        },
       })
 
       if (conflictingBookings.length > 0) {

@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth"
 import { sendEmail, getBookingApprovedEmail, getBookingRejectedEmail, getBookingCancelledByAdminEmail, formatBookingDateTime } from "@/lib/email"
 import { createMultipleBookingsInvoiceWithPDF } from "@/lib/invoice"
 import { getBookingNotificationEmails } from "@/lib/booking-notifications"
+import { getAllRelatedPartIds } from "@/lib/resource-parts"
 import { isPricingEnabled } from "@/lib/pricing"
 import { nb } from "date-fns/locale"
 import { format } from "date-fns"
@@ -34,6 +35,7 @@ export async function PATCH(request: Request) {
     bookingIds: string[]
     action: "approve" | "reject" | "cancel"
     statusNote?: string
+    forceApproveOverlap?: boolean
   }
   
   try {
@@ -42,7 +44,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
   }
 
-  const { bookingIds, action, statusNote } = body
+  const { bookingIds, action, statusNote, forceApproveOverlap } = body
 
   if (!bookingIds || !Array.isArray(bookingIds) || bookingIds.length === 0) {
     return NextResponse.json({ error: "No booking IDs provided" }, { status: 400 })
@@ -91,6 +93,72 @@ export async function PATCH(request: Request) {
   const newStatus = action === "approve" ? "approved" : action === "cancel" ? "cancelled" : "rejected"
   const validBookingIds = bookings.map(b => b.id)
 
+  // Before approving, check for overlapping bookings (same logic as single approve)
+  type OverlapEntry = {
+    id: string; title: string; startTime: Date; endTime: Date;
+    organizationId: string; contactEmail: string | null;
+    user: { email: string; name: string | null };
+    resource: { name: string }; resourcePart: { name: string } | null;
+  }
+  let overlappingToCancel: OverlapEntry[] = []
+
+  if (action === "approve") {
+    for (const ab of bookings) {
+      const timeOverlap = [
+        { AND: [{ startTime: { lte: ab.startTime } }, { endTime: { gt: ab.startTime } }] },
+        { AND: [{ startTime: { lt: ab.endTime } }, { endTime: { gte: ab.endTime } }] },
+        { AND: [{ startTime: { gte: ab.startTime } }, { endTime: { lte: ab.endTime } }] },
+      ]
+
+      let conflictWhere: any
+      if (ab.resourcePartId) {
+        const partIdsToCheck = await getAllRelatedPartIds(ab.resourcePartId, ab.resourceId)
+        conflictWhere = {
+          resourceId: ab.resourceId,
+          id: { notIn: validBookingIds },
+          status: { in: ["pending", "approved"] },
+          OR: [
+            { resourcePartId: { in: partIdsToCheck }, AND: { OR: timeOverlap } },
+            { resourcePartId: null, AND: { OR: timeOverlap } },
+          ],
+        }
+      } else {
+        conflictWhere = {
+          resourceId: ab.resourceId,
+          id: { notIn: validBookingIds },
+          status: { in: ["pending", "approved"] },
+          OR: timeOverlap,
+        }
+      }
+
+      const found = await prisma.booking.findMany({
+        where: conflictWhere,
+        include: { user: true, resource: true, resourcePart: true },
+      })
+      for (const f of found) {
+        if (!overlappingToCancel.some((o) => o.id === f.id)) {
+          overlappingToCancel.push(f)
+        }
+      }
+    }
+
+    if (overlappingToCancel.length > 0 && !forceApproveOverlap) {
+      return NextResponse.json({
+        requiresOverlapConfirmation: true,
+        overlappingBookings: overlappingToCancel.map((b) => ({
+          id: b.id,
+          title: b.title,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          status: "approved",
+          user: { name: b.user.name, email: b.user.email },
+          resourcePart: b.resourcePart ? { name: b.resourcePart.name } : null,
+        })),
+        message: `Godkjenning vil kansellere ${overlappingToCancel.length} eksisterende booking${overlappingToCancel.length > 1 ? "er" : ""} som overlapper`,
+      })
+    }
+  }
+
   // Update all bookings in a single database operation
   await prisma.booking.updateMany({
     where: { id: { in: validBookingIds } },
@@ -101,6 +169,42 @@ export async function PATCH(request: Request) {
       approvedById: action === "approve" ? session.user.id : null
     }
   })
+
+  // Cancel overlapping bookings and notify their owners
+  if (action === "approve" && overlappingToCancel.length > 0) {
+    void (async () => {
+      try {
+        await prisma.booking.updateMany({
+          where: { id: { in: overlappingToCancel.map((b) => b.id) } },
+          data: { status: "cancelled", statusNote: "Kansellert fordi en overlappende booking ble prioritert" },
+        })
+
+        for (const cancelled of overlappingToCancel) {
+          const notifyEmails = await getBookingNotificationEmails(cancelled.id)
+          if (notifyEmails.length === 0) continue
+          const { date, time } = formatBookingDateTime(new Date(cancelled.startTime), new Date(cancelled.endTime))
+          const resName = cancelled.resourcePart
+            ? `${cancelled.resource.name} → ${cancelled.resourcePart.name}`
+            : cancelled.resource.name
+          const emailContent = await getBookingCancelledByAdminEmail(
+            cancelled.organizationId,
+            cancelled.title,
+            resName,
+            date,
+            time,
+            "En annen booking ble prioritert for dette tidsrommet"
+          )
+          await Promise.all(
+            notifyEmails.map((to) =>
+              sendEmail(cancelled.organizationId, { to, ...emailContent, category: "booking_overlap_cancelled" })
+            )
+          )
+        }
+      } catch (err) {
+        console.error("[Bulk Approval] Failed to cancel overlapping bookings:", err)
+      }
+    })()
+  }
 
   // Check if pricing module is enabled (for invoice creation)
   const pricingEnabled = await isPricingEnabled()

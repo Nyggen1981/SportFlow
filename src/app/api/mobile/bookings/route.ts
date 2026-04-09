@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { sendEmail, getNewBookingRequestEmail, formatBookingDateTime } from "@/lib/email"
+import { getAllRelatedPartIds } from "@/lib/resource-parts"
 
 // GET - Fetch user's bookings
 export async function GET(request: Request) {
@@ -111,18 +112,7 @@ export async function POST(request: Request) {
         select: { id: true, resourcePart: { select: { name: true } } },
       })
     } else {
-      const bookingPart = await prisma.resourcePart.findUnique({
-        where: { id: resourcePartId },
-        include: { parent: true, children: true },
-      })
-
-      const partIdsToCheck: string[] = [resourcePartId]
-      if (bookingPart?.children && bookingPart.children.length > 0) {
-        partIdsToCheck.push(...bookingPart.children.map(c => c.id))
-      }
-      if (bookingPart?.parentId) {
-        partIdsToCheck.push(bookingPart.parentId)
-      }
+      const partIdsToCheck = await getAllRelatedPartIds(resourcePartId, resourceId)
 
       conflictingBookings = await prisma.booking.findMany({
         where: {

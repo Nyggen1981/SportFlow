@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { getAllRelatedPartIds } from "@/lib/resource-parts"
 
 /**
  * Find bookings that overlap with a given booking (same resource, same/related parts, overlapping time).
@@ -44,13 +45,7 @@ export async function GET(
   let conflictWhere: any
 
   if (booking.resourcePartId) {
-    const part = await prisma.resourcePart.findUnique({
-      where: { id: booking.resourcePartId },
-      include: { parent: true, children: true },
-    })
-    const partIdsToCheck = [booking.resourcePartId]
-    if (part?.children) partIdsToCheck.push(...part.children.map((c) => c.id))
-    if (part?.parentId) partIdsToCheck.push(part.parentId)
+    const partIdsToCheck = await getAllRelatedPartIds(booking.resourcePartId, booking.resourceId)
 
     conflictWhere = {
       resourceId: booking.resourceId,

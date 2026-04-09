@@ -6,6 +6,7 @@ import { addWeeks, addMonths, getHours, getMinutes, setHours, setMinutes } from 
 import { nb } from "date-fns/locale"
 import { formatInTimeZone, toZonedTime, fromZonedTime } from "date-fns-tz"
 import { sendEmail, getNewBookingRequestEmail, formatBookingDateTime } from "@/lib/email"
+import { getAllRelatedPartIds } from "@/lib/resource-parts"
 
 const TIMEZONE = "Europe/Oslo"
 
@@ -228,43 +229,14 @@ export async function POST(request: Request) {
           select: { id: true, status: true, resourcePart: { select: { name: true } } }
         })
       } else {
-        // Booking one or more specific parts
-        // Get all parts to check their hierarchy
-        const bookingParts = await prisma.resourcePart.findMany({
-          where: { id: { in: partIds } },
-          include: {
-            parent: true,
-            children: true
-          }
-        })
-        
-        if (bookingParts.length !== partIds.length) {
-          return NextResponse.json(
-            { error: "En eller flere deler ikke funnet" },
-            { status: 404 }
-          )
+        // Booking one or more specific parts — full hierarchy traversal
+        const partIdsToCheckSet = new Set<string>()
+        for (const pid of partIds) {
+          const related = await getAllRelatedPartIds(pid, resourceId)
+          related.forEach((id) => partIdsToCheckSet.add(id))
         }
-        
-        // Build list of part IDs to check for conflicts:
-        // 1. The parts themselves
-        // 2. All children (if booking parent, children are blocked)
-        // 3. The parents (if booking child, parent is blocked)
-        const partIdsToCheck: string[] = [...partIds]
-        
-        for (const bookingPart of bookingParts) {
-          // If this part has children, add all children IDs
-          if (bookingPart.children && bookingPart.children.length > 0) {
-            const childIds = bookingPart.children.map(c => c.id)
-            partIdsToCheck.push(...childIds)
-          }
-          
-          // If this part has a parent, add parent ID
-          if (bookingPart.parentId) {
-            partIdsToCheck.push(bookingPart.parentId)
-          }
-        }
-        
-        // Check for conflicts: same parts OR whole facility OR parent/children
+        const partIdsToCheck = [...partIdsToCheckSet]
+
         conflictingBookings = await prisma.booking.findMany({
           where: {
             resourceId,
