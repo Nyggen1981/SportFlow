@@ -199,7 +199,10 @@ export default function MyBookingsPage() {
         ? selectedRecurringGroup.bookings.filter(b => selectedModalBookingIds.has(b.id) && b.status !== "cancelled" && b.status !== "rejected")
         : selectedRecurringGroup.bookings.filter(b => b.status !== "cancelled" && b.status !== "rejected")
       
-      if (bookingsToCancel.length === 0) return
+      if (bookingsToCancel.length === 0) {
+        setIsCancellingAll(false)
+        return
+      }
 
       const response = await fetch("/api/bookings/bulk-cancel", {
         method: "POST",
@@ -215,6 +218,11 @@ export default function MyBookingsPage() {
         setBookings(prev => prev.map(b => 
           cancelledIds.has(b.id) ? { ...b, status: "cancelled" } : b
         ))
+      } else {
+        const data = await response.json().catch(() => ({}))
+        alert(data.error || "Kunne ikke kansellere bookingene. Prøv igjen.")
+        setIsCancellingAll(false)
+        return
       }
       
       setCancelAllReason("")
@@ -224,6 +232,7 @@ export default function MyBookingsPage() {
       setSelectedModalBookingIds(new Set())
     } catch (error) {
       console.error("Failed to cancel bookings:", error)
+      alert("En feil oppstod ved kansellering. Prøv igjen.")
     } finally {
       setIsCancellingAll(false)
     }
@@ -1230,7 +1239,7 @@ export default function MyBookingsPage() {
           : activeInGroup.length
 
         return (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-xl max-w-md w-full shadow-2xl p-6 animate-fadeIn">
               <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
                 <AlertCircle className="w-6 h-6 text-red-600" />
