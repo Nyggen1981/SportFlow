@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import { fromZonedTime } from "date-fns-tz"
+
+const TIMEZONE = "Europe/Oslo"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -11,18 +14,12 @@ export async function GET(request: Request) {
   let endOfDay: Date
   
   if (startDateParam && endDateParam) {
-    // Week or month view
-    startOfDay = new Date(startDateParam)
-    startOfDay.setHours(0, 0, 0, 0)
-    endOfDay = new Date(endDateParam)
-    endOfDay.setHours(23, 59, 59, 999)
+    startOfDay = fromZonedTime(`${startDateParam}T00:00:00`, TIMEZONE)
+    endOfDay = fromZonedTime(`${endDateParam}T23:59:59.999`, TIMEZONE)
   } else {
-    // Day view (backward compatibility)
-    const targetDate = dateParam ? new Date(dateParam) : new Date()
-    startOfDay = new Date(targetDate)
-    startOfDay.setHours(0, 0, 0, 0)
-    endOfDay = new Date(targetDate)
-    endOfDay.setHours(23, 59, 59, 999)
+    const ds = dateParam || new Date().toISOString().slice(0, 10)
+    startOfDay = fromZonedTime(`${ds}T00:00:00`, TIMEZONE)
+    endOfDay = fromZonedTime(`${ds}T23:59:59.999`, TIMEZONE)
   }
 
   try {

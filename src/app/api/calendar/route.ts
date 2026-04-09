@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { validateLicense } from "@/lib/license"
+import { fromZonedTime } from "date-fns-tz"
+
+const TIMEZONE = "Europe/Oslo"
 
 export async function GET(request: Request) {
   try {
@@ -25,9 +28,8 @@ export async function GET(request: Request) {
       )
     }
 
-    const startDate = new Date(start)
-    const endDate = new Date(end)
-    endDate.setHours(23, 59, 59, 999)
+    const startDate = fromZonedTime(`${start}T00:00:00`, TIMEZONE)
+    const endDate = fromZonedTime(`${end}T23:59:59.999`, TIMEZONE)
 
     const bookings = await prisma.booking.findMany({
       where: {
