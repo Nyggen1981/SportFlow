@@ -2193,7 +2193,7 @@ export default function CalendarPage() {
                                 </div>
 
                                 {/* Timeline Bar Area */}
-                                <div className="flex-1 relative" style={{ minHeight: "36px" }}>
+                                <div className="flex-1 relative overflow-hidden" style={{ minHeight: "32px" }}>
                                   {/* Time Grid Lines - match header columns */}
                                   {timeSlots.map((_, index) => (
                                     <div
@@ -2222,7 +2222,7 @@ export default function CalendarPage() {
                                     return (
                                       <div
                                         key={`blocked-${slot.bookingId}-${index}`}
-                                        className="absolute top-1 bottom-1 rounded px-1 text-xs overflow-hidden"
+                                        className="absolute top-0.5 bottom-0.5 sm:top-1 sm:bottom-1 rounded px-1 text-xs overflow-hidden"
                                         style={{
                                           ...style,
                                           backgroundColor: 'rgba(156, 163, 175, 0.3)',
@@ -2254,7 +2254,7 @@ export default function CalendarPage() {
                                       <button
                                         key={booking.id}
                                         onClick={() => !isCompetition && handleBookingClick(booking)}
-                                        className={`absolute top-1 bottom-1 rounded px-2 py-1 text-xs font-medium transition-all overflow-hidden text-left ${
+                                        className={`absolute top-0.5 bottom-0.5 sm:top-1 sm:bottom-1 rounded px-1 sm:px-2 py-0 sm:py-0.5 text-xs font-medium transition-all overflow-hidden text-left ${
                                           isCompetition 
                                             ? 'cursor-default' 
                                             : 'cursor-pointer hover:shadow-lg hover:scale-[1.02]'
